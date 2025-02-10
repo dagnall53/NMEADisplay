@@ -58,7 +58,7 @@ struct MySettings {
   char password[16];
 };
 
-MySettings Default_Settings = { 127, 2002, 1, false, true, true, 2, "GUESTBOAT", "12345678" };
+MySettings Default_Settings = { 127, 2002, 1, false, true, true, 2, "N2K0183-proto", "12345678" };
 MySettings Saved_Settings;
 MySettings Current_Settings;
 char UDPPORT[10];  // to pass value from wifimanager
@@ -96,27 +96,27 @@ WiFiManager wifiManager;
 WiFiManagerParameter custom_field;  // global param ( for non blocking w params )
 
 
+#define USEWM
 
 
 //*********** Button stuff *****************
 void IRAM_ATTR toggleButton1() {
-  //Serial.println("Button 1 Pressed!");
-  // tft.fillRect(0,yBottom,XMAX,16, TFT_BLACK);
-  // tft.setCursor(0, yBottom);
-  // tft.print("Button 1 Pressed!");
   ButtonPressed = true;
-  Button_pressed = 1;
+  if (digitalRead(BUTTON2PIN) == LOW) {
+    Button_pressed = 3;
+  } else {
+    Button_pressed = 1;
+  }
 }
 
 void IRAM_ATTR toggleButton2() {
-  //Serial.println("Button 2 Pressed!");
-  // tft.fillRect(0,yBottom,XMAX,16, TFT_BLACK);
-  // tft.setCursor(0, yBottom);
-  // tft.print("Button 2 Pressed!");
   ButtonPressed = true;
-  Button_pressed = 2;
+  if (digitalRead(BUTTON1PIN) == LOW) {
+    Button_pressed = 3;
+  } else {
+    Button_pressed = 2;
+  }
 }
-
 
 #define BufferLength 500
 bool line_1;
@@ -141,33 +141,38 @@ void StartTFT() {
   tft.init();
   tft.setRotation(3);
   tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE, TFT_BLUE);
-  tft.fillRect(0, 0, XMAX, 16, TFT_BLUE);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  //tft.fillRect(0, 0, XMAX, 16, TFT_BLUE);
   tft.setCursor(0, 0, 2);
-  tft.println(" Access AP to setup:");
 }
+
 void connectwithsettings() {
+  uint32_t StartTime =millis();
+  tft.print(" Using EEPROM settings");
   WiFi.mode(WIFI_AP_STA);
   WiFi.begin(Current_Settings.ssid, Current_Settings.password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
-    Serial.print(".");
+  while ((WiFi.status() != WL_CONNECTED)&& (millis() <= StartTime+ 10000)) { //Give it 10 seconds 
+    delay(500);
+    tft.print(".");
   }
 }
 
 void connectwithWM() {
   bool res;
+  Serial.println("---Running WIFI Manager---");
+  tft.println(" Running WIFI Manager");
+  tft.println(" Connect to WifiManager AP");
   // res = wm.autoConnect(); // auto generated AP name from chipid
   // res = wm.autoConnect("AutoConnectAP"); // anonymous ap
-  res = wifiManager.autoConnect("RemoteNMEA", "12345678");  // password protected ap
+  res = wifiManager.autoConnect("NMEA_DISPLAY", "12345678");  // password protected ap
   if (!res) {
-    tft.println(" Access AP to setup:");
+    tft.println(" WM Failed to connect");
     Serial.println("Failed to connect");
     // ESP.restart(); //?
   } else {
     //if you get here you have connected to the WiFi
-    tft.println(" Connected ! ");
-    Serial.println("connected.:)");
+    tft.println(" WM Connected ! ");
+    Serial.println("WM connected.:)");
   }
 }
 
@@ -175,14 +180,14 @@ void setup() {
   Serial.begin(BAUD_RATE);
   StartTFT();
   EEPROM_READ();  // setup and read saved variables into Saved_Settings
-  dataline(Saved_Settings, "Saved");
-  dataline(Default_Settings, "Default");
+  //dataline(Saved_Settings, "Saved");
+  //dataline(Default_Settings, "Default");
   Current_Settings = Saved_Settings;
   if (Current_Settings.EpromKEY != 127) {
     Current_Settings = Default_Settings;
     EEPROM_WRITE();
   }
-  dataline(Current_Settings, "current1");
+  dataline(Current_Settings, "Current");
 
 
   pinMode(BUTTON1PIN, INPUT);
@@ -190,7 +195,14 @@ void setup() {
   attachInterrupt(BUTTON1PIN, toggleButton1, FALLING);
   attachInterrupt(BUTTON2PIN, toggleButton2, FALLING);
 
-  //*********** use WifiManager ******************
+
+  //how to connect ?
+  tft.setCursor(0, 0, 2);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.print(" STARTING CONNECT");
+  Serial.print(" STARTING CONNECT");
+  #ifdef USEWM
+    //*********** use WifiManager ******************
   // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
   // id/name placeholder/prompt default length
@@ -200,46 +212,53 @@ void setup() {
   WiFiManager wifiManager;
   //add all your parameters here
   wifiManager.addParameter(&customUDPport);
-  //how to connect ?
-  //connectwithWM();
+  connectwithWM();
+  #else 
   connectwithsettings();
+  #endif
+
+  if (WiFi.status() == WL_CONNECTED){    tft.println(" Connected ! ");
+    Serial.println("connected.:)");}
   tft.setTextColor(TFT_WHITE, TFT_BLUE);
   tft.fillRect(0, 0, XMAX, 16, TFT_BLUE);
   tft.setCursor(0, 0, 2);
-  tft.printf("%s:", Project);
+  //tft.printf("%s:", Project);
   tft.print(WiFi.SSID());
   tft.print(" ");
   tft.println(WiFi.localIP());
   Serial.printf(" *Running with:  ssid<%s> psk<%s> \n", WiFi.SSID(), WiFi.psk());
   strcpy(Current_Settings.ssid, WiFi.SSID().c_str());
   strcpy(Current_Settings.password, WiFi.psk().c_str());
-  // Current_Settings.ssid=WiFi.SSID().c_str();
-  // Current_Settings.password=WiFi.psk().c_str();
-
+  // get any values from WiFi Manager ...
+  strcpy(UDPPORT, customUDPport.getValue());
+  if (atoi(UDPPORT) != 0) {  // Number is the default, so converts to zero only changed if we set a real value in WiFi Manager
+    Serial.printf("Updating UDP Port (%d)  from WiFi Manager?",atoi(UDPPORT));
+    Current_Settings.UDP_PORT = atoi(UDPPORT);  // UPDATE and convert char array to int
+    EEPROM_WRITE();                             //Changed - Update eeprom
+  } else {
+    Serial.println("Keeping stored UDP port");
+  }
 
   line_1 = false;
   WriteLine = 1;
-  // get any values from WiFi Manager ...
-  strcpy(UDPPORT, customUDPport.getValue());
-  //check it for tests
-  // Serial.print(" custom UDPPORT <");Serial.print(UDPPORT); Serial.print("> string   saved int version:");Serial.print(Current_Settings.UDP_PORT);
-  // Serial.print("> Atoi version:");Serial.println(atoi(UDPPORT));
-  if (atoi(UDPPORT) != 0) {  // Number is the default, so converts to zero only changed if we set a real value in WiFi Manager
-    Serial.println("UPdating UDP Port data from WiFi Manager");
-    Current_Settings.UDP_PORT = atoi(UDPPORT);  // UPDATE and convert char array to int
-    // for tests.
-    EEPROM_WRITE();  //Write to eeprom?
-  } else {
-    Serial.println("Keeping stored port");
-  }
 
   Udp.begin(Current_Settings.UDP_PORT);
   Serial.println("Setting ESP-NOW");
   tft.println("\nStarting ESP_now");
-  if (Start_ESP_EXT()) {Serial.println("   Success to add peer");tft.println("   Success to add peer");}
-  else{     Serial.println("   Failed to add peer");  tft.println("   Failed to add peer");}
-  if (EspNowIsRunning) {    Serial.println("   ESP-NOW Init Success"); tft.println("ESP-NOW Init Success");}
-  else {    Serial.println("   ESP-NOW Init Failed"); tft.println("ESP-NOW Init Failed");}
+  if (Start_ESP_EXT()) {
+    Serial.println("   Success to add peer");
+    tft.println("   Success to add peer");
+  } else {
+    Serial.println("   Failed to add peer");
+    tft.println("   Failed to add peer");
+  }
+  if (EspNowIsRunning) {
+    Serial.println("   ESP-NOW Init Success");
+    tft.println("ESP-NOW Init Success");
+  } else {
+    Serial.println("   ESP-NOW Init Failed");
+    tft.println("ESP-NOW Init Failed");
+  }
 
   Serial.print("   Mac Address: ");
   Serial.println(WiFi.macAddress());
@@ -251,106 +270,107 @@ void setup() {
 }
 
 void ModeFunctions() {
+  #ifdef USEWM
   wifiManager.process();
-  if (ButtonPressed && ModeUpdateFinished) {
+  #endif
+  if ((ButtonPressed != 0) && ModeUpdateFinished) {
     ModeUpdate(Button_pressed);
     ButtonPressed = false;
   };
-  // V simple configure to allow both buttons to trigger EEPROM save and  WiFiManager reset
-  if ((digitalRead(BUTTON1PIN) == LOW) && (digitalRead(BUTTON2PIN) == LOW)) {
-    Serial.println("Reset EEPROM");
-    DrawON_line(0, "Reset EEprom: Hold for WIFi", 3, TFT_BLUE);
-    Current_Settings = Default_Settings;
-    EEPROM_WRITE();
-
-    delay(3000);  // wait before testing pins again reset delay hold
-    if ((digitalRead(BUTTON1PIN) == LOW) && (digitalRead(BUTTON2PIN) == LOW)) {
-      DrawON_line(3, "Button Held", 2, TFT_BLUE);
-      delay(1000);
-      DrawON_line(4, "Erasing Config, restarting", 2, TFT_BLUE);
-      delay(1000);
-
-      wifiManager.resetSettings();
-      ESP.restart();
-    }
-  }
 }
 
 void ModeUpdate(uint8_t button) {
   if (ButtonPressed) {
     ModeUpdateFinished = false;  // token to prevent multiple calls
     WriteLine = 0;
-    if (button == 1) {
-      Current_Settings.Mode = Current_Settings.Mode + 1;
-      if (Current_Settings.Mode > 10) { Current_Settings.Mode = 0; }
-    }
-    if (button == 2) {
-      Current_Settings.Mode = Current_Settings.Mode - 1;
-      if (Current_Settings.Mode < 0) { Current_Settings.Mode = 10; }
-    }
-    if (Current_Settings.Mode > 10) { Current_Settings.Mode = 10; }
-    if (Current_Settings.Mode < 0) { Current_Settings.Mode = 0; }
-    //change display
-    //tft.printf("Button %d Pressed! Current_Settings.Mode: %d",button,Current_Settings.Mode);
-    if (Current_Settings.Mode == 0) {
-      Current_Settings.Serial_on = true;
-      Current_Settings.UDP_ON = false;
-      Current_Settings.ESP_NOW_ON = false;
-      Current_Settings.ListTextSize = 2;
-    }
-    if (Current_Settings.Mode == 1) {
-      Current_Settings.Serial_on = true;
-      Current_Settings.UDP_ON = true;
-      Current_Settings.ESP_NOW_ON = false;
-      Current_Settings.ListTextSize = 1;
-    }
-    if (Current_Settings.Mode == 2) {
-      Current_Settings.Serial_on = true;
-      Current_Settings.UDP_ON = false;
-      Current_Settings.ESP_NOW_ON = true;
-      Current_Settings.ListTextSize = 1;
-    }
-    if (Current_Settings.Mode == 3) {
-      Current_Settings.Serial_on = true;
-      Current_Settings.UDP_ON = true;
-      Current_Settings.ESP_NOW_ON = true;
-      Current_Settings.ListTextSize = 1;
-    }
-    if (Current_Settings.Mode == 4) {
-      Current_Settings.Serial_on = true;
-      Current_Settings.UDP_ON = true;
-      Current_Settings.ESP_NOW_ON = false;
-      Current_Settings.ListTextSize = 2;
-    }
-    if (Current_Settings.Mode == 5) {
-      Current_Settings.Serial_on = true;
-      Current_Settings.UDP_ON = false;
-      Current_Settings.ESP_NOW_ON = true;
-      Current_Settings.ListTextSize = 2;
-    }
-    if (Current_Settings.Mode == 6) {
-      Current_Settings.Serial_on = true;
-      Current_Settings.UDP_ON = true;
-      Current_Settings.ESP_NOW_ON = true;
-      Current_Settings.ListTextSize = 2;
-    }
-    if (Current_Settings.Mode == 10) {
-      Current_Settings.Serial_on = true;
-      Current_Settings.UDP_ON = true;
-      Current_Settings.ESP_NOW_ON = true;
-      Current_Settings.ListTextSize = 2;
-    }
+    DrawON_line(1, "Button pressed", 2, TFT_BLUE);
+    Serial.printf(" Mode change <%d>", button);
+    if (button == 3) {
+      // V simple configure to allow both buttons to trigger EEPROM save and  WiFiManager reset
+      Serial.println("Reset EEPROM");
+      DrawON_line(1, "Reset EEprom: Hold for WIFi reset", 2, TFT_BLUE);
+      Current_Settings = Default_Settings;
+      EEPROM_WRITE();
 
-    // fill in bottom line of setup
-    dataline(Current_Settings, "ModeUpdate");
-    ButtonPressed = false;
-    EEPROM_WRITE();  // nothing fancy, just save it
+      delay(3000);  // wait before testing pins again reset wifi manager delay hold
+      if ((digitalRead(BUTTON1PIN) == LOW) && (digitalRead(BUTTON2PIN) == LOW)) {
+        DrawON_line(3, "Button Held", 2, TFT_BLUE);
+        delay(1000);
+        DrawON_line(4, "Erasing Config, restarting", 2, TFT_BLUE);
+        delay(1000);
+        wifiManager.resetSettings();
+        ESP.restart();
+      }
+    } else {
+
+      if (button == 1) { Current_Settings.Mode = Current_Settings.Mode + 1; }
+      if (button == 2) { Current_Settings.Mode = Current_Settings.Mode - 1; }
+
+      if (Current_Settings.Mode > 10) { Current_Settings.Mode = 10; }
+      if (Current_Settings.Mode < 0) { Current_Settings.Mode = 0; }
+      //change display
+      //tft.printf("Button %d Pressed! Current_Settings.Mode: %d",button,Current_Settings.Mode);
+      if (Current_Settings.Mode == 0) {
+        Current_Settings.Serial_on = true;
+        Current_Settings.UDP_ON = false;
+        Current_Settings.ESP_NOW_ON = false;
+        Current_Settings.ListTextSize = 2;
+      }
+      if (Current_Settings.Mode == 1) {
+        Current_Settings.Serial_on = true;
+        Current_Settings.UDP_ON = true;
+        Current_Settings.ESP_NOW_ON = false;
+        Current_Settings.ListTextSize = 1;
+      }
+      if (Current_Settings.Mode == 2) {
+        Current_Settings.Serial_on = true;
+        Current_Settings.UDP_ON = false;
+        Current_Settings.ESP_NOW_ON = true;
+        Current_Settings.ListTextSize = 1;
+      }
+      if (Current_Settings.Mode == 3) {
+        Current_Settings.Serial_on = true;
+        Current_Settings.UDP_ON = true;
+        Current_Settings.ESP_NOW_ON = true;
+        Current_Settings.ListTextSize = 1;
+      }
+      if (Current_Settings.Mode == 4) {
+        Current_Settings.Serial_on = true;
+        Current_Settings.UDP_ON = true;
+        Current_Settings.ESP_NOW_ON = false;
+        Current_Settings.ListTextSize = 2;
+      }
+      if (Current_Settings.Mode == 5) {
+        Current_Settings.Serial_on = true;
+        Current_Settings.UDP_ON = false;
+        Current_Settings.ESP_NOW_ON = true;
+        Current_Settings.ListTextSize = 2;
+      }
+      if (Current_Settings.Mode == 6) {
+        Current_Settings.Serial_on = true;
+        Current_Settings.UDP_ON = true;
+        Current_Settings.ESP_NOW_ON = true;
+        Current_Settings.ListTextSize = 2;
+      }
+      if (Current_Settings.Mode == 10) {
+        Current_Settings.Serial_on = true;
+        Current_Settings.UDP_ON = true;
+        Current_Settings.ESP_NOW_ON = true;
+        Current_Settings.ListTextSize = 2;
+      }
+
+      // fill in bottom line of setup
+      dataline(Current_Settings, "ModeUpdate");
+      ButtonPressed = false;
+      EEPROM_WRITE();  // nothing fancy, just save it
+    }                  //end of +- mode changes
     ModeUpdateFinished = true;
   }
 }
 
 void dataline(MySettings A, String Text) {
-  tft.fillRect(0, TOP_FIXED_AREA, XMAX, YMAX - TOP_FIXED_AREA, TFT_BLACK);
+  //tft.fillRect(0, TOP_FIXED_AREA, XMAX, YMAX - TOP_FIXED_AREA, TFT_BLACK);
+  tft.fillRect(0, YMAX - TEXT_HEIGHT, XMAX, TEXT_HEIGHT, TFT_BLACK);
   tft.setCursor(0, yBottom);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.printf("%d, %d SER<%d>", A.EpromKEY, A.Mode, A.Serial_on);
@@ -358,6 +378,7 @@ void dataline(MySettings A, String Text) {
   tft.printf("UDP<%d><%d> ", A.UDP_PORT, A.UDP_ON);
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
   tft.printf("ESP<%d>", A.ESP_NOW_ON);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);  // reset to initial state
   Serial.printf("%d Dataline display %s: Mode<%d> Ser<%d> UDPPORT<%d> UDP<%d>  ESP<%d> ", A.EpromKEY, Text, A.Mode, A.Serial_on, A.UDP_PORT, A.UDP_ON, A.ESP_NOW_ON);
   Serial.print("SSID <");
   Serial.print(A.ssid);
@@ -436,7 +457,7 @@ void loop(void) {
 }
 
 
-//****  ESP-Now functions 
+//****  ESP-Now functions
 // void Start_ESP_EXT() {  // start espnow and run Test_EspNOW() when data is seen
 //   Serial.println("Setting ESP-NOW");
 //   tft.println("\nStarting ESP_now");
@@ -626,14 +647,15 @@ void Test_U() {  // check if udp packet  has arrived
 // }
 void EEPROM_WRITE() {
   // save my current settings
-  dataline(Current_Settings, "EEPROM_save");
+  //dataline(Current_Settings, "EEPROM_save");
   Serial.println("SAVING EEPROM");
   EEPROM.put(0, Current_Settings);
   EEPROM.commit();
-  delay(1000);
+  delay(50);
 }
 void EEPROM_READ() {
   EEPROM.begin(512);
+  Serial.println("READING EEPROM");
   EEPROM.get(0, Saved_Settings);
-  dataline(Saved_Settings, "EEPROM_Read");
+  //dataline(Saved_Settings, "EEPROM_Read");
 }
