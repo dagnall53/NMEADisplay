@@ -3,9 +3,9 @@
   This sketch implements a simple serial receive terminal
   program for monitoring  messages
 
-TTGO comments
+TTGO comments 22/0/25
 Does not use hardware scroling
-DO NOT FORGET TO CHANGE DISPLAY SELECT in User_Setup_Select.h !
+DO NOT FORGET TO CHANGE DISPLAY SELECT in tft-espi User_Setup_Select.h !
 Or use UserSetup 
 
  *************************************************************/
