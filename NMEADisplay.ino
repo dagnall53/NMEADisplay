@@ -1,385 +1,1251 @@
+/*******************************************************************************
 
-/*************************************************************
-  This sketch implements a simple serial receive terminal
-  program for monitoring  messages
+From scratch build! 
+ for keyboard  trying to use elements of https://github.com/fbiego/esp32-touch-keyboard/tree/main
+*/
+// * Start of Arduino_GFX setting
 
-TTGO comments 22/0/25
-Does not use hardware scroling
-DO NOT FORGET TO CHANGE DISPLAY SELECT in tft-espi User_Setup_Select.h !
-Or use UserSetup 
 
- *************************************************************/
-//#include <ESPEssentials.h>
-#include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager
-
+//******  Wifi stuff
 #include <WiFi.h>
 #include <WiFiUdp.h>
-#include <TFT_eSPI.h>  // Hardware-specific library  DO NOT FORGET TO CHANGE DISPLAY SELECT in User_Setup_Select.h !
-#include <SPI.h>
-
-#include <esp_now.h>
-#include <esp_wifi.h>
-#include <WebServer.h>
-#include "ESP_NOW_files.h"
-
-// include library to read and write from flash memory
-#include <EEPROM.h>
-
-// define the number of bytes you want to access
-#define EEPROM_SIZE 512
-
-TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
-
-// The scrolling area must be a integral multiple of TEXT_HEIGHT
-#define TEXT_HEIGHT 16     // Height of text in pixels  to be printed and scrolled
-#define BOT_FIXED_AREA 1   // Number of Text Lines in bottom fixed area
-#define TOP_FIXED_AREA 16  // Number of pixels lines in top fixed area
-
-#define YMAX 135  // (size of) Bottom of screen in pixels
-#define XMAX 240  // (size of) width of screen in pixels
-#define Project "DMon"
-#define BUTTON1PIN 35
-#define BUTTON2PIN 0
-bool ButtonPressed = false;
-bool ModeUpdateFinished = true;
-int Button_pressed;
-
-#define BAUD_RATE 115200
-//A structure EpromKEY,UDP_PORT,Mode,UDP_ON,Serial_on ESP_NOW_ON   to save stuff for eeprom and modes
-struct MySettings {
-  int EpromKEY;  // to allow check for clean EEprom and no data stored
-  int UDP_PORT;
-  int Mode;
-  bool UDP_ON;
-  bool Serial_on;
-  bool ESP_NOW_ON;
-  uint8_t ListTextSize;  // fontsize for listed text (2 is readable, 1 gives more lines)// all off
-  char ssid[16];
-  char password[16];
-};
-
-MySettings Default_Settings = { 127, 2002, 1, false, true, true, 2, "N2K0183-proto", "12345678" };
-MySettings Saved_Settings;
-MySettings Current_Settings;
-char UDPPORT[10];  // to pass value from wifimanager
-int UDP_PORT;      // see Default_Settings for default
-
-// The initial y coordinate of the top of the scrolling area
-uint16_t yStart = TOP_FIXED_AREA;
-// yArea must be a integral multiple of TEXT_HEIGHT
-uint16_t yBottom = YMAX - (BOT_FIXED_AREA * TEXT_HEIGHT);
-uint8_t NumberoftextLines = (YMAX - TOP_FIXED_AREA - (BOT_FIXED_AREA * TEXT_HEIGHT)) / TEXT_HEIGHT;
-// The initial y coordinate of the top main text line
-uint16_t yDraw = yStart + TEXT_HEIGHT;
-
-// Keep track of the drawing x coordinate
-uint16_t xPos = 0;
-uint8_t WriteLine;  // line of text (0.. )
-// For the byte we read from the serial port
-byte data = 0;
-
-// A few test variables used during debugging
-bool change_colour = 1;
-bool selected = 1;
-
-// We have to blank the top line each time the display is scrolled, but this takes up to 13 milliseconds
-// for a full width line, meanwhile the serial buffer may be filling... and overflowing
-// We can speed up scrolling of short text lines by just blanking the character we drew
-int blank[19];  // We keep all the strings pixel lengths to optimise the speed of the top line blanking
-
-
-
+IPAddress udp_ap(0, 0, 0, 0);               // the IP address to send UDP data in SoftAP mode
+IPAddress udp_st(0, 0, 0, 0);               // the IP address to send UDP data in Station mode
+IPAddress sta_ip(0, 0, 0, 0);               // the IP address (or received from DHCP if 0.0.0.0) in Station mode
+IPAddress gateway(0, 0, 0, 0);              // the IP address for Gateway in Station mode
+IPAddress subnet(0, 0, 0, 0);               // the SubNet Mask in Station mode
+boolean IsConnected = false;  // used when MAIN_MODE == AP_AND_STA to flag connection success (got IP)
 WiFiUDP Udp;
-
-//WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
-WiFiManager wifiManager;
-WiFiManagerParameter custom_field;  // global param ( for non blocking w params )
-
-
-#define USEWM
-
-
-//*********** Button stuff *****************
-void IRAM_ATTR toggleButton1() {
-  ButtonPressed = true;
-  if (digitalRead(BUTTON2PIN) == LOW) {
-    Button_pressed = 3;
-  } else {
-    Button_pressed = 1;
-  }
-}
-
-void IRAM_ATTR toggleButton2() {
-  ButtonPressed = true;
-  if (digitalRead(BUTTON1PIN) == LOW) {
-    Button_pressed = 3;
-  } else {
-    Button_pressed = 2;
-  }
-}
-
 #define BufferLength 500
 bool line_1;
-char nmea_1[500];
+char nmea_1[500];  //serial
 
 bool line_U = false;
 char nmea_U[BufferLength];  // NMEA buffer for UDP input port
-
+//int nmea_UpacketSize;
 // *************  ESP-NOW variables and functions in ESP_NOW_files************
 bool line_EXT;
 char nmea_EXT[500];
 bool EspNowIsRunning = false;
-// byte peerAddress[6];
-// const byte peerAddress_def[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };  // all receive
-// esp_now_peer_info_t peerInfo;
-// bool EspNowIsRunning = false;
-// unsigned long Last_EXT_Sent;
+
+char* pTOKEN; 
 
 
-void StartTFT() {
-  // Setup the TFT display
-  tft.init();
-  tft.setRotation(3);
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  //tft.fillRect(0, 0, XMAX, 16, TFT_BLUE);
-  tft.setCursor(0, 0, 2);
+#include <Arduino_GFX_Library.h>
+//select pin definitions for installed GFX version (test with 1.3.8. and 1.3.1)
+// Original version for GFX 1.3.1 only. #include "GUITIONESP32-S3-4848S040_GFX_133.h"
+#include "Esp32_4inch.h"
+//For SD card (see display page -98 for test)
+
+#include <SD.h>  // pins set in GFX .h
+#include "SPI.h"
+#include "FS.h"
+//jpeg
+#include "JpegFunc.h"
+#define JPEG_FILENAME_LOGO "/logo.jpg"  // logo in jpg on sd card
+//audio
+#include "Audio.h"
+#define AUDIO_FILENAME_01 "/HotelCalifornia.mp3"
+#define AUDIO_FILENAME_02 "/SoundofSilence.mp3"
+#define AUDIO_FILENAME_03 "/MoonlightBay.mp3"
+#define AUDIO_FILENAME_START "/ship-bell.mp3"
+//*********** for keyboard*************
+#include "Keyboard.h"
+#include "Touch.h"
+TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WIDTH, TOUCH_HEIGHT);
+/*******************************************************************************
+ * Touch settings- 
+ ******************************************************************************/
+// #include <TAMC_GT911.h>
+// #define TOUCH_ROTATION ROTATION_NORMAL
+// #define TOUCH_MAP_X1 480
+// #define TOUCH_MAP_X2 0
+// #define TOUCH_MAP_Y1 480
+// #define TOUCH_MAP_Y2 0
+
+// TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WIDTH, TOUCH_HEIGHT);
+
+
+
+#include <EEPROM.h>
+#include "fonts.h"
+#include "FreeMonoBold8pt7b.h"
+#include "FreeMonoBold27pt7b.h"
+#include "FreeSansBold30pt7b.h"
+#include "FreeSansBold50pt7b.h"
+//**   structures and helper functions for my variables
+
+#include "Structures.h"
+#include "aux_functions.h"
+#include "SineCos.h"
+
+
+//set up Audio
+Audio audio;
+
+tBoatData BoatData;  // BoatData values, int double etc
+
+// change key (first parameter) to set defaults
+MySettings Default_Settings = { 6, 0, "GUESTBOAT", "12345678", "2002", true, true, true };
+MySettings Saved_Settings;
+MySettings Current_Settings;
+struct Displaysettings {
+  bool keyboard, CurrentSettings;
+  bool NmeaDepth, nmeawind, nmeaspeed, GPS;
+};
+Displaysettings Display_default = { false, true, false, false, false, false };
+Displaysettings Display_Setting;
+
+int MasterFont;  //global for font! Idea is to use to reset font after 'temporary' seletion of another fone
+
+struct BarChart {
+  int topleftx, toplefty, width, height, bordersize, value, rangemin, rangemax, visible;
+  uint16_t barcolour;
+};
+
+struct Button {
+  int h, v, width, height, bordersize;
+  uint16_t backcol, textcol, BorderColor;
+  int Font;                  //-1 == not forced
+  bool Keypressed;           //used by keypressed
+  unsigned long LastDetect;  //used by keypressed
+};
+Button defaultbutton = { 20, 20, 75, 75, 2, BLACK, WHITE, BLUE, -1, false, 0 };
+
+struct TouchMemory {
+  int consecutive;
+  unsigned long sampletime;
+  uint8_t x;
+  uint8_t y;
+  uint8_t size;
+  int X3Swipe;
+  int Y3Swipe;
+};
+TouchMemory TouchData;
+
+int _null, _temp;  //null pointers
+
+
+
+
+String Fontname;
+int text_height = 12;      //so we can get them if we change heights etc inside functions
+int text_offset = 12;      //offset is not equal to height, as subscripts print lower than 'height'
+int text_char_width = 12;  // useful for monotype? only NOT USED YET! Try gfx->getTextBounds(string, x, y, &x1, &y1, &w, &h);
+
+
+//colour order  background, text, border
+Button TopLeftbutton = { 0, 0, 75, 75, 5, BLUE, WHITE, BLACK };          //false,0};
+Button TopRightbutton = { 405, 0, 75, 75, 5, BLUE, WHITE, BLACK };       //,false,0};
+Button BottomRightbutton = { 405, 405, 75, 75, 5, BLUE, WHITE, BLACK };  //,false,0};
+Button BottomLeftbutton = { 0, 405, 75, 75, 5, BLUE, WHITE, BLACK };     //false,0};
+
+// buttons for the wifi/settings pages // no need to set the bools ?
+Button SSID = { 30, 50, 420, 35, 5, WHITE, BLACK, BLUE };       // was ,false};
+Button PASSWORD = { 30, 90, 420, 35, 5, WHITE, BLACK, BLUE };   // was ,false};
+Button UDPPORT = { 30, 130, 420, 35, 5, WHITE, BLACK, BLUE };   // was ,false};
+Button Switch1 = { 30, 180, 100, 35, 5, WHITE, BLACK, BLUE };   // was ,false};
+Button Switch2 = { 135, 180, 100, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
+Button Switch3 = { 240, 180, 100, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
+Button Switch4 = { 345, 180, 100, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
+Button Spare = { 30, 170, 420, 35, 5, WHITE, BLACK, BLUE };     // was ,false};
+Button Terminal = { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };  // was ,false};
+//for selections
+Button Full0Center = { 80, 35, 320, 30, 5, BLUE, WHITE, BLACK };   // ,false,0};
+Button Full1Center = { 80, 80, 320, 75, 5, BLUE, WHITE, BLACK };   // was ,false};;
+Button Full2Center = { 80, 160, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full3Center = { 80, 240, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full4Center = { 80, 320, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full5Center = { 80, 400, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
+
+#define On_Off ? "ON" : "OFF"  // if 1 first case else second (0 or off)
+
+
+
+// Draw the compass pointer at an angle in degrees
+void DrawCompass(int x, int y, int rad) {
+  //Work in progress!
+  int Start, dot, colorbar, bigtick;
+  Start = rad * 0.83;     //200
+  dot = rad * 0.86;       //208
+  colorbar = rad * 0.91;  //220
+  bigtick = rad - 1;      //239
+                          //rad =240 example dot is 200 to 208   bar is 200 to 239 wind colours 200 to 220
+                          // colour segments
+  gfx->fillArc(x, y, colorbar, Start, 270 - 45, 270, RED);
+  gfx->fillArc(x, y, colorbar, Start, 270, 270 + 45, GREEN);
+  //Mark 12 linesarks at 30 degrees
+  for (int i = 0; i < (360 / 30); i++) { gfx->fillArc(x, y, bigtick, Start, i * 30, (i * 30) + 1, BLACK); }  //239 to 200
+  for (int i = 0; i < (360 / 10); i++) { gfx->fillArc(x, y, dot, Start, i * 10, (i * 10) + 1, BLACK); }      // dots at 10 degrees
 }
 
-void connectwithsettings() {
-  uint32_t StartTime =millis();
-  tft.print(" Using EEPROM settings");
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.begin(Current_Settings.ssid, Current_Settings.password);
-  while ((WiFi.status() != WL_CONNECTED)&& (millis() <= StartTime+ 10000)) { //Give it 10 seconds 
-    delay(500);
-    tft.print(".");
-  }
-}
+bool WindpointToBoat = false;
+void drawCompassPointer(int x, int y, int rad, int angle, uint16_t COLOUR, bool to) {
+  int x_offset, y_offset, tail1x, tail1y, tail2x, tail2y;  // The resulting offsets from the center point
+                                                           // Normalize the angle to the range 0 to 359
+  float inner, outer;
 
-void connectwithWM() {
-  bool res;
-  Serial.println("---Running WIFI Manager---");
-  tft.println(" Running WIFI Manager");
-  tft.println(" Connect to WifiManager AP");
-  // res = wm.autoConnect(); // auto generated AP name from chipid
-  // res = wm.autoConnect("AutoConnectAP"); // anonymous ap
-  res = wifiManager.autoConnect("NMEA_DISPLAY", "12345678");  // password protected ap
-  if (!res) {
-    tft.println(" WM Failed to connect");
-    Serial.println("Failed to connect");
-    // ESP.restart(); //?
+
+  while (angle < 0) angle += 360;
+  while (angle > 359) angle -= 360;
+  // rose radius is default at 100 and returns 100*sine.. so may need to make offsets 2x bigger for 200 size triangel ?
+  //if (rad=240){inner=0.6;outer=2;}else{inner=0.3;outer=1;}
+  inner = (rad * 98) / 400;  // just a tiny bit smaller!
+  outer = (rad * 98) / 120;
+  if (to) {  //Point to boat from wind
+    x_offset = x + ((outer * getSine(angle)) / 100);
+    y_offset = y + ((outer * getCosine(angle)) / 100);
+    tail1x = x + ((inner * getSine(angle + 20)) / 100);
+    tail1y = y + ((inner * getCosine(angle + 20)) / 100);
+    tail2x = x + ((inner * getSine(angle - 20)) / 100);
+    tail2y = y + ((inner * getCosine(angle - 20)) / 100);
   } else {
-    //if you get here you have connected to the WiFi
-    tft.println(" WM Connected ! ");
-    Serial.println("WM connected.:)");
+    x_offset = x + ((inner * getSine(angle)) / 100);
+    y_offset = y + ((inner * getCosine(angle)) / 100);
+    tail1x = x + ((outer * getSine(angle + 7)) / 100);
+    tail1y = y + ((outer * getCosine(angle + 7)) / 100);
+    tail2x = x + ((outer * getSine(angle - 7)) / 100);
+    tail2y = y + ((outer * getCosine(angle - 7)) / 100);
+  }
+  // The actual drawing command will depend on your display library
+  /*fillTriangle(int16_t x0, int16_t y0,
+                               int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color)
+  */
+  gfx->fillTriangle(x_offset, y_offset, tail1x, tail1y, tail2x, tail2y, COLOUR);
+}
+
+void WindArrow(int x, int y, int rad, int wind, bool to) {
+  static int lastwind;
+  drawCompassPointer(x, y, rad, lastwind, BLUE, to);
+  drawCompassPointer(x, y, rad, wind, RED, to);
+  lastwind = wind;
+}
+
+void ShowToplinesettings(MySettings A, String Text) {
+  int local;
+  local = MasterFont;
+  setFont(0);  // SETS MasterFont, so cannot use MasterFont directly in last line!
+  long rssiValue = WiFi.RSSI();
+  gfx->setTextSize(1);
+  GFXBoxPrintf(0, 0, 1, "%s: Serial<%s> UDP<%s> ESP<%s>", Text, A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off);
+  GFXBoxPrintf(0, text_height, 1, "SSID<%s> PWD<%s> UDPPORT<%s>", A.ssid, A.password, A.UDP_PORT);
+  gfx->fillRect(0, text_height * 2, 480, text_height, WHITE);  // manual equivalent of my function so I can print IP address!
+  gfx->setTextColor(BLACK);
+  gfx->setCursor(0, (text_height * 2) + (text_offset));
+  gfx->print(" IP:");
+  sta_ip = WiFi.localIP();
+  udp_st = Get_UDP_IP(sta_ip, subnet);
+  gfx->print(WiFi.localIP());
+  // Serial2.print("   UDP broadcasting: ");  // for if we wish to send UDP data (later! if I add autopilot controls)
+  //Serial2.println(udp_st);
+  gfx->print(" RSSI: ");
+  gfx->print(rssiValue);
+  IsConnected = true;
+  setFont(local);
+}
+void ShowToplinesettings(String Text) {
+  ShowToplinesettings(Current_Settings, Text);
+}
+
+
+void Display(int page) {  // setups for alternate pages to be selected by page.
+  static int LastPageselected;
+  static bool DataChanged;
+  // some local variables for tests;
+
+  static int SwipeTestLR, SwipeTestUD, volume;
+  static bool RunSetup;
+  static unsigned int slowdown, timer2;
+  static float wind, SOG, Depth;
+  float temp, oldtemp;
+  static int fontlocal;
+  char Tempchar[30];
+  String tempstring;
+  int FS = 1;  // for font size test
+
+  if (page != LastPageselected) { RunSetup = true; }
+  //generic stuff  for ALL pages
+  if (RunSetup) {
+    gfx->fillScreen(BLUE);
+    gfx->setTextColor(WHITE);
+    setFont(0);
+  }
+  // add any generic stuff here like check for left right?
+
+  // Now specific stuff for each page
+
+  switch (page) {
+    case -101:  //a test for Swipes
+      if (RunSetup) {
+        gfx->fillScreen(BLACK);
+        gfx->setTextColor(WHITE);
+        SwipeTestLR = 0;
+        SwipeTestUD = 0;
+        setFont(0);
+        GFXBoxPrintf(0, 250, 3, "-swipe test- ");
+      }
+
+      if (millis() >= slowdown + 10000) {
+        slowdown = millis();
+        gfx->fillScreen(BLACK);
+        GFXBoxPrintf(0, 50, 2, "Periodic blank ");
+      }
+
+      // if (Swipe2(SwipeTestLR, 1, 10, true, SwipeTestUD, 0, 10, false, false)) {
+      //   Serial.printf(" LR updated %i UD updated %i \n", SwipeTestLR, SwipeTestUD);  // swipe page using (current) TouchData information with LR (true) swipe
+      //   GFXBoxPrintf(0, 0, 1, "SwipeTestLR (%i)", SwipeTestLR);
+      //   GFXBoxPrintf(0, 480 - text_height, 1, "SwipeTestUD (%i)", SwipeTestUD);
+      // };
+
+      break;
+    case -99:  //a test for Screen Colours / fonts
+      if (RunSetup) {
+        gfx->fillScreen(BLACK);
+        gfx->setTextColor(WHITE);
+        fontlocal = 0;
+        SwipeTestLR = 0;
+        SwipeTestUD = 0;
+        setFont(fontlocal);
+        GFXBoxPrintf(0, 250, 3, "-TEST Colours- ");
+      }
+
+      if (millis() >= slowdown + 10000) {
+        slowdown = millis();
+        gfx->fillScreen(BLACK);
+        fontlocal = fontlocal + 1;
+        if (fontlocal > 10) { fontlocal = 0; }
+        GFXBoxPrintf(0, 50, 2, "Colours check");
+        GFXBoxPrintf(0, 100, FS, "Font size %i", fontlocal);
+        //DisplayCheck(true);
+      }
+
+
+
+      break;
+
+    case -102:
+      if (RunSetup) {
+        GFXBoxPrintf(0, 140, 2, WHITE, BLUE, " Testing new buttons\n");
+        //gfx->println(" use three finger touch to renew dir listing");
+      }
+      if (millis() >= slowdown + 10000) {
+        slowdown = millis();
+        gfx->fillScreen(BLUE);  // clean up redraw buttons
+                                // GFXBorderBoxPrintf(TopLeftbutton,1,"LEFT");
+                                // GFXBorderBoxPrintf(TopRightbutton,1,"RIGHT");
+      }
+      if (ts.isTouched) {
+        TouchCrosshair(20);
+      }
+      if (CheckButton(TopLeftbutton)) {
+        volume = volume + 1;
+        if (volume > 21) { volume = 21; };
+        Serial.println("LEFT");
+        GFXBoxPrintf(80, 0, 2, WHITE, BLUE, " LEFT   %i\n", volume);
+        audio.setVolume(volume);
+        delay(300);
+      }
+      if (CheckButton(TopRightbutton)) {
+        volume = volume - 1;
+        if (volume < 1) { volume = 0; };
+        Serial.println("RIGHT");
+        GFXBoxPrintf(80, 0, 2, WHITE, BLUE, " RIGHT  %i\n", volume);
+        audio.setVolume(volume);
+        delay(300);
+      }
+      if (!audio.isRunning()) { audio.connecttoFS(SD, AUDIO_FILENAME_02); }
+      if (CheckButton(Full0Center)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+
+      break;
+    case -10:  // a test page for fonts
+      if (RunSetup) {
+        GFXBorderBoxPrintf(Full0Center, "-Font test -");
+      }
+      if (millis() > slowdown + 3500) {
+        slowdown = millis();
+        gfx->fillScreen(BLUE);
+        //wind=wind+9; if (wind>360) {wind=0;gfx->fillScreen(BLUE);}
+        fontlocal = fontlocal + 1;
+        if (fontlocal > 15) { fontlocal = 0; }
+        //setFont(0);
+        // ShowToplinesettings("Current");
+        temp = 12.3;
+        Serial.print("about to set");
+        Serial.print(fontlocal);
+        setFont(fontlocal);
+        Serial.print(" setting fontname");
+        Serial.println(Fontname);
+      }
+      if (millis() > timer2 + 500) {
+        timer2 = millis();
+        temp = random(-9000, 9000);
+        temp = temp / 1000;
+        setFont(fontlocal);
+        Fontname.toCharArray(Tempchar, 30, 0);
+        setFont(3);
+        GFXBorderBoxPrintf(0, 0, 480, 75, 1, 5, BLUE, WHITE, BLACK, "FONT:%i name%s", fontlocal, Tempchar);
+        setFont(fontlocal);
+        GFXBorderBoxPrintf(0, 150, 480, 330, 1, 5, BLUE, WHITE, BLUE, "Test %4.2f height<%i>", temp, text_height);
+        // if((2*text_height)<180){GFXBorderBoxPrintf(0,160,480,(2*text_height)+10,2,5,BLUE,WHITE,BLACK, "two X %4.2f",temp); }
+        //  if((3*text_height)<180){GFXBorderBoxPrintf(0,265,480,(3*text_height)+10,3,5,BLUE,WHITE,BLACK, "%4.2f",temp);  }
+      }
+      if (CheckButton(Full0Center)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(TopLeftbutton)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(TopRightbutton)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(TopLeftbutton)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(TopRightbutton)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      break;
+
+
+
+    case -4:
+      if (RunSetup) {
+        GFXBorderBoxPrintf(Full0Center, "Set UDP PORT");
+        keyboard(-1);  //reset
+        keyboard(0);
+      }
+
+      Use_Keyboard(Current_Settings.UDP_PORT, sizeof(Current_Settings.UDP_PORT));
+      if (CheckButton(TopLeftbutton)) {
+        Current_Settings.DisplayPage = -1;
+        delay(300);
+      }
+      if (CheckButton(Full0Center)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      break;
+
+
+    case -3:
+      if (RunSetup) {
+        GFXBorderBoxPrintf(Full0Center, "Set Password");
+        keyboard(-1);  //reset
+
+        keyboard(0);
+      }
+
+      Use_Keyboard(Current_Settings.password, sizeof(Current_Settings.password));
+      if (CheckButton(TopLeftbutton)) {
+        Current_Settings.DisplayPage = -1;
+        delay(300);
+      }
+      if (CheckButton(Full0Center)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      break;
+
+    case -2:
+      if (RunSetup) {
+        GFXBorderBoxPrintf(Full0Center, "Set SSID");
+        keyboard(-1);  //reset
+        keyboard(0);
+      }
+
+      Use_Keyboard(Current_Settings.ssid, sizeof(Current_Settings.ssid));
+      if (CheckButton(Full0Center)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(TopLeftbutton)) {
+        Current_Settings.DisplayPage = -1;
+        delay(300);
+      }
+      break;
+
+    case -1:  // this is the main WIFI settings page
+      if (RunSetup || DataChanged) {
+        gfx->fillScreen(BLACK);
+        gfx->setTextColor(WHITE, BLACK);
+        gfx->setTextSize(1);
+        ShowToplinesettings("Current");
+        setFont(4);
+        gfx->setCursor(180, 180);
+        GFXBorderBoxPrintf(SSID, "Set SSID <%s>", Current_Settings.ssid);
+        GFXBorderBoxPrintf(PASSWORD, "Set Password <%s>", Current_Settings.password);
+        GFXBorderBoxPrintf(UDPPORT, "Set UDP Port <%s>", Current_Settings.UDP_PORT);
+        GFXBorderBoxPrintf(Switch1, Current_Settings.Serial_on On_Off);  //A.Serial_on On_Off,  A.UDP_ON On_Off, A.ESP_NOW_ON On_Off
+        AddTitleBorderBox(Switch1, "Serial");
+        GFXBorderBoxPrintf(Switch2, Current_Settings.UDP_ON On_Off);
+        AddTitleBorderBox(Switch2, "UDP");
+        GFXBorderBoxPrintf(Switch3, Current_Settings.ESP_NOW_ON On_Off);
+        AddTitleBorderBox(Switch3, "ESP-Now");
+        GFXBorderBoxPrintf(Switch4, "SW4");
+        GFXBorderBoxPrintf(Terminal, " Terminal text here");
+        setFont(0);
+        DataChanged = false;
+        //while (ts.sTouched{yield(); Serial.println("yeilding -1");}
+      }
+      if (millis() > slowdown + 1000) {
+        slowdown = millis();
+
+        //print recieved data in terminal here
+      }
+      //runsetup to repopulate the text in the boxes!
+      if (CheckButton(Switch1)) {
+        Current_Settings.Serial_on = !Current_Settings.Serial_on;
+        DataChanged = true;
+      };
+      if (CheckButton(Switch2)) {
+        Current_Settings.UDP_ON = !Current_Settings.UDP_ON;
+        DataChanged = true;
+      };
+      if (CheckButton(Switch3)) {
+        Current_Settings.ESP_NOW_ON = !Current_Settings.ESP_NOW_ON;
+        DataChanged = true;
+      };
+      if (CheckButton(SSID)) { Current_Settings.DisplayPage = -2; };
+      if (CheckButton(PASSWORD)) { Current_Settings.DisplayPage = -3; };
+      if (CheckButton(UDPPORT)) { Current_Settings.DisplayPage = -4; };
+      //if (CheckButton(TopRightbutton)){Current_Settings.DisplayPage=Current_Settings.DisplayPage+1;delay(300);}
+      if (CheckButton(Full0Center)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(Full0Center)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(TopLeftbutton)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(TopRightbutton)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(BottomRightbutton)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(BottomLeftbutton)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+
+
+
+      break;
+    case 0:
+      if (RunSetup) {
+        //GFXBorderBoxPrintf(int h, int v, int width, int height, int textsize, int bordersize,
+        //uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
+        ShowToplinesettings("Now");
+        setFont(3);
+        GFXBorderBoxPrintf(TopLeftbutton, "Page-");
+        GFXBorderBoxPrintf(TopRightbutton, "Page+");
+        setFont(3);
+        GFXBorderBoxPrintf(Full0Center, "-Top page-");
+        GFXBorderBoxPrintf(Full1Center, "Check SD /Audio");
+        GFXBorderBoxPrintf(Full2Center, "Settings  WIFI etc");
+        GFXBorderBoxPrintf(Full3Center, "See NMEA");
+        GFXBorderBoxPrintf(Full4Center, "Check Fonts");
+        GFXBorderBoxPrintf(Full5Center, "Reset");
+      }
+      if (millis() > slowdown + 1000) {
+        slowdown = millis();
+        ShowToplinesettings("Current");
+        //ShowToplinesettings("Current");
+      }
+      if (CheckButton(Full0Center)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(Full1Center)) {
+        Current_Settings.DisplayPage = 1;
+        delay(100);
+      }
+      if (CheckButton(Full2Center)) {
+        Current_Settings.DisplayPage = -1;
+        delay(100);
+      }
+      if (CheckButton(Full3Center)) {
+        Current_Settings.DisplayPage = 4;
+        delay(100);
+      }
+      if (CheckButton(Full4Center)) {
+        Current_Settings.DisplayPage = -10;
+        delay(100);
+      }
+      if (CheckButton(Full5Center)) { ESP.restart(); }
+
+      break;
+    case 1:
+      if (RunSetup || DataChanged) {
+        setFont(3);
+        if (volume > 21) { volume = 21; };
+        GFXBorderBoxPrintf(Full0Center, "SD Contents / Run Audio vol%i", volume);
+        gfx->setTextColor(WHITE, BLUE);
+
+        GFXBorderBoxPrintf(BottomLeftbutton, "vol-");
+        GFXBorderBoxPrintf(BottomRightbutton, "vol+");
+        setFont(1);
+        gfx->setCursor(0, 80);
+        gfx->setTextSize(1);  // Full0Center is 75, add 5 for space.
+        listDir(SD, "/", 0);
+        DataChanged = false;
+      }
+
+      if (!audio.isRunning()) { audio.connecttoFS(SD, AUDIO_FILENAME_02); }
+
+      if (CheckButton(Full0Center)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(TopLeftbutton)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(TopRightbutton)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(BottomRightbutton)) {
+        volume = volume + 1;
+        if (volume > 21) { volume = 21; };
+        audio.setVolume(volume);
+        Serial.printf("Right %i and ", volume);
+        Serial.println(volume);
+        DataChanged = true;
+      }
+      if (CheckButton(BottomLeftbutton)) {
+        volume = volume - 1;
+        if (volume < 1) { volume = 0; };
+        Serial.printf("LEFT %i  and ", volume);
+        Serial.println(volume);
+        audio.setVolume(volume);
+        DataChanged = true;
+      }
+
+
+      break;
+
+    case 2:
+      if (RunSetup) {
+        //GFXBoxPrintf(0,480-(text_height*2),  2, "PAGE 2 -SPEED");
+        GFXBorderBoxPrintf(20, 100, 440, 360, 1, 5, BLUE, BLACK, BLACK, "%3.0f", SOG);
+      }
+      if (millis() > slowdown + 200) {
+        //gfx->fillScreen(BLUE);
+        slowdown = millis();
+        ShowToplinesettings("Current");
+        SOG = SOG + 1;
+        if (SOG > 360) { SOG = 0; }
+        temp = SOG / 10.0;
+
+        setFont(10);
+        UpdateCentered(20, 100, 440, 360, 1, 5, BLUE, BLACK, BLACK, "%3.1fKts", temp);
+        setFont(0);
+      }
+
+      if (CheckButton(Full0Center)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(TopLeftbutton)) {
+        Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1;
+        delay(300);
+      }
+      if (CheckButton(TopRightbutton)) {
+        Current_Settings.DisplayPage = Current_Settings.DisplayPage + 1;
+        delay(300);
+      }
+
+
+      break;
+    case 3:
+      if (RunSetup) {
+        setFont(4);
+        DrawCompass(240, 240, 240);
+      }
+      if (millis() > slowdown + 500) {
+        slowdown = millis();
+        WindArrow(240, 240, 240, wind, false);
+        wind = wind + 13;
+        if (wind > 360) {
+          wind = 0;
+          WindpointToBoat = !WindpointToBoat;
+        }
+        //Box in middle for wind dir / speed
+        //int h, int v, int width, int height, int textsize, int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
+        GFXBorderBoxPrintf(240 - 70, 240 - 40, 140, 80, 2, 5, BLUE, BLACK, BLACK, "%3.0f", wind);
+      }
+      if (CheckButton(Full0Center)) {
+        Current_Settings.DisplayPage = 0;
+        delay(100);
+      }
+      if (CheckButton(TopLeftbutton)) {
+        Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1;
+        delay(300);
+      }
+      if (CheckButton(TopRightbutton)) {
+        Current_Settings.DisplayPage = 4;
+        delay(300);
+      }  //loop to page 1
+
+
+      break;
+    case 4:  // Quad display
+      if (RunSetup) {
+        setFont(5);
+        //GFXBoxPrintf(0,480-(text_height*2),  1,BLACK,BLUE, "quad display");
+        DrawCompass(360, 120, 120);
+        GFXBorderBoxPrintf(0, 0, 235, 235, 1, 5, BLUE, BLACK, BLACK, "SPEED", wind / 24);
+        GFXBorderBoxPrintf(0, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "DEPTH", wind / 3);
+        //GFXBorderBoxPrintf(240,0, 235,235, 1,5,BLUE,BLACK,BLACK, "c%3.2F",wind*1.1);
+        GFXBorderBoxPrintf(240, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "SOG", wind / 11);
+        delay(500);
+      }
+      if (millis() > slowdown + 300) {
+        slowdown = millis();
+        wind = wind + 13;
+        if (wind > 360) {
+          wind = 0;
+          WindpointToBoat = !WindpointToBoat;
+        }  // sikmulate 4 boxes
+
+        WindArrow(360, 120, 120, wind, false);
+        if (CheckButton(Full0Center)) {
+          Current_Settings.DisplayPage = 0;
+          delay(100);
+        }
+        UpdateCentered(0, 0, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%4.2fKts", wind / 24);
+        UpdateCentered(0, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%4.0fm", BoatData.WaterDepth);
+        //UpdateCentered(240,0, 235,235, 1,5,BLUE,BLACK,BLACK, "c%3.2F",wind*1.1);
+        UpdateCentered(240, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%3.1Fkts", wind / 13);
+      }
+
+      //        TouchCrosshair(20);
+      if (CheckButton(TopLeftbutton)) {
+        Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1;
+        delay(300);
+      }
+      if (CheckButton(TopRightbutton)) {
+        Current_Settings.DisplayPage = 1;
+        delay(300);
+      }  //loop to page 1
+
+
+      break;
+
+    default:
+      if (RunSetup) {
+        setFont(3);  //GFXBorderBoxPrintf(int h, int v, int width, int height, int textsize, int bordersize,
+        //uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
+        GFXBorderBoxPrintf(Full0Center, "-Top page-");
+        GFXBorderBoxPrintf(TopLeftbutton, "Page-");
+        GFXBorderBoxPrintf(TopRightbutton, "Page+");
+
+        GFXBorderBoxPrintf(Full1Center, "Check SD");
+        GFXBorderBoxPrintf(Full2Center, "Set WIFI");
+        GFXBorderBoxPrintf(Full3Center, "See NMEA");
+        GFXBorderBoxPrintf(Full4Center, "Check Fonts");
+      }
+      if (millis() > slowdown + 1000) {
+        slowdown = millis();
+      }
+      if (CheckButton(Full1Center)) {
+        Current_Settings.DisplayPage = 1;
+        delay(100);
+      }
+      if (CheckButton(Full2Center)) {
+        Current_Settings.DisplayPage = -1;
+        delay(100);
+      }
+      if (CheckButton(Full3Center)) {
+        Current_Settings.DisplayPage = 4;
+        delay(100);
+      }
+      if (CheckButton(Full4Center)) {
+        Current_Settings.DisplayPage = -10;
+        delay(100);
+      }
+
+      break;
+  }
+  LastPageselected = page;
+  RunSetup = false;
+}
+
+
+void setFont(int fontinput) {
+  MasterFont = fontinput;
+  gfx->setTextSize(1);
+  switch (fontinput) {  //select font and automatically set height/offset based on character '['
+    // set the heights and offset to print [ in boxes. Heights in pixels are NOT the point heights!
+    case 0:  // SMALL 8pt
+      Fontname = "FreeMono8pt7b";
+      gfx->setFont(&FreeMono8pt7b);
+      text_height = (FreeMono8pt7bGlyphs[0x3D].height) + 1;
+      text_offset = -(FreeMono8pt7bGlyphs[0x3D].yOffset);
+      text_char_width = 12;
+      break;
+    case 1:  // standard 12pt
+      Fontname = "FreeMono12pt7b";
+      gfx->setFont(&FreeMono12pt7b);
+      text_height = (FreeMono12pt7bGlyphs[0x3D].height) + 1;
+      text_offset = -(FreeMono12pt7bGlyphs[0x3D].yOffset);
+      text_char_width = 12;
+
+      break;
+    case 2:  //standard 18pt
+      Fontname = "FreeMono18pt7b";
+      gfx->setFont(&FreeMono18pt7b);
+      text_height = (FreeMono18pt7bGlyphs[0x3D].height) + 1;
+      text_offset = -(FreeMono18pt7bGlyphs[0x3D].yOffset);
+      text_char_width = 12;
+
+      break;
+    case 3:  //BOLD 8pt
+      Fontname = "FreeMonoBOLD8pt7b";
+      gfx->setFont(&FreeMonoBold8pt7b);
+      text_height = (FreeMonoBold8pt7bGlyphs[0x3D].height) + 1;
+      text_offset = -(FreeMonoBold8pt7bGlyphs[0x3D].yOffset);
+      text_char_width = 12;
+
+      break;
+    case 4:  //BOLD 12pt
+      Fontname = "FreeMonoBOLD12pt7b";
+      gfx->setFont(&FreeMonoBold12pt7b);
+      text_height = (FreeMonoBold12pt7bGlyphs[0x3D].height) + 1;
+      text_offset = -(FreeMonoBold12pt7bGlyphs[0x3D].yOffset);
+      text_char_width = 12;
+
+      break;
+    case 5:  //BOLD 18 pt
+      Fontname = "FreeMonoBold18pt7b";
+      gfx->setFont(&FreeMonoBold18pt7b);
+      text_height = (FreeMonoBold18pt7bGlyphs[0x3D].height) + 1;
+      text_offset = -(FreeMonoBold18pt7bGlyphs[0x3D].yOffset);
+      text_char_width = 12;
+      break;
+    case 6:  //BOLD 27 pt
+      Fontname = "FreeMonoBold27pt7b";
+      gfx->setFont(&FreeMonoBold27pt7b);
+      text_height = (FreeMonoBold27pt7bGlyphs[0x3D].height) + 1;
+      text_offset = -(FreeMonoBold27pt7bGlyphs[0x3D].yOffset);
+      text_char_width = 12;
+      break;
+    case 7:  //SANS BOLD 10 pt
+      Fontname = "FreeSansBold10pt7b";
+      gfx->setFont(&FreeSansBold10pt7b);
+      text_height = (FreeSansBold10pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeSansBold10pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
+    case 8:  //SANS BOLD 18 pt
+      Fontname = "FreeSansBold18pt7b";
+      gfx->setFont(&FreeSansBold18pt7b);
+      text_height = (FreeSansBold18pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeSansBold18pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
+    case 9:  //sans BOLD 30 pt
+      Fontname = "FreeSansBold30pt7b";
+      gfx->setFont(&FreeSansBold30pt7b);
+      text_height = (FreeSansBold30pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeSansBold30pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
+    case 10:  //sans BOLD 50 pt
+      Fontname = "FreeSansBold50pt7b";
+      gfx->setFont(&FreeSansBold50pt7b);
+      text_height = (FreeSansBold50pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeSansBold50pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
+
+    default:
+      Fontname = "FreeMono8pt7b";
+      gfx->setFont(&FreeMono8pt7b);
+      text_height = (FreeMono8pt7bGlyphs[0x3D].height) + 1;
+      text_offset = -(FreeMono8pt7bGlyphs[0x3D].yOffset);
+      text_char_width = 12;
+      MasterFont = 0;
+
+      break;
   }
 }
+
 
 void setup() {
-  Serial.begin(BAUD_RATE);
-  StartTFT();
-  EEPROM_READ();  // setup and read saved variables into Saved_Settings
-  //dataline(Saved_Settings, "Saved");
-  //dataline(Default_Settings, "Default");
+  _null = 0;
+  _temp = 0;
+  Serial.begin(115200);
+  Serial.println("Test for NMEA Display ");
+  Serial.println(" IDF will throw errors here as one pin is -1!");
+  ts.begin();
+  ts.setRotation(ROTATION_INVERTED);
+  #ifdef GFX_BL
+  pinMode(GFX_BL, OUTPUT);
+  digitalWrite(GFX_BL, HIGH);
+  #endif
+  // Init Display
+  gfx->begin();
+  //if GFX> 1.3.1 try and do this as the invert colours write 21h or 20h to 0Dh has been lost from the structure!
+  gfx->invertDisplay(false);
+  gfx->fillScreen(BLUE);
+  #ifdef GFX_BL
+  pinMode(GFX_BL, OUTPUT);
+  digitalWrite(GFX_BL, HIGH);
+  #endif
+  gfx->setCursor(0, 50);setFont(0);gfx->setTextColor(WHITE);
+  EEPROM_READ();  // setup and read Saved_Settings (saved variables) 
   Current_Settings = Saved_Settings;
-  if (Current_Settings.EpromKEY != 127) {
-    Current_Settings = Default_Settings;
-    EEPROM_WRITE();
-  }
-  dataline(Current_Settings, "Current");
-
-
-  pinMode(BUTTON1PIN, INPUT);
-  pinMode(BUTTON2PIN, INPUT);
-  attachInterrupt(BUTTON1PIN, toggleButton1, FALLING);
-  attachInterrupt(BUTTON2PIN, toggleButton2, FALLING);
-
-
-  //how to connect ?
-  tft.setCursor(0, 0, 2);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.print(" STARTING CONNECT");
-  Serial.print(" STARTING CONNECT");
-  #ifdef USEWM
-    //*********** use WifiManager ******************
-  // The extra parameters to be configured (can be either global or just in the setup)
-  // After connecting, parameter.getValue() will get you the configured value
-  // id/name placeholder/prompt default length
-  WiFiManagerParameter customUDPport("UDP_Port", "UDP port", "Number", 10);
-  //WiFiManager
-  //Local intialization. Once its business is done, there is no need to keep it around
-  WiFiManager wifiManager;
-  //add all your parameters here
-  wifiManager.addParameter(&customUDPport);
-  connectwithWM();
-  #else 
   connectwithsettings();
-  #endif
 
-  if (WiFi.status() == WL_CONNECTED){    tft.println(" Connected ! ");
-    Serial.println("connected.:)");}
-  tft.setTextColor(TFT_WHITE, TFT_BLUE);
-  tft.fillRect(0, 0, XMAX, 16, TFT_BLUE);
-  tft.setCursor(0, 0, 2);
-  //tft.printf("%s:", Project);
-  tft.print(WiFi.SSID());
-  tft.print(" ");
-  tft.println(WiFi.localIP());
-  Serial.printf(" *Running with:  ssid<%s> psk<%s> \n", WiFi.SSID(), WiFi.psk());
-  strcpy(Current_Settings.ssid, WiFi.SSID().c_str());
-  strcpy(Current_Settings.password, WiFi.psk().c_str());
-  // get any values from WiFi Manager ...
-  strcpy(UDPPORT, customUDPport.getValue());
-  if (atoi(UDPPORT) != 0) {  // Number is the default, so converts to zero only changed if we set a real value in WiFi Manager
-    Serial.printf("Updating UDP Port (%d)  from WiFi Manager?",atoi(UDPPORT));
-    Current_Settings.UDP_PORT = atoi(UDPPORT);  // UPDATE and convert char array to int
-    EEPROM_WRITE();                             //Changed - Update eeprom
-  } else {
-    Serial.println("Keeping stored UDP port");
+  if (WiFi.status() == WL_CONNECTED) {
+    gfx->println(" Connected ! ");
+    Serial.println("connected.: printing data:");
   }
 
-  line_1 = false;
-  WriteLine = 1;
 
-  Udp.begin(Current_Settings.UDP_PORT);
-  Serial.println("Setting ESP-NOW");
-  tft.println("\nStarting ESP_now");
-  if (Start_ESP_EXT()) {
-    Serial.println("   Success to add peer");
-    tft.println("   Success to add peer");
-  } else {
-    Serial.println("   Failed to add peer");
-    tft.println("   Failed to add peer");
-  }
-  if (EspNowIsRunning) {
-    Serial.println("   ESP-NOW Init Success");
-    tft.println("ESP-NOW Init Success");
-  } else {
-    Serial.println("   ESP-NOW Init Failed");
-    tft.println("ESP-NOW Init Failed");
-  }
 
-  Serial.print("   Mac Address: ");
-  Serial.println(WiFi.macAddress());
-  tft.println(WiFi.macAddress());
-  //Show current housekeeping settings
-  dataline(Current_Settings, "SET");
-  // Change colour for  text zone
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  gfx->println(" Using :");
+  gfx->print(WiFi.SSID());
+  gfx->print(" ");
+  gfx->println(WiFi.localIP());
+
+  Serial.print(" *Running with:  ssid<");
+  Serial.print(WiFi.SSID());
+  Serial.print(">  Ip:");
+  Serial.println(WiFi.localIP());
+  //strcpy(Current_Settings.ssid, WiFi.SSID().c_str());  // why??
+  //strcpy(Current_Settings.password, WiFi.psk().c_str());  //why??
+  
+
+  SD_Setup();
+  Audio_setup();
+  keyboard(-1);  //reset keyboard display update settings
+  //ShowToplinesettings("Current");
+  gfx->println(F("***START Screen***"));
+  Udp.begin(atoi(Current_Settings.UDP_PORT));
+  delay(100);    // .1 seconds
+  Display(100);  // trigger default
 }
 
-void ModeFunctions() {
-  #ifdef USEWM
-  wifiManager.process();
-  #endif
-  if ((ButtonPressed != 0) && ModeUpdateFinished) {
-    ModeUpdate(Button_pressed);
-    ButtonPressed = false;
-  };
+void loop() {
+  int unused;
+  //
+  //DisplayCheck(false);
+  //EventTiming("START");
+  ts.read();
+  //TouchSample(TouchData);
+  Display(Current_Settings.DisplayPage);  //EventTiming("STOP");
+  ReadAndUseNMEA();
+  //EventTiming(" loop time touch sample display");
+  //Use_Keyboard(Current_Settings.password,sizeof(Current_Settings.password));
+  audio.loop();   //
+  vTaskDelay(1);  // Audio is distorted without this?? used in https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/plays%20all%20files%20in%20a%20directory/plays_all_files_in_a_directory.ino
+  //.... (audio.isRunning()){   delay(100);gfx->println("Playing Ships bells"); Serial.println("Waiting for bells to finish!");}
 }
 
-void ModeUpdate(uint8_t button) {
-  if (ButtonPressed) {
-    ModeUpdateFinished = false;  // token to prevent multiple calls
-    WriteLine = 0;
-    DrawON_line(1, "Button pressed", 2, TFT_BLUE);
-    Serial.printf(" Mode change <%d>", button);
-    if (button == 3) {
-      // V simple configure to allow both buttons to trigger EEPROM save and  WiFiManager reset
-      Serial.println("Reset EEPROM");
-      DrawON_line(1, "Reset EEprom: Hold for WIFi reset", 2, TFT_BLUE);
-      Current_Settings = Default_Settings;
-      EEPROM_WRITE();
 
-      delay(3000);  // wait before testing pins again reset wifi manager delay hold
-      if ((digitalRead(BUTTON1PIN) == LOW) && (digitalRead(BUTTON2PIN) == LOW)) {
-        DrawON_line(3, "Button Held", 2, TFT_BLUE);
-        delay(1000);
-        DrawON_line(4, "Erasing Config, restarting", 2, TFT_BLUE);
-        delay(1000);
-        wifiManager.resetSettings();
-        ESP.restart();
+void TouchCrosshair(int size) {
+  for (int i = 0; i < (ts.touches); i++) {
+    TouchCrosshair(i, size, WHITE);
+  }
+}
+void TouchCrosshair(int point, int size, uint16_t colour) {
+  gfx->setCursor(ts.points[point].x, ts.points[point].y);
+  gfx->printf("%i", point);
+  gfx->drawFastVLine(ts.points[point].x, ts.points[point].y - size, 2 * size, colour);
+  gfx->drawFastHLine(ts.points[point].x - size, ts.points[point].y, 2 * size, colour);
+}
+
+
+void DisplayCheck(bool invertcheck) {  //used to test colours are as expected
+  static unsigned long timedInterval;
+  static unsigned long updatetiming;
+  static unsigned long LoopTime;
+  static int Color;
+
+  static bool ips;
+  LoopTime = millis() - updatetiming;
+  updatetiming = millis();
+  if (millis() >= timedInterval) {
+    //***** Timed updates *******
+    timedInterval = millis() + 300;
+    //Serial.printf("Loop Timing %ims",LoopTime);
+    setFont(3);
+    ScreenShow(Current_Settings, "Current");
+
+
+    if (invertcheck) {
+      //Serial.println(" Timed display check");
+      Color = Color + 1;
+      if (Color > 5) {
+        Color = 0;
+        ips = !ips;
+        gfx->invertDisplay(ips);
       }
+      gfx->fillRect(300, text_height, 180, text_height * 2, BLACK);
+      gfx->setTextColor(WHITE);
+      if (ips) {
+        Writeat(310, text_height, "INVERTED");
+      } else {
+        Writeat(310, text_height, " Normal ");
+      }
+
+      switch (Color) {
+        //gfx->fillRect(0, 00, 480, 20,BLACK);gfx->setTextColor(WHITE);Writeat(0,0, "WHITE");
+        case 0:
+          gfx->fillRect(300, 60, 180, 60, WHITE);
+          gfx->setTextColor(BLACK);
+          Writeat(310, 62, "WHITE");
+          break;
+        case 1:
+          gfx->fillRect(300, 60, 180, 60, BLACK);
+          ;
+          gfx->setTextColor(WHITE);
+          Writeat(310, 62, "BLACK");
+          break;
+        case 2:
+          gfx->fillRect(300, 60, 180, 60, RED);
+          ;
+          gfx->setTextColor(BLACK);
+          Writeat(310, 62, "RED");
+          break;
+        case 3:
+          gfx->fillRect(300, 60, 180, 60, GREEN);
+          ;
+          gfx->setTextColor(BLACK);
+          Writeat(310, 62, "GREEN");
+          break;
+        case 4:
+          gfx->fillRect(300, 60, 180, 60, BLUE);
+          ;
+          gfx->setTextColor(BLACK);
+          Writeat(310, 62, "BLUE");
+          break;
+      }
+    }
+  }
+}
+
+
+
+
+
+
+//*********** Touch stuff ****************
+
+int swipedir(int sampleA, int sampleB, int range) {
+  int tristate;
+  tristate = 0;
+  if (SwipedFarEnough(sampleA, sampleB, range)) {
+    if ((sampleB - sampleA) > 0) {
+      tristate = 1;
     } else {
-
-      if (button == 1) { Current_Settings.Mode = Current_Settings.Mode + 1; }
-      if (button == 2) { Current_Settings.Mode = Current_Settings.Mode - 1; }
-
-      if (Current_Settings.Mode > 10) { Current_Settings.Mode = 10; }
-      if (Current_Settings.Mode < 0) { Current_Settings.Mode = 0; }
-      //change display
-      //tft.printf("Button %d Pressed! Current_Settings.Mode: %d",button,Current_Settings.Mode);
-      if (Current_Settings.Mode == 0) {
-        Current_Settings.Serial_on = true;
-        Current_Settings.UDP_ON = false;
-        Current_Settings.ESP_NOW_ON = false;
-        Current_Settings.ListTextSize = 2;
-      }
-      if (Current_Settings.Mode == 1) {
-        Current_Settings.Serial_on = true;
-        Current_Settings.UDP_ON = true;
-        Current_Settings.ESP_NOW_ON = false;
-        Current_Settings.ListTextSize = 1;
-      }
-      if (Current_Settings.Mode == 2) {
-        Current_Settings.Serial_on = true;
-        Current_Settings.UDP_ON = false;
-        Current_Settings.ESP_NOW_ON = true;
-        Current_Settings.ListTextSize = 1;
-      }
-      if (Current_Settings.Mode == 3) {
-        Current_Settings.Serial_on = true;
-        Current_Settings.UDP_ON = true;
-        Current_Settings.ESP_NOW_ON = true;
-        Current_Settings.ListTextSize = 1;
-      }
-      if (Current_Settings.Mode == 4) {
-        Current_Settings.Serial_on = true;
-        Current_Settings.UDP_ON = true;
-        Current_Settings.ESP_NOW_ON = false;
-        Current_Settings.ListTextSize = 2;
-      }
-      if (Current_Settings.Mode == 5) {
-        Current_Settings.Serial_on = true;
-        Current_Settings.UDP_ON = false;
-        Current_Settings.ESP_NOW_ON = true;
-        Current_Settings.ListTextSize = 2;
-      }
-      if (Current_Settings.Mode == 6) {
-        Current_Settings.Serial_on = true;
-        Current_Settings.UDP_ON = true;
-        Current_Settings.ESP_NOW_ON = true;
-        Current_Settings.ListTextSize = 2;
-      }
-      if (Current_Settings.Mode == 10) {
-        Current_Settings.Serial_on = true;
-        Current_Settings.UDP_ON = true;
-        Current_Settings.ESP_NOW_ON = true;
-        Current_Settings.ListTextSize = 2;
-      }
-
-      // fill in bottom line of setup
-      dataline(Current_Settings, "ModeUpdate");
-      ButtonPressed = false;
-      EEPROM_WRITE();  // nothing fancy, just save it
-    }                  //end of +- mode changes
-    ModeUpdateFinished = true;
+      tristate = -1;
+    }
   }
+  return tristate;
+}
+
+bool SwipedFarEnough(int sampleA, int sampleB, int range) {  // separated so I can debug!
+  int A = sampleB - sampleA;
+  return (abs(A) >= range);
+}
+
+bool SwipedFarEnough(TouchMemory sampleA, TouchMemory sampleB, int range) {
+  int H, V;
+  H = sampleB.x - sampleA.x;
+  V = sampleB.y - sampleA.y;
+  //Serial.printf(" SFE [ H(%i)  V(%i),  %i ]",abs(sampleB.x - sampleA.x),abs(sampleB.y - sampleA.y),range );
+  return ((abs(H) >= range) || abs(V) >= range);
+}
+
+// bool CheckButton(Button button){
+//   static unsigned long LastDetect;
+//   static bool keynoted;
+//   ///bool XYinBox(int touchx,int touchy, int h,int v,int width,int height){
+//     return (XYinBox(ts.points[0].x, ts.points[0].y,button.h,button.v,button.width,button.height) );
+//   }
+bool CheckButton(Button& button) {  // trigger on release. ?needs index (s) to remember which button!
+  //trigger on release! does not sense !isTouched ..  use Keypressed in each button struct to keep track!
+
+  if (ts.isTouched && !button.Keypressed && (millis() - button.LastDetect >= 250)) {
+    if (XYinBox(ts.points[0].x, ts.points[0].y, button.h, button.v, button.width, button.height)) {
+      //Serial.printf(" Checkbutton size%i state %i %i \n",ts.points[0].size,ts.isTouched,XYinBox(ts.points[0].x, ts.points[0].y,button.h,button.v,button.width,button.height));
+      button.Keypressed = true;
+      button.LastDetect = millis();
+    }
+    return false;
+  }
+  if (button.Keypressed && (millis() - button.LastDetect >= 250)) {
+    //Serial.printf(" Checkbutton released from  %i %i\n",button.h,button.v);
+    button.Keypressed = false;
+    return true;
+  }
+  return false;
+}
+
+
+bool IncrementInRange(int _increment, int& Variable, int Varmin, int Varmax, bool Cycle_Round) {  // use wwith swipedir (-1.0,+1)
+  int _var;
+  //bool altered = true;
+  if (_increment == 0) { return false; }
+  _var = Variable + _increment;
+  if (Cycle_Round) {
+    if (_var >= Varmax + 1) { _var = Varmin; }
+    if (_var <= Varmin - 1) { _var = Varmax; }
+  } else {  // limit at max min
+    if (_var >= Varmax + 1) { _var = Varmax; }
+    if (_var <= Varmin - 1) { _var = Varmin; }
+  }
+  Variable = _var;
+  return true;
+}
+
+bool Swipe2(int& _LRvariable, int LRvarmin, int LRvarmax, bool LRCycle_Round,
+            int& _UDvariable, int UDvarmin, int UDvarmax, bool UDCycle_Round, bool TopScreenOnly) {
+  static TouchMemory Startingpoint, Touch_snapshot;
+  static bool SwipeFound, SwipeStart, MidSwipeSampled;
+  static unsigned long SwipeStartTime, SwipeFoundSent_atTime, timenow, SwipeCleared_atTime;
+  int Hincrement, Vincrement;
+#define minDist_Pixels 30
+#define minSwipe_TestTime_ms 150
+
+  //int Looking_at;  // horizontal/Vertical  0,1
+  bool returnvalue = false;
+  timenow = millis();
+
+  if (SwipeFound && (timenow >= (SwipeFoundSent_atTime + 150))) {  // limits repetitions
+    SwipeFound = false;
+    MidSwipeSampled = false;  // reset so can look for new swipe
+    SwipeStart = false;       //
+    Serial.printf("   Timed reset after 'Found'   flags:[%i] [%i]) \n", SwipeStart, SwipeFound);
+    return false;
+  }
+
+  if (SwipeStart && (timenow >= (SwipeStartTime + 1000))) {  // you have 3 sec from start to swipe. else resets start point.
+    SwipeStart = false;
+    MidSwipeSampled = false;
+    SwipeFound = false;  // no swipe within 1500 of start - reset.
+    Serial.printf("   RESET on Start timing flags [%i] [%i]) \n", SwipeStart, SwipeFound);
+    return false;
+  }
+
+  if (SwipeFound) { return false; }     // stop doing anything if we have Swipe sensed already (will wait for timed reset)
+  if (!ts.isTouched) { return false; }  // is never triggered!
+  //************* ts must be touched to get here....*****************
+  if (TopScreenOnly && (ts.points[0].y >= 180)) { return false; }
+  //Capture Snapshot of touch point: in case in changes during tests
+  //if (timenow <= SwipeCleared_atTime+ 200) {return false;}  // force a gap after a swipe clear. halts function!!
+  if ((timenow - Touch_snapshot.sampletime) <= 20) { return false; }  // 20ms min update
+
+  Touch_snapshot.sampletime = timenow;
+  Touch_snapshot.x = ts.points[0].x;
+  Touch_snapshot.y = ts.points[0].y;
+  Touch_snapshot.size = ts.points[0].size;
+
+  if (!SwipeStart) {  // capture First cross hair after reset ?
+    Startingpoint = Touch_snapshot;
+    // Serial.printf(" Starting at x%i y%i\n", Startingpoint.x, Startingpoint.y);
+    //TouchCrosshair(10, WHITE);
+    SwipeStart = true;
+    SwipeFound = false;
+    MidSwipeSampled = false;
+    SwipeStartTime = timenow;  // so we can reset on time if we do not 'swipe'
+    return false;              // we have the start point, so just return false.
+  }
+  //test
+  //Ignore this first movement- its just to ensure swiping properly. I had sensied this, but its not consistent!
+  if (SwipeStart && !MidSwipeSampled && SwipedFarEnough(Startingpoint, Touch_snapshot, minDist_Pixels)) {
+    Startingpoint = Touch_snapshot;
+    MidSwipeSampled = true;
+    //TouchCrosshair(20, BLUE);
+    return false;
+  }
+  if (SwipeStart && MidSwipeSampled && SwipedFarEnough(Startingpoint, Touch_snapshot, (minDist_Pixels))) {
+    Hincrement = swipedir(Startingpoint.x, Touch_snapshot.x, minDist_Pixels);
+    Vincrement = swipedir(Touch_snapshot.y, Startingpoint.y, minDist_Pixels);
+    // only return true if we increment (change) either of the selected attributes
+    // Tried evaluating seperately at mid point.. but values were NOT consistent Do H and V separately as one may not be consistent!
+    // Serial.printf(" swipe evaluate  start-mid(H%i  V%i)   mid-now(H%i V%i) ",Hincrement[0],Vincrement[0],Hincrement[1],Vincrement[1]);
+    if (IncrementInRange(Hincrement, _LRvariable, LRvarmin, LRvarmax, LRCycle_Round)) { returnvalue = true; }
+    if (IncrementInRange(Vincrement, _UDvariable, UDvarmin, UDvarmax, UDCycle_Round)) { returnvalue = true; }
+
+    SwipeFoundSent_atTime = timenow;
+    SwipeStart = false;
+    MidSwipeSampled = false;
+    SwipeFound = true;  // we have gone far enough to test swipe, so start again..
+                        // if (returnvalue){TouchCrosshair(20, GREEN);} else {TouchCrosshair(20, RED);}
+
+  }  // SWIPEStart recorded, now looking for swipe > min distance (swipeFound)//
+  return returnvalue;
+}
+
+
+void TouchValueShow(int offset, bool debug) {  // offset display down in pixels
+  //ts.read();
+  if (ts.isTouched) {
+    for (int i = 0; i < (ts.touches); i++) {
+      if (debug) {
+        Serial.printf("Touch [%i] X:%i Y:%i size:%i \n", i + 1, ts.points[i].x, ts.points[i].y, ts.points[i].size);
+        GFXBoxPrintf(0, ((i * 10) + offset), "Touch [%i] X:%i Y:%i size:%i ", i + 1, ts.points[i].x, ts.points[i].y, ts.points[i].size);
+      }
+    }
+  }
+}
+
+
+
+//*********** EEPROM functions *********
+void EEPROM_WRITE() {
+  // save my current settings
+  Serial.println("SAVING EEPROM");
+  EEPROM.put(0, Current_Settings);
+  EEPROM.commit();
+  delay(50);
+}
+void EEPROM_READ() {
+  int key;
+  EEPROM.begin(512);
+  Serial.println("READING EEPROM");
+  gfx->println(" EEPROM READING ");
+  EEPROM.get(0, key);
+  if (key == Default_Settings.EpromKEY) {
+    EEPROM.get(0, Saved_Settings);
+    Serial.println("Using EEPROM settings");
+    gfx->println("Using EEPROM settings");
+  } else {
+    Saved_Settings = Default_Settings;
+    gfx->println("Using DEFAULTS");
+    Serial.println("Using DEFAULTS");
+  }
+}
+
+//************** display housekeeping ************
+void ScreenShow(MySettings A, String Text) {
+  long rssiValue = WiFi.RSSI();
+  GFXBoxPrintf(0, 0, 1, "%s: Seron<%s>UDPon<%s> ESPon<%s>", Text, A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off);
+  GFXBoxPrintf(0, text_height, 1, "Wifi:  SSID<%s> PWD<%s> UDPPORT<%s>  rssi<%i> ", A.ssid, A.password, A.UDP_PORT, rssiValue);
 }
 
 void dataline(MySettings A, String Text) {
-  //tft.fillRect(0, TOP_FIXED_AREA, XMAX, YMAX - TOP_FIXED_AREA, TFT_BLACK);
-  tft.fillRect(0, YMAX - TEXT_HEIGHT, XMAX, TEXT_HEIGHT, TFT_BLACK);
-  tft.setCursor(0, yBottom);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.printf("%d, %d SER<%d>", A.EpromKEY, A.Mode, A.Serial_on);
-  tft.setTextColor(TFT_BLUE, TFT_BLACK);
-  tft.printf("UDP<%d><%d> ", A.UDP_PORT, A.UDP_ON);
-  tft.setTextColor(TFT_GREEN, TFT_BLACK);
-  tft.printf("ESP<%d>", A.ESP_NOW_ON);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);  // reset to initial state
-  Serial.printf("%d Dataline display %s: Mode<%d> Ser<%d> UDPPORT<%d> UDP<%d>  ESP<%d> ", A.EpromKEY, Text, A.Mode, A.Serial_on, A.UDP_PORT, A.UDP_ON, A.ESP_NOW_ON);
+  ScreenShow(A, Text);
+  Serial.printf("%d Dataline display %s: Ser<%d> UDPPORT<%d> UDP<%d>  ESP<%d> \n ", A.EpromKEY, Text, A.Serial_on, A.UDP_PORT, A.UDP_ON, A.ESP_NOW_ON);
   Serial.print("SSID <");
   Serial.print(A.ssid);
   Serial.print(">  Password <");
@@ -394,173 +1260,456 @@ boolean CompStruct(MySettings A, MySettings B) {  // does not check ssid and pas
   if (A.UDP_ON == B.UDP_ON) { same = true; }
   if (A.ESP_NOW_ON == B.ESP_NOW_ON) { same = true; }
   if (A.Serial_on == B.Serial_on) { same = true; }
-  if (A.Mode == B.Mode) { same = true; }
-  if (A.ListTextSize == B.ListTextSize) { same = true; }
   return same;
 }
 
-void DrawON_line(int Line, String text, uint8_t font, uint32_t TEXT_Colour) {
-  int32_t ypos = Line * TEXT_HEIGHT;
-  tft.setTextColor(TEXT_Colour, TFT_BLACK);
-  tft.fillRect(0, ypos, XMAX, TEXT_HEIGHT, TFT_BLACK);
-  tft.drawString(text, 0, ypos, font);
+void Writeat(int h, int v, const char* text) {  //Write text at h,v (using fontoffset to use TOP LEFT of text convention)
+  gfx->setCursor(h, v + (text_offset));         // offset up/down for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
+  gfx->print(text);
+}
+// void Writeat(int h, int v, const char* text) {
+//   Writeat(h, v, text);
+// }
+// try out void getTextBounds(const char *string, int16_t x, int16_t y, int16_t *x1, int16_t *y1, uint16_t *w, uint16_t *h);
+void WriteinBox(int h, int v, int size, const char* TEXT, uint16_t TextColor, uint16_t BackColor) {  //Write text in filled box of text height at h,v (using fontoffset to use TOP LEFT of text convention)
+  int width, height;
+
+  gfx->fillRect(h, v, 480, text_height * size, BackColor);
+  gfx->setTextColor(TextColor);
+  gfx->setTextSize(size);
+  Writeat(h, v, TEXT);  // text offset is dealt with in write at
+}
+void WriteinBox(int h, int v, int size, const char* TEXT) {  //Write text in filled box of text height at h,v (using fontoffset to use TOP LEFT of text convention)
+  gfx->fillRect(h, v, 480, text_height * size, WHITE);
+  gfx->setTextColor(BLACK);
+  gfx->setTextSize(size);
+  Writeat(h, v, TEXT);  // text offset is dealt with in write at
 }
 
-void ShowData(bool& Line_Ready, char* buf, uint8_t font, uint32_t TEXT_Colour) {  //&sets pointer so I can modify Line_Ready in this function
-  //if (Line_Ready){
+
+void GFXBoxPrintf(int h, int v, int size, uint16_t TextColor, uint16_t BackColor, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
+  static char msg[300] = { '\0' };                                                                         // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  WriteinBox(h, v, size, msg, TextColor, BackColor);
+}
+
+// void GFXBoxPrintf(int h, int v, const char* fmt, ...) {
+//  GFXBoxPrintf(h, v, 1, fmt);
+// }
+void GFXBoxPrintf(int h, int v, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
+  static char msg[300] = { '\0' };                       // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  WriteinBox(h, v, 1, msg);
+}
+void GFXBoxPrintf(int h, int v, int size, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
+  static char msg[300] = { '\0' };                                 // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  WriteinBox(h, v, size, msg);  // includes font size
+}
+//void GFXBoxPrintf(int h, int v, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
+//  GFXBoxPrintf(h, v,1,fmt);
+//}
+
+
+void GFXPrintf(int h, int v, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
+  static char msg[300] = { '\0' };                    // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  Writeat(h, v, msg);
+}
+
+// more general versions including box width size Box draws border OUTside topleft position by 'bordersize'
+//USED BY GFXBorderBoxPrintf
+void WriteinBorderBox(int h, int v, int width, int height, int textsize, int bordersize,
+                      uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* TEXT) {  //Write text in filled box of text height at h,v (using fontoffset to use TOP LEFT of text convention)
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;
+  gfx->setTextSize(textsize);
+  x = h + bordersize;
+  y = v + bordersize + (text_offset * textsize);             //initial Top Left positioning for print text
+  gfx->getTextBounds(TEXT, x, y, &TBx1, &TBy1, &TBw, &TBh);  // do not forget '& ! Pointer not value!!!
+  //Serial.printf(" Text bounds planned print (x%i y%i)  W:%i H:%i TB_X %i  TB_Y %i \n",x,y, TBw,TBh,TBx1,TBy1);
+  //gfx->fillRect(TBx1 , TBy1 , TBw , TBh , WHITE); delay(100); // visulize what the data is!
+  // move to center is  add (width-2*bordersize-TBw)/2 ?
+  //move vertical is add (height -2*bordersize-TBh)/2
+  gfx->fillRect(h, v, width, height, BorderColor);
+  gfx->fillRect(h + bordersize, v + bordersize, width - (2 * bordersize), height - (2 * bordersize), backgroundcol);
+  gfx->setTextColor(textcol);
+
+  // offset up/down by OFFSET (!) for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
+  x = h + bordersize;
+  y = v + bordersize + (text_offset * textsize);
+  x = x + ((width - TBw - (2 * bordersize)) / 2) / textsize;   //try horizontal centering
+  y = y + ((height - TBh - (2 * bordersize)) / 2) / textsize;  //try vertical centering
+  gfx->setCursor(x, y);
+  gfx->print(TEXT);
+  //reset font ...
+  gfx->setTextSize(1);
+}
+
+//complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
+/* same as struct Button { int h, v, width, height, bordersize;
+uint16_t backcol,textcol,barcol;
+}; but button misses out textsize
+*/
+
+void AddTitleBorderBox(Button button, const char* fmt, ...) {  // add a title to the box
+  int Font_Before;
+  //Serial.println("Font at start is %i",MasterFont);
+  Font_Before = MasterFont;
+  setFont(0);
+  static char Title[300] = { '\0' };
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(Title, 128, fmt, args);
+  va_end(args);
+  int len = strlen(Title);
+  gfx->getTextBounds(Title, button.h, button.v, &TBx1, &TBy1, &TBw, &TBh);
+  gfx->setTextColor(WHITE, button.BorderColor);
+  gfx->setCursor(button.h, button.v);
+  gfx->print(Title);
+  setFont(Font_Before);  //Serial.println("Font selected is %i",MasterFont);
+}
+
+// template <class ... Args>
+// test ideas from  https://stackoverflow.com/questions/36881533/passing-va-list-to-other-functions
+// void GFXBorderBoxPrintf(Button button,const char* fmt, Args ... args){
+// or perhaps void GFXBorderBoxPrintf(Button button,const char* fmt, Args ... args)GFXBorderBoxPrintf(button,1,fmt,__VA_ARGS__)
+//    GFXBorderBoxPrintf(button,1,fmt, args...);}
+// void GFXBorderBoxPrintf(Button button,const char* fmt, ...){
+//   GFXBorderBoxPrintf(button,1,fmt,__VA_ARGS__);}
+
+
+void GFXBorderBoxPrintf(Button button, const char* fmt, ...) {
+  static char msg[300] = { '\0' };  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  WriteinBorderBox(button.h, button.v, button.width, button.height, 1, button.bordersize, button.backcol, button.textcol, button.BorderColor, msg);
+}
+
+void GFXBorderBoxPrintf(Button button, int textsize, const char* fmt, ...) {
+  static char msg[300] = { '\0' };  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  WriteinBorderBox(button.h, button.v, button.width, button.height, textsize, button.bordersize, button.backcol, button.textcol, button.BorderColor, msg);
+}
+void GFXBorderBoxPrintf(int h, int v, int width, int height, int textsize, int bordersize,
+                        uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
+  static char msg[300] = { '\0' };                                                                               // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  WriteinBorderBox(h, v, width, height, textsize, bordersize, backgroundcol, textcol, BorderColor, msg);
+}
+void UpdateCentered(Button button, const char* fmt, ...) {  // Centers text in space
+  UpdateCentered(button.h, button.v, button.width, button.height, 1,
+                 button.bordersize, button.backcol, button.textcol, button.BorderColor, fmt);
+}
+void UpdateCentered(int h, int v, int width, int height, int textsize,
+                    int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
+  static char msg[300] = { '\0' };
+  // calculate new offsets to just center on original box - minimum redraw of blank
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;
+  gfx->setTextSize(textsize);  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  gfx->getTextBounds(msg, h, v, &TBx1, &TBy1, &TBw, &TBh);  // do not forget '& ! Pointer not value!!!
+  x = h + bordersize;
+  y = v + bordersize + (text_offset * textsize);
+  x = x + ((width - TBw - (2 * bordersize)) / 2) / textsize;                                                          //try horizontal centering
+  y = y + ((height - TBh - (2 * bordersize)) / 2) / textsize;                                                         //try vertical centering
+  gfx->fillRect(h + bordersize, v + bordersize, width - (2 * bordersize), height - (2 * bordersize), backgroundcol);  // full inner rectangle blanking
+  gfx->setTextColor(textcol);
+  gfx->setCursor(x, y);
+  gfx->print(msg);
+  gfx->setTextSize(1);
+}
+void UpdateLines(Button button, const char* fmt, ...) {  // Types sequential lines in the button space
+  static int Printline;
+  int LinesOfType, characters;
+  int16_t x, y;
+  char limitedWidth[80];
+  int typingspaceH, typingspaceW;
+  typingspaceH = button.height - 2 * button.bordersize;
+  typingspaceW = button.width - 2 * button.bordersize;
+  LinesOfType = typingspaceH / (text_height + 2);
+  static char msg[300] = { '\0' };
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  //   strncpy(limitedWidth,msg,40);
+  //   //xy for printing of max 40 characters relative to top left Need to update to include text width?
+  x = button.h + button.bordersize;
+  y = button.v + button.bordersize + (text_offset);
+  gfx->setCursor(x, y + (Printline * (text_height + 2)));
+  //   gfx->fillRect(x,y+((Printline-1)*(text_height+2))-1,typingspaceW,(text_height+4),button.backcol);
+  gfx->println(msg);
+  Printline = Printline + 1;
+  if (len >= 40) { Printline = Printline + 1; }
+  if (Printline >= (LinesOfType)) {
+    Printline = 1;
+    gfx->fillRect(x, y - (text_offset), typingspaceW, typingspaceH, WHITE);
+  }
+}
+
+
+
+//********* Send Advice function - useful for messages can be switched on/off here for debugging
+void sendAdvice(String message) {  // just a general purpose advice send that makes sure it sends at 115200
+
+  Serial.print(message);
+}
+void sendAdvicef(const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
+  static char msg[300] = { '\0' };        // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  // add checksum?
+  int len = strlen(msg);
+  sendAdvice(msg);
+  delay(10);  // let it send!
+}
+
+//************ TIMING FUNCTIONS FOR TESTING PURPOSES ONLY ******************
+//Note this is also an example of how useful Function overloading can be!!
+void EventTiming(String input) {
+  EventTiming(input, 1);  // 1 should be ignored as this is start or stop! but will also give immediate print!
+}
+
+void EventTiming(String input, int number) {  // Event timing, Usage START, STOP , 'Descrption text'   Number waits for the Nth call before serial.printing results (Description text + results).
+  static unsigned long Start_time;
+  static unsigned long timedInterval;
+  static unsigned long _MaxInterval;
+  static unsigned long SUMTotal;
+  static int calls = 0;
+  static int reads = 0;
+  long NOW = micros();
+  if (input == "START") {
+    Start_time = NOW;
+    return;
+  }
+  if (input == "STOP") {
+    timedInterval = NOW - Start_time;
+    SUMTotal = SUMTotal + timedInterval;
+    if (timedInterval >= _MaxInterval) { _MaxInterval = timedInterval; }
+    reads++;
+    return;
+  }
+  calls++;
+  if (calls < number) { return; }
+  if (reads >= 2) {
+
+    if (calls >= 2) {
+      Serial.print("\r\n TIMING ");
+      Serial.print(input);
+      Serial.print(" Using (");
+      Serial.print(reads);
+      Serial.print(") Samples");
+      Serial.print(" last: ");
+      Serial.print(timedInterval);
+      Serial.print("us Average : ");
+      Serial.print(SUMTotal / reads);
+      Serial.print("us  Max : ");
+      Serial.print(_MaxInterval);
+      Serial.println("uS");
+    } else {
+      Serial.print("\r\n TIMED ");
+      Serial.print(input);
+      Serial.print(" was :");
+      Serial.print(timedInterval);
+      Serial.println("uS");
+    }
+    _MaxInterval = 0;
+    SUMTotal = 0;
+    reads = 0;
+    calls = 0;
+  }
+}
+
+
+//SD and image functions  include #include "JpegFunc.h"
+static int jpegDrawCallback(JPEGDRAW* pDraw) {
+  // Serial.printf("Draw pos = %d,%d. size = %d x %d\n", pDraw->x, pDraw->y, pDraw->iWidth, pDraw->iHeight);
+  gfx->draw16bitBeRGBBitmap(pDraw->x, pDraw->y, pDraw->pPixels, pDraw->iWidth, pDraw->iHeight);
+  return 1;
+}
+
+
+void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
+  Serial.printf("Listing directory: %s\n", dirname);
+  gfx->printf("Listing directory: %s\n", dirname);
+  File root = fs.open(dirname);
+  if (!root) {
+    Serial.println("Failed to open directory");
+    return;
+  }
+  if (!root.isDirectory()) {
+    Serial.println("Not a directory");
+    return;
+  }
+
+  File file = root.openNextFile();
+  while (file) {
+    if (file.isDirectory()) {
+      Serial.print("  DIR : ");
+      Serial.println(file.name());
+      gfx->print("  DIR : ");
+      gfx->println(file.name());
+      if (levels) {
+        listDir(fs, file.path(), levels - 1);
+      }
+    } else {
+      Serial.print("  FILE: ");
+      Serial.print(file.name());
+      gfx->print("  FILE : ");
+      gfx->println(file.name());
+      Serial.print("  SIZE: ");
+      Serial.println(file.size());
+    }
+    file = root.openNextFile();
+  }
+}
+
+void SD_Setup() {
+
+  SPI.begin(SD_SCK, SD_MISO, SD_MOSI);
+  if (!SD.begin(SD_CS)) {
+    Serial.println("Card Mount Failed");
+    return;
+  } else {
+    unsigned long start = millis();
+    jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
+             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+    Serial.printf("Time used: %lums\n", millis() - start);
+  }
+  uint8_t cardType = SD.cardType();
+
+  if (cardType == CARD_NONE) {
+    Serial.println("No SD card attached");
+    return;
+  }
+
+  Serial.print("SD Card Type: ");
+  if (cardType == CARD_MMC) {
+    Serial.println("MMC");
+  } else if (cardType == CARD_SD) {
+    Serial.println("SDSC");
+  } else if (cardType == CARD_SDHC) {
+    Serial.println("SDHC");
+  } else {
+    Serial.println("UNKNOWN");
+  }
+
+  // uint64_t cardSize = SD.cardSize() / (1024 * 1024);
+  // Serial.printf("SD Card Size: %lluMB\n", cardSize);
+  // Serial.println("*** SD card contents  (to three levels) ***");
+
+  //listDir(SD, "/", 3);
+}
+
+//*****   AUDIO ....
+
+
+void Audio_setup() {
+  Serial.println("Audio setup ");
+  audio.setPinout(I2S_BCLK, I2S_LRCK, I2S_DOUT);
+  audio.setVolume(15);  // 0...21
+  if (audio.connecttoFS(SD, AUDIO_FILENAME_START)) {
+    gfx->setCursor(10, 100);
+    delay(200);
+    if (audio.isRunning()) { gfx->println("Playing Ships bells"); }
+    while (audio.isRunning()) {
+      audio.loop();
+      vTaskDelay(1);
+    }
+  } else {
+    gfx->setCursor(10, 100);
+    gfx->print(" Failed  audio setup ");
+    Serial.println("Audio setup FAILED");
+  };
+  gfx->println("Exiting Setup");
+  // audio.connecttoFS(SD, AUDIO_FILENAME_02); // would start some music -- not needed !
+}
+
+void UseNMEA(bool& Line_Ready, char* buf) {  //&sets pointer so I can modify Line_Ready in this function
+                                             //if (Line_Ready){
   if (buf[0] != 0) {
-    WriteLine = WriteLine + 1;
-    if (WriteLine * font > (NumberoftextLines * 2)) { WriteLine = 1; }
-    int32_t ypos = 8 + (WriteLine * font * (TEXT_HEIGHT / 2));
-    Line_Ready = false;
-    tft.setTextColor(TEXT_Colour, TFT_BLACK);
-    tft.fillRect(0, ypos, XMAX, font * (TEXT_HEIGHT / 2), TFT_BLACK);
-    tft.drawString(buf, 0, ypos, font);
-    Line_Ready = false;
-    if (TEXT_Colour == TFT_GREEN) {
-      Serial.printf("esp_now :%s", buf);
-      buf[0] = 0;
-      return;
-    }
-    if (TEXT_Colour == TFT_BLUE) {
-      Serial.printf("UDP     :%s", buf);
-      buf[0] = 0;
-      return;
-    }
-    if (TEXT_Colour == TFT_WHITE) {
-      Serial.printf("Serial  :%s", buf);
-      buf[0] = 0;
-      return;
-    }
+   
+    //     if (TEXT_Colour == TFT_BLUE) {
+    /*void UpdateCentered(int h, int v, int width, int height, int textsize, 
+int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
+
+  */
+    if (Current_Settings.DisplayPage == -1) { UpdateLines(Terminal, "UDP:%s", buf); }
+    //for now just print serial version.
+    //Serial.printf("* got UDP:<%s> \n", buf);
+    pTOKEN = nmea_U;
+    processPacket(buf,  BoatData);
+    buf[0] = 0; //clear buf 
+    return;
+    //     }
+    //     if (TEXT_Colour == TFT_WHITE) {
+    //       Serial.printf("Serial  :%s", buf);
+    //       buf[0] = 0;
+    //       return;
+    //     }
+  }
+}
+void connectwithsettings() {
+  uint32_t StartTime = millis();
+  gfx->println(" Using EEPROM settings");
+  WiFi.setHostname("NMEA_Display");
+  WiFi.mode(WIFI_AP_STA);
+  gfx->println(" Starting WiFi");
+  WiFi.begin(Current_Settings.ssid, Current_Settings.password);
+  while ((WiFi.status() != WL_CONNECTED) && (millis() <= StartTime + 10000)) {  //Give it 10 seconds
+    delay(500);
+    gfx->print(".");
   }
 }
 
-
-void TestInputsOutputs() {
-  if (Current_Settings.ESP_NOW_ON) { ShowData(line_EXT, nmea_EXT, Current_Settings.ListTextSize, TFT_GREEN); }
-  if (Current_Settings.Serial_on) {
-    Test_Serial_1();
-    ShowData(line_1, nmea_1, Current_Settings.ListTextSize, TFT_WHITE);
-  }
+void ReadAndUseNMEA() {
+  // if (Current_Settings.ESP_NOW_ON) { UseNMEA(line_EXT, nmea_EXT, Current_Settings.ListTextSize, TFT_GREEN); }
+  // if (Current_Settings.Serial_on) {
+  //   Test_Serial_1();
+  //   UseNMEA(line_1, nmea_1, Current_Settings.ListTextSize, TFT_WHITE);
+  // }
   if (Current_Settings.UDP_ON) {
     Test_U();
-    ShowData(line_U, nmea_U, Current_Settings.ListTextSize, TFT_BLUE);
-  }
-}
-
-void loop(void) {
-  //ESPEssentials::handle();
-  //EventTiming("START");
-  EXTHeartbeat();
-  TestInputsOutputs();
-  ModeFunctions();
-}
-
-
-//****  ESP-Now functions
-// void Start_ESP_EXT() {  // start espnow and run Test_EspNOW() when data is seen
-//   Serial.println("Setting ESP-NOW");
-//   tft.println("\nStarting ESP_now");
-//   memcpy(peerInfo.peer_addr, peerAddress, 6);
-//   peerInfo.encrypt = false;
-//   peerInfo.channel = 0;  // why the comment?
-//   if (esp_now_init() == ESP_OK) {
-//     EspNowIsRunning = true;
-//     Serial.println("   ESP-NOW Init Success");
-//     tft.println("ESP-NOW Init Success");
-//   } else {
-//     EspNowIsRunning = false;
-//     Serial.println("   ESP-NOW Init Failed");
-//     tft.println("ESP-NOW Init Failed");
-//   }
-//   esp_now_register_recv_cb(Test_EspNOW);
-//   if (esp_now_add_peer(&peerInfo) == ESP_OK) {
-//     Serial.println("   Success to add peer");
-//     tft.println("   Success to add peer");
-//   } else {
-//     Serial.println("   Failed to add peer");
-//     tft.println("   Failed to add peer");
-//   }
-//   Serial.print("   Mac Address: ");
-//   Serial.println(WiFi.macAddress());
-//   tft.println(WiFi.macAddress());
-//   delay(2000);  // allow time to read it!
-//   Serial.flush();
-// }
-// //EXT send functions "esp_now"
-// void Test_EspNOW(const uint8_t* mac, const uint8_t* incomingData, int len) {
-//   EspNowIsRunning = true;
-//   //if (!line_EXT) { // wait until previous capture has been processed?
-//   memcpy(&nmea_EXT, incomingData, sizeof(nmea_EXT));
-//   //Serial.printf( "esp_now INTERRUPT :%s",nmea_EXT);
-//   line_EXT = true;  //}
-// }
-// void testHeartbeat() {
-//   static unsigned long lastMessageSent;
-//   if (!EspNowIsRunning) { return; }
-//   if (millis()>=lastMessageSent+1000) {  // 1 sec.
-//     lastMessageSent = millis();               // but we also update Last_EXT_Sent in the EXT send..
-//      Serial.printf("TEST: esp_sending? running(%s) ch%d \r\n", EspNowIsRunning ? "ON" : "OFF", WiFi.channel());  // or other prints of status!
-//     EXTSENDf("_%s_:ch%d_\r\n", Project, WiFi.channel());  // BUT We must send with a \r\n!!
-//   }
-// }
-// void EXTSEND(const char* buf) {  // same format as TCP send etc..  83 size for NMEA 250 max for ESP-NOW link  NOT BIG ENOUGH FOR SOME RAW!!
-//   if (!EspNowIsRunning) { return; }
-//   char myData[248];                       // max size of esp_now_send messages
-//   strcpy(myData, buf);                    // to avoid overflowing in this function..?
-//   strcat(myData, "\r\n");                 // Adding CRLF wass eqivalent of Println.. and we now "print" everywhere
-//   if (strlen(myData) >= 247) { return; }  // // sendAdvice("Message too big for ESP_EXT link");}but test before going further!
-//   if (strlen(myData) <= 5) { return; }    // should never be less than 5 !! Just to try to catch extra CRLF's ?
-//   // sendAdvicef(" esp-now Sending: (%s) Wifich<%i>  peer_ch<%i> ", myData, WiFi.channel(), peerInfo.channel);
-//   //sendAdvicef(" esp-now Sending: (length %i) Wifich<%i>  peer_ch<%i> ", strlen(myData), WiFi.channel(), peerInfo.channel);
-//   Last_EXT_Sent = millis();
-//   esp_err_t result = esp_now_send(peerInfo.peer_addr, (uint8_t*)&myData, sizeof(myData));
-//   //if (result == ESP_OK) {sendAdvicef(" esp-now Sent %i in msg max [%i] long",strlen(myData), sizeof(myData));}
-//   // if (result != ESP_OK) {EspNowIsRunning=false;}   // but then we need something in Loop to re-establish the link ??
-// }
-
-// void EXTSENDf(const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
-//   if (!EspNowIsRunning) { return; }
-//   static char msg[300] = { '\0' };  // used in message buildup
-//   va_list args;
-//   va_start(args, fmt);
-//   vsnprintf(msg, 128, fmt, args);
-//   va_end(args);
-//   // add checksum?
-//   int len = strlen(msg);
-//   EXTSEND(msg);
-// }
-
-
-void Test_Serial_1() {  // UART0 port P1
-  static bool LineReading_1 = false;
-  static int Skip_1 = 1;
-  static int i_1;
-  byte b;
-  if (!line_1) {                  // ONLY get characters if we are NOT still processing the last message!
-    while (Serial.available()) {  // get the character
-      b = Serial.read();
-      if (LineReading_1 == false) {
-        nmea_1[0] = b;
-        i_1 = 1;
-        LineReading_1 = true;
-      }  // Place first character of line in buffer location [0]
-      else {
-        nmea_1[i_1] = b;
-        i_1 = i_1 + 1;
-        if (b == 0x0A) {       //0A is LF
-          nmea_1[i_1] = 0x00;  // put end in buffer.
-          LineReading_1 = false;
-          line_1 = true;
-          return;
-        }
-        if (i_1 > 150) {
-          LineReading_1 = false;
-          i_1 = 0;
-          return;
-        }
-      }
-    }
+    UseNMEA(line_U, nmea_U);
+    line_U = false;
   }
 }
 
@@ -577,85 +1726,37 @@ void Test_U() {  // check if udp packet  has arrived
       int len = Udp.read(nmea_U, BufferLength);
       byte b = nmea_U[0];
       nmea_U[len] = 0;
+     // nmea_UpacketSize = packetSize;
+      //Serial.print(nmea_U);
       line_U = true;
     }  // udp PACKET DEALT WITH
   }
 }
-// void ScanForSSID(char* look_for, int ScanChannel) {  // defined as separate function for debug webpage to avoid any conflicts with the ScanandConnect..
-//   int n = WiFi.scanNetworks(false, false, false, 50, ScanChannel, nullptr, nullptr);
-//   String st = "&nbsp &nbsp &nbsp Scanning WiFi Ch(" + String(ScanChannel) + ")  Found ";
-//   if (ScanChannel == WiFi.channel()) { st = st + ":<b>(ME)</b>(" + String(ssidAP) + ") +"; }
-//   if (n != 0) {
-//     for (int i = 0; i < n; ++i) {
-//       st = st + " : " + String(WiFi.SSID(i)) + " (Strength :" + String(WiFi.RSSI(i)) + ")  ";
-//     }
-//   } else {
-//     st = st + ": NONE";
-//   }
-//   st = st + "<br>";
-//   webserver.sendContent(st);
-// }
-
-// void ScanAndConnect(char* look_for, int ScanChannel) {
-//   ScanChannelFound = 0;
-//   unsigned long Updated = millis();
-//   int n = WiFi.scanNetworks(false, false, false, 50, ScanChannel, nullptr, nullptr);
-//   for (int i = 0; i < n; ++i) {
-//     if (String(look_for) == String(WiFi.SSID(i))) {
-//       ScanChannelFound = WiFi.channel(i);
-//       //WiFi.begin(ssidST,passST, ScanChannelFound);
-//       if ( String(passST) == "NULL" ) { WiFi.begin(ssidST, NULL, ScanChannelFound); }
-//       else { WiFi.begin(ssidST, passST, ScanChannelFound); }
-//     }
-//   }
-//   // if (ScanChannel != 0) { return ; }     // only repports the full scan
-//   if (OutOfSetup) { SetSerialFor_115200(); }
-//   if(ScanChannelFound) { Serial.printf("   FOUND <%s> Ch<%d> in %ums\r\n", String(look_for), ScanChannelFound, (millis() - Updated)); }
-//   else { Serial.printf("   not found <%s> Ch<%d> in %ums\r\n", String(look_for), ScanChannel, (millis() - Updated)); }
-//   if (OutOfSetup) { SetSerialFor_DefaultBaud(); }
-// }
-//************ TIMING FUNCTIONS FOR TESTING PURPOSES ONLY ******************
-//Note this is also an example of how useful Function overloading can be!!
-// void EventTiming(String input ){
-//   EventTiming(input,1); // 1 should be ignored as this is start or stop! but will also give immediate print!
-// }
-
-// void EventTiming(String input, int number){// Event timing, Usage START, STOP , 'Descrption text'   Number waits for the Nth call before serial.printing results (Description text + results).
-//   static unsigned long Start_time;
-//   static unsigned long timedInterval;
-//   static unsigned long _MaxInterval;
-//   static unsigned long SUMTotal;
-//   static int calls = 0;  static int reads = 0;
-//   long NOW=micros();
-//   if (input == "START") { Start_time = NOW; return ;}
-//   if (input == "STOP") {timedInterval= NOW- Start_time; SUMTotal=SUMTotal+timedInterval;
-//                        if (timedInterval >= _MaxInterval){_MaxInterval=timedInterval;}
-//                        reads++;
-//                        return; }
-//   calls++;
-//   if (calls < number){return;}
-//   if (reads>=2){
-//     //if (OutOfSetup) { SetSerialFor_115200();}
-//     if (calls >= 2) {Serial.print("\r\n TIMING ");Serial.print(input); Serial.print(" Using ("); Serial.print(reads);Serial.print(") Samples");
-//         Serial.print(" last: ");Serial.print(timedInterval);
-//         Serial.print("us Average : ");Serial.print(SUMTotal/reads);
-//         Serial.print("us  Max : ");Serial.print(_MaxInterval);Serial.println("uS");}
-//     else {Serial.print("\r\n TIMED ");Serial.print(input); Serial.print(" was :");Serial.print(timedInterval);Serial.println("uS");}
-//     _MaxInterval=0;SUMTotal=0;reads=0; calls=0;
-//     //if (OutOfSetup) { SetSerialFor_DefaultBaud(); }
-//   }
-// }
-void EEPROM_WRITE() {
-  // save my current settings
-  //dataline(Current_Settings, "EEPROM_save");
-  Serial.println("SAVING EEPROM");
-  EEPROM.put(0, Current_Settings);
-  EEPROM.commit();
-  delay(50);
+IPAddress Get_UDP_IP(IPAddress ip, IPAddress mk) {
+  uint16_t ip_h = ((ip[0] << 8) | ip[1]);  // high 2 bytes
+  uint16_t ip_l = ((ip[2] << 8) | ip[3]);  // low 2 bytes
+  uint16_t mk_h = ((mk[0] << 8) | mk[1]);  // high 2 bytes
+  uint16_t mk_l = ((mk[2] << 8) | mk[3]);  // low 2 bytes
+  // reverse the mask
+  mk_h = ~mk_h;
+  mk_l = ~mk_l;
+  // bitwise OR the net IP with the reversed mask
+  ip_h = ip_h | mk_h;
+  ip_l = ip_l | mk_l;
+  // ip to return the result
+  ip[0] = highByte(ip_h);
+  ip[1] = lowByte(ip_h);
+  ip[2] = highByte(ip_l);
+  ip[3] = lowByte(ip_l);
+  return ip;
 }
-void EEPROM_READ() {
-  EEPROM.begin(512);
-  Serial.println("READING EEPROM");
-  EEPROM.get(0, Saved_Settings);
-  //dataline(Saved_Settings, "EEPROM_Read");
+
+void UDPSEND(const char* buf) {  // this is the one that saves repetitious code!
+    Udp.beginPacket(udp_st, atoi(Current_Settings.UDP_PORT));  //if connected and 'AP and STA' else use alternate udp_AP?
+    Udp.print(buf);
+    Udp.endPacket();
+
+  // Udp.beginPacket(udp_ap, udpport);
+  // Udp.print(buf);
+  // Udp.endPacket();
 }
