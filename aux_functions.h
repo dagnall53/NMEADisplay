@@ -8,6 +8,6 @@
 // String int2string(int number);
 // String readStoredData( char* filename);
 // String updateStoredData(char* filename, int newValue);
-bool processPacket(const char* buf,  tBoatData &stringBD);
+bool processPacket(const char* buf,  tBoatData &stringBD , sBoatData &OwnBoat);
 
 #endif

@@ -29,7 +29,7 @@ int KBD_size = 2;  //generic size modifier for Kbd 1=small, 2=480 wide
 
 extern int text_height;  //so we can get them if we change heights etc inside functions
 extern void WriteinBox(int h, int v, int size, const char* TEXT);
-extern void EEPROM_WRITE();
+extern void EEPROM_WRITE(MySettings A);
 extern void setFont(int);
 
 extern TAMC_GT911 ts;
@@ -99,7 +99,7 @@ void Use_Keyboard(char* DATA, int sizeof_data) {
       strncpy(DATA, Local_var, sizeof_data);  // limit_size so we cannot overwrite the original array size
       Command_Key = true;
       VariableChanged = false;
-      EEPROM_WRITE;
+      EEPROM_WRITE(Current_Settings);
       Keyboardinuse=false;
       setFont(0);
       Current_Settings.DisplayPage=-1; //Always return to settings, page -1

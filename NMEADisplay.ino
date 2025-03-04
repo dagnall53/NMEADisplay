@@ -9,12 +9,12 @@ From scratch build!
 //******  Wifi stuff
 #include <WiFi.h>
 #include <WiFiUdp.h>
-IPAddress udp_ap(0, 0, 0, 0);               // the IP address to send UDP data in SoftAP mode
-IPAddress udp_st(0, 0, 0, 0);               // the IP address to send UDP data in Station mode
-IPAddress sta_ip(0, 0, 0, 0);               // the IP address (or received from DHCP if 0.0.0.0) in Station mode
-IPAddress gateway(0, 0, 0, 0);              // the IP address for Gateway in Station mode
-IPAddress subnet(0, 0, 0, 0);               // the SubNet Mask in Station mode
-boolean IsConnected = false;  // used when MAIN_MODE == AP_AND_STA to flag connection success (got IP)
+IPAddress udp_ap(0, 0, 0, 0);   // the IP address to send UDP data in SoftAP mode
+IPAddress udp_st(0, 0, 0, 0);   // the IP address to send UDP data in Station mode
+IPAddress sta_ip(0, 0, 0, 0);   // the IP address (or received from DHCP if 0.0.0.0) in Station mode
+IPAddress gateway(0, 0, 0, 0);  // the IP address for Gateway in Station mode
+IPAddress subnet(0, 0, 0, 0);   // the SubNet Mask in Station mode
+boolean IsConnected = false;    // used when MAIN_MODE == AP_AND_STA to flag connection success (got IP)
 WiFiUDP Udp;
 #define BufferLength 500
 bool line_1;
@@ -28,7 +28,7 @@ bool line_EXT;
 char nmea_EXT[500];
 bool EspNowIsRunning = false;
 
-char* pTOKEN; 
+char* pTOKEN;
 
 
 #include <Arduino_GFX_Library.h>
@@ -48,7 +48,7 @@ char* pTOKEN;
 #define AUDIO_FILENAME_01 "/HotelCalifornia.mp3"
 #define AUDIO_FILENAME_02 "/SoundofSilence.mp3"
 #define AUDIO_FILENAME_03 "/MoonlightBay.mp3"
-#define AUDIO_FILENAME_START "/ship-bell.mp3"
+#define AUDIO_FILENAME_START "/StartSound.mp3"
 //*********** for keyboard*************
 #include "Keyboard.h"
 #include "Touch.h"
@@ -83,7 +83,9 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //set up Audio
 Audio audio;
 
-tBoatData BoatData;  // BoatData values, int double etc
+tBoatData BoatData;                // BoatData values, int double etc
+sBoatData OwnBoat = { "MyBoat" };  // other variables remain unset
+
 
 // change key (first parameter) to set defaults
 MySettings Default_Settings = { 6, 0, "GUESTBOAT", "12345678", "2002", true, true, true };
@@ -151,12 +153,12 @@ Button Switch4 = { 345, 180, 100, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
 Button Spare = { 30, 170, 420, 35, 5, WHITE, BLACK, BLUE };     // was ,false};
 Button Terminal = { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };  // was ,false};
 //for selections
-Button Full0Center = { 80, 35, 320, 30, 5, BLUE, WHITE, BLACK };   // ,false,0};
-Button Full1Center = { 80, 80, 320, 75, 5, BLUE, WHITE, BLACK };   // was ,false};;
-Button Full2Center = { 80, 160, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
-Button Full3Center = { 80, 240, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
-Button Full4Center = { 80, 320, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
-Button Full5Center = { 80, 400, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full0Center = { 80, 35, 320, 75, 5, BLUE, WHITE, BLACK };   // ,false,0};
+Button Full1Center = { 80, 125, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full2Center = { 80, 205, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full3Center = { 80, 285, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full4Center = { 80, 365, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full5Center = { 80, 445, 320, 30, 5, BLUE, WHITE, BLACK };  // was ,false};;
 
 #define On_Off ? "ON" : "OFF"  // if 1 first case else second (0 or off)
 
@@ -166,10 +168,12 @@ Button Full5Center = { 80, 400, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false
 void DrawCompass(int x, int y, int rad) {
   //Work in progress!
   int Start, dot, colorbar, bigtick;
+  // gfx->drawRect(x-rad,y-rad,rad*2,rad*2,BLACK);gfx->drawCircle(x,y,rad,WHITE);gfx->drawCircle(x,y,rad-1,Blue);gfx->drawCircle(x,y,Start,Blue);
   Start = rad * 0.83;     //200
   dot = rad * 0.86;       //208
   colorbar = rad * 0.91;  //220
   bigtick = rad - 1;      //239
+  gfx->fillRect(x-rad,y-rad,rad*2,rad*2,BLACK);gfx->fillCircle(x,y,rad,WHITE);gfx->fillCircle(x,y,rad-1,BLUE);gfx->fillCircle(x,y,Start,BLACK);
                           //rad =240 example dot is 200 to 208   bar is 200 to 239 wind colours 200 to 220
                           // colour segments
   gfx->fillArc(x, y, colorbar, Start, 270 - 45, 270, RED);
@@ -216,7 +220,7 @@ void drawCompassPointer(int x, int y, int rad, int angle, uint16_t COLOUR, bool 
 
 void WindArrow(int x, int y, int rad, int wind, bool to) {
   static int lastwind;
-  drawCompassPointer(x, y, rad, lastwind, BLUE, to);
+  drawCompassPointer(x, y, rad, lastwind, BLACK, to);
   drawCompassPointer(x, y, rad, wind, RED, to);
   lastwind = wind;
 }
@@ -343,7 +347,6 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         Serial.println("LEFT");
         GFXBoxPrintf(80, 0, 2, WHITE, BLUE, " LEFT   %i\n", volume);
         audio.setVolume(volume);
-        delay(300);
       }
       if (CheckButton(TopRightbutton)) {
         volume = volume - 1;
@@ -351,13 +354,9 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         Serial.println("RIGHT");
         GFXBoxPrintf(80, 0, 2, WHITE, BLUE, " RIGHT  %i\n", volume);
         audio.setVolume(volume);
-        delay(300);
       }
       if (!audio.isRunning()) { audio.connecttoFS(SD, AUDIO_FILENAME_02); }
-      if (CheckButton(Full0Center)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
 
       break;
     case -10:  // a test page for fonts
@@ -392,26 +391,11 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         // if((2*text_height)<180){GFXBorderBoxPrintf(0,160,480,(2*text_height)+10,2,5,BLUE,WHITE,BLACK, "two X %4.2f",temp); }
         //  if((3*text_height)<180){GFXBorderBoxPrintf(0,265,480,(3*text_height)+10,3,5,BLUE,WHITE,BLACK, "%4.2f",temp);  }
       }
-      if (CheckButton(Full0Center)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(TopLeftbutton)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(TopRightbutton)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(TopLeftbutton)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(TopRightbutton)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 0; }
       break;
 
 
@@ -424,14 +408,8 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       }
 
       Use_Keyboard(Current_Settings.UDP_PORT, sizeof(Current_Settings.UDP_PORT));
-      if (CheckButton(TopLeftbutton)) {
-        Current_Settings.DisplayPage = -1;
-        delay(300);
-      }
-      if (CheckButton(Full0Center)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
+      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = -1; }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
       break;
 
 
@@ -444,14 +422,8 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       }
 
       Use_Keyboard(Current_Settings.password, sizeof(Current_Settings.password));
-      if (CheckButton(TopLeftbutton)) {
-        Current_Settings.DisplayPage = -1;
-        delay(300);
-      }
-      if (CheckButton(Full0Center)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
+      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = -1; }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
       break;
 
     case -2:
@@ -462,14 +434,8 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       }
 
       Use_Keyboard(Current_Settings.ssid, sizeof(Current_Settings.ssid));
-      if (CheckButton(Full0Center)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(TopLeftbutton)) {
-        Current_Settings.DisplayPage = -1;
-        delay(300);
-      }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = -1; }
       break;
 
     case -1:  // this is the main WIFI settings page
@@ -517,30 +483,12 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(PASSWORD)) { Current_Settings.DisplayPage = -3; };
       if (CheckButton(UDPPORT)) { Current_Settings.DisplayPage = -4; };
       //if (CheckButton(TopRightbutton)){Current_Settings.DisplayPage=Current_Settings.DisplayPage+1;delay(300);}
-      if (CheckButton(Full0Center)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(Full0Center)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(TopLeftbutton)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(TopRightbutton)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(BottomRightbutton)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(BottomLeftbutton)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(BottomRightbutton)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(BottomLeftbutton)) { Current_Settings.DisplayPage = 0; }
 
 
 
@@ -566,26 +514,11 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         ShowToplinesettings("Current");
         //ShowToplinesettings("Current");
       }
-      if (CheckButton(Full0Center)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(Full1Center)) {
-        Current_Settings.DisplayPage = 1;
-        delay(100);
-      }
-      if (CheckButton(Full2Center)) {
-        Current_Settings.DisplayPage = -1;
-        delay(100);
-      }
-      if (CheckButton(Full3Center)) {
-        Current_Settings.DisplayPage = 4;
-        delay(100);
-      }
-      if (CheckButton(Full4Center)) {
-        Current_Settings.DisplayPage = -10;
-        delay(100);
-      }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(Full1Center)) { Current_Settings.DisplayPage = 1; }
+      if (CheckButton(Full2Center)) { Current_Settings.DisplayPage = -1; }
+      if (CheckButton(Full3Center)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(Full4Center)) { Current_Settings.DisplayPage = -10; }
       if (CheckButton(Full5Center)) { ESP.restart(); }
 
       break;
@@ -604,34 +537,25 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         listDir(SD, "/", 0);
         DataChanged = false;
       }
-
+      
       if (!audio.isRunning()) { audio.connecttoFS(SD, AUDIO_FILENAME_02); }
 
-      if (CheckButton(Full0Center)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(TopLeftbutton)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(TopRightbutton)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 0; }
       if (CheckButton(BottomRightbutton)) {
         volume = volume + 1;
         if (volume > 21) { volume = 21; };
         audio.setVolume(volume);
-        Serial.printf("Right %i and ", volume);
-        Serial.println(volume);
+        //Serial.printf("Right %i and ", volume);
+        //Serial.println(volume);
         DataChanged = true;
       }
       if (CheckButton(BottomLeftbutton)) {
         volume = volume - 1;
         if (volume < 1) { volume = 0; };
-        Serial.printf("LEFT %i  and ", volume);
-        Serial.println(volume);
+       // Serial.printf("LEFT %i  and ", volume);
+        //Serial.println(volume);
         audio.setVolume(volume);
         DataChanged = true;
       }
@@ -657,18 +581,9 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         setFont(0);
       }
 
-      if (CheckButton(Full0Center)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(TopLeftbutton)) {
-        Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1;
-        delay(300);
-      }
-      if (CheckButton(TopRightbutton)) {
-        Current_Settings.DisplayPage = Current_Settings.DisplayPage + 1;
-        delay(300);
-      }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1; }
+      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = Current_Settings.DisplayPage + 1; }
 
 
       break;
@@ -679,28 +594,14 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
-        WindArrow(240, 240, 240, wind, false);
-        wind = wind + 13;
-        if (wind > 360) {
-          wind = 0;
-          WindpointToBoat = !WindpointToBoat;
-        }
+        WindArrow(240, 240, 240, BoatData.WindDirectionT, false);
         //Box in middle for wind dir / speed
         //int h, int v, int width, int height, int textsize, int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
-        GFXBorderBoxPrintf(240 - 70, 240 - 40, 140, 80, 2, 5, BLUE, BLACK, BLACK, "%3.0f", wind);
+        GFXBorderBoxPrintf(240 - 70, 240 - 40, 140, 80, 2, 5, BLUE, BLACK, BLACK, "%2.0fkts", BoatData.WindSpeedK);
       }
-      if (CheckButton(Full0Center)) {
-        Current_Settings.DisplayPage = 0;
-        delay(100);
-      }
-      if (CheckButton(TopLeftbutton)) {
-        Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1;
-        delay(300);
-      }
-      if (CheckButton(TopRightbutton)) {
-        Current_Settings.DisplayPage = 4;
-        delay(300);
-      }  //loop to page 1
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1; }
+      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 4; }  //loop to page 1
 
 
       break;
@@ -709,40 +610,25 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         setFont(5);
         //GFXBoxPrintf(0,480-(text_height*2),  1,BLACK,BLUE, "quad display");
         DrawCompass(360, 120, 120);
-        GFXBorderBoxPrintf(0, 0, 235, 235, 1, 5, BLUE, BLACK, BLACK, "SPEED", wind / 24);
-        GFXBorderBoxPrintf(0, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "DEPTH", wind / 3);
+        GFXBorderBoxPrintf(0, 0, 235, 235, 1, 5, BLUE, BLACK, BLACK, "SPEED");
+        GFXBorderBoxPrintf(0, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "DEPTH");
         //GFXBorderBoxPrintf(240,0, 235,235, 1,5,BLUE,BLACK,BLACK, "c%3.2F",wind*1.1);
-        GFXBorderBoxPrintf(240, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "SOG", wind / 11);
+        GFXBorderBoxPrintf(240, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "SOG");
         delay(500);
       }
       if (millis() > slowdown + 300) {
         slowdown = millis();
-        wind = wind + 13;
-        if (wind > 360) {
-          wind = 0;
-          WindpointToBoat = !WindpointToBoat;
-        }  // sikmulate 4 boxes
-
-        WindArrow(360, 120, 120, wind, false);
-        if (CheckButton(Full0Center)) {
-          Current_Settings.DisplayPage = 0;
-          delay(100);
-        }
-        UpdateCentered(0, 0, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%4.2fKts", wind / 24);
-        UpdateCentered(0, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%4.0fm", BoatData.WaterDepth);
+        WindArrow(360, 120, 120, BoatData.WindDirectionT, false);
+        UpdateCentered(0, 0, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%4.2fkts", BoatData.STW);
+        UpdateCentered(0, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%4.1fm", BoatData.WaterDepth);  // add units?
         //UpdateCentered(240,0, 235,235, 1,5,BLUE,BLACK,BLACK, "c%3.2F",wind*1.1);
-        UpdateCentered(240, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%3.1Fkts", wind / 13);
+        UpdateCentered(240, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%3.1Fkts", BoatData.SOG);
       }
 
       //        TouchCrosshair(20);
-      if (CheckButton(TopLeftbutton)) {
-        Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1;
-        delay(300);
-      }
-      if (CheckButton(TopRightbutton)) {
-        Current_Settings.DisplayPage = 1;
-        delay(300);
-      }  //loop to page 1
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1; }
+      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 1; }  //loop to page 1
 
 
       break;
@@ -763,22 +649,11 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (millis() > slowdown + 1000) {
         slowdown = millis();
       }
-      if (CheckButton(Full1Center)) {
-        Current_Settings.DisplayPage = 1;
-        delay(100);
-      }
-      if (CheckButton(Full2Center)) {
-        Current_Settings.DisplayPage = -1;
-        delay(100);
-      }
-      if (CheckButton(Full3Center)) {
-        Current_Settings.DisplayPage = 4;
-        delay(100);
-      }
-      if (CheckButton(Full4Center)) {
-        Current_Settings.DisplayPage = -10;
-        delay(100);
-      }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(Full1Center)) { Current_Settings.DisplayPage = 1; }
+      if (CheckButton(Full2Center)) { Current_Settings.DisplayPage = -1; }
+      if (CheckButton(Full3Center)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(Full4Center)) { Current_Settings.DisplayPage = -10; }
 
       break;
   }
@@ -895,27 +770,29 @@ void setup() {
   Serial.println(" IDF will throw errors here as one pin is -1!");
   ts.begin();
   ts.setRotation(ROTATION_INVERTED);
-  #ifdef GFX_BL
+#ifdef GFX_BL
   pinMode(GFX_BL, OUTPUT);
   digitalWrite(GFX_BL, HIGH);
-  #endif
+#endif
   // Init Display
   gfx->begin();
   //if GFX> 1.3.1 try and do this as the invert colours write 21h or 20h to 0Dh has been lost from the structure!
   gfx->invertDisplay(false);
   gfx->fillScreen(BLUE);
-  #ifdef GFX_BL
+#ifdef GFX_BL
   pinMode(GFX_BL, OUTPUT);
   digitalWrite(GFX_BL, HIGH);
-  #endif
-  gfx->setCursor(0, 50);setFont(0);gfx->setTextColor(WHITE);
-  EEPROM_READ();  // setup and read Saved_Settings (saved variables) 
+#endif
+  gfx->setCursor(0, 50);
+  setFont(0);
+  gfx->setTextColor(WHITE);
+  EEPROM_READ();  // setup and read Saved_Settings (saved variables)
   Current_Settings = Saved_Settings;
   connectwithsettings();
 
   if (WiFi.status() == WL_CONNECTED) {
     gfx->println(" Connected ! ");
-    Serial.println("connected.: printing data:");
+    Serial.print("** Connected.: ");
   }
 
 
@@ -931,7 +808,7 @@ void setup() {
   Serial.println(WiFi.localIP());
   //strcpy(Current_Settings.ssid, WiFi.SSID().c_str());  // why??
   //strcpy(Current_Settings.password, WiFi.psk().c_str());  //why??
-  
+
 
   SD_Setup();
   Audio_setup();
@@ -941,22 +818,30 @@ void setup() {
   Udp.begin(atoi(Current_Settings.UDP_PORT));
   delay(100);    // .1 seconds
   Display(100);  // trigger default
+  // while(1){ // trying to avoid RTOS
+  // ts.read();
+  // Display(Current_Settings.DisplayPage);  //EventTiming("STOP");
+  // ReadAndUseNMEA();
+  // audio.loop();   //
+  // vTaskDelay(1);
+  // }
+
+
 }
 
-void loop() {
-  int unused;
-  //
+void loop() { 
+  yield();
+   //
   //DisplayCheck(false);
   //EventTiming("START");
+  delay(1);
   ts.read();
-  //TouchSample(TouchData);
   Display(Current_Settings.DisplayPage);  //EventTiming("STOP");
-  ReadAndUseNMEA();
+  ReadAndUseNMEA(); 
+  audio.loop();
   //EventTiming(" loop time touch sample display");
-  //Use_Keyboard(Current_Settings.password,sizeof(Current_Settings.password));
-  audio.loop();   //
-  vTaskDelay(1);  // Audio is distorted without this?? used in https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/plays%20all%20files%20in%20a%20directory/plays_all_files_in_a_directory.ino
-  //.... (audio.isRunning()){   delay(100);gfx->println("Playing Ships bells"); Serial.println("Waiting for bells to finish!");}
+  //vTaskDelay(1);  // Audio is distorted without this?? used in https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/plays%20all%20files%20in%20a%20directory/plays_all_files_in_a_directory.ino
+  // //.... (audio.isRunning()){   delay(100);gfx->println("Playing Ships bells"); Serial.println("Waiting for bells to finish!");}
 }
 
 
@@ -1212,10 +1097,11 @@ void TouchValueShow(int offset, bool debug) {  // offset display down in pixels
 
 
 //*********** EEPROM functions *********
-void EEPROM_WRITE() {
+void EEPROM_WRITE(MySettings A) {
   // save my current settings
-  Serial.println("SAVING EEPROM");
-  EEPROM.put(0, Current_Settings);
+  Serial.printf("SAVING EEPROM key:%i \n",A.EpromKEY);
+  EEPROM.put(1,A.EpromKEY);// separate and duplicated so it can be checked by itsself first in case structures change
+  EEPROM.put(10, A);
   EEPROM.commit();
   delay(50);
 }
@@ -1224,16 +1110,19 @@ void EEPROM_READ() {
   EEPROM.begin(512);
   Serial.println("READING EEPROM");
   gfx->println(" EEPROM READING ");
-  EEPROM.get(0, key);
+  EEPROM.get(1, key);
+  Serial.printf(" read %i  default %i \n",key,Default_Settings.EpromKEY);
   if (key == Default_Settings.EpromKEY) {
-    EEPROM.get(0, Saved_Settings);
+    EEPROM.get(10, Saved_Settings);
     Serial.println("Using EEPROM settings");
     gfx->println("Using EEPROM settings");
   } else {
     Saved_Settings = Default_Settings;
     gfx->println("Using DEFAULTS");
     Serial.println("Using DEFAULTS");
+    EEPROM_WRITE(Default_Settings);
   }
+
 }
 
 //************** display housekeeping ************
@@ -1643,7 +1532,7 @@ void SD_Setup() {
 
 
 void Audio_setup() {
-  Serial.println("Audio setup ");
+  Serial.println("Audio setup ");delay(200);
   audio.setPinout(I2S_BCLK, I2S_LRCK, I2S_DOUT);
   audio.setVolume(15);  // 0...21
   if (audio.connecttoFS(SD, AUDIO_FILENAME_START)) {
@@ -1659,14 +1548,14 @@ void Audio_setup() {
     gfx->print(" Failed  audio setup ");
     Serial.println("Audio setup FAILED");
   };
-  gfx->println("Exiting Setup");
-  // audio.connecttoFS(SD, AUDIO_FILENAME_02); // would start some music -- not needed !
+ // gfx->println("Exiting Setup");
+ // audio.connecttoFS(SD, AUDIO_FILENAME_02); // would start some music -- not needed !
 }
 
 void UseNMEA(bool& Line_Ready, char* buf) {  //&sets pointer so I can modify Line_Ready in this function
                                              //if (Line_Ready){
   if (buf[0] != 0) {
-   
+
     //     if (TEXT_Colour == TFT_BLUE) {
     /*void UpdateCentered(int h, int v, int width, int height, int textsize, 
 int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
@@ -1675,9 +1564,10 @@ int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, 
     if (Current_Settings.DisplayPage == -1) { UpdateLines(Terminal, "UDP:%s", buf); }
     //for now just print serial version.
     //Serial.printf("* got UDP:<%s> \n", buf);
-    pTOKEN = nmea_U;
-    processPacket(buf,  BoatData);
-    buf[0] = 0; //clear buf 
+    pTOKEN = buf;  // pToken will be used in processPacket to separate out the Data Fields
+    if (processPacket(buf, BoatData, OwnBoat)){Serial.println("Data updated");};  // and then do page updates if true ?
+    Serial.println("after Processpacket"); 
+    buf[0] = 0;  //clear buf
     return;
     //     }
     //     if (TEXT_Colour == TFT_WHITE) {
@@ -1713,24 +1603,24 @@ void ReadAndUseNMEA() {
   }
 }
 
-void Test_U() {  // check if udp packet  has arrived
+void Test_U() {  // check if udp packet (UDP is sent in lines..) has arrived
   static int Skip_U = 1;
-  if (!line_U) {  // only process if we have dealt with the last line.
+ // if (!line_U) {  // only process if we have dealt with the last line.
     nmea_U[0] = 0x00;
     int packetSize = Udp.parsePacket();
     if (packetSize) {  // Deal with UDP packet
-      if (packetSize >= (BufferLength + 4)) {
+      if (packetSize >= (BufferLength)) {
         Udp.flush();
         return;
       }  // Simply discard if too long
       int len = Udp.read(nmea_U, BufferLength);
       byte b = nmea_U[0];
       nmea_U[len] = 0;
-     // nmea_UpacketSize = packetSize;
+      // nmea_UpacketSize = packetSize;
       //Serial.print(nmea_U);
       line_U = true;
     }  // udp PACKET DEALT WITH
-  }
+ // }
 }
 IPAddress Get_UDP_IP(IPAddress ip, IPAddress mk) {
   uint16_t ip_h = ((ip[0] << 8) | ip[1]);  // high 2 bytes
@@ -1751,10 +1641,10 @@ IPAddress Get_UDP_IP(IPAddress ip, IPAddress mk) {
   return ip;
 }
 
-void UDPSEND(const char* buf) {  // this is the one that saves repetitious code!
-    Udp.beginPacket(udp_st, atoi(Current_Settings.UDP_PORT));  //if connected and 'AP and STA' else use alternate udp_AP?
-    Udp.print(buf);
-    Udp.endPacket();
+void UDPSEND(const char* buf) {                              // this is the one that saves repetitious code!
+  Udp.beginPacket(udp_st, atoi(Current_Settings.UDP_PORT));  //if connected and 'AP and STA' else use alternate udp_AP?
+  Udp.print(buf);
+  Udp.endPacket();
 
   // Udp.beginPacket(udp_ap, udpport);
   // Udp.print(buf);

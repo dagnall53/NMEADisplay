@@ -6,6 +6,8 @@ Project to use a CHEAP 4" square ESP32 Lcd module to display wirelessly availabl
 Using some concepts from AndreasSzep WiFi, https://github.com/AndrasSzep/NMEA0183-WiFi
 But mainly results of tests I did with https://github.com/dagnall53/Cheap_ESP32_4-display
 
+I have tried to avoid use of "Strings" as used in the original Keyboard and Andreas Szep concepts, and modified the codes to use only strings as char arrays. 
+
 My "Cheap_ESP32" tests included tests of alternate fonts and demonstrated how to access Jpeg and Audio mp3 files from the SD card. - Mainly just to see what was possible. 
 This NMEA display will start with these elements retained, but I will probably aim to make them compile defines.
 
