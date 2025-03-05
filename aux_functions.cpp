@@ -4,6 +4,21 @@ but highly modified!
 */
 #include <Arduino.h>     //necessary for the String variables
 #include "Structures.h"  // to tell it about the boat data structs.
+                         // for the TL NMEA0183 library functions
+#include <NMEA0183.h>
+#include <NMEA0183Msg.h>
+#include <NMEA0183Messages.h>
+
+// double NMEA0183GetDouble(const char *data) {  // have to copy this as its local to NMEA0183Messagesmessages.cpp!
+//   double val=NMEA0183DoubleNA;
+//   if ( data==0 ) return val;
+//   for ( ;*data==' ';data++); // Pass spaces
+//   if ( *data!=0 && *data!=',' ) { // not empty field
+//     val=atof(data);
+//   }
+//   return val;
+// }
+extern double NMEA0183GetDouble(const char *data);// have to do this as its local to NMEA0183Messagesmessages.cpp!
 
 extern char *pTOKEN;  // const ?global? pointer of type char, used to get the fields in a nmea sentence
                       // when a new sentence is processed we advance this pointer n positions
@@ -12,7 +27,6 @@ extern char *pTOKEN;  // const ?global? pointer of type char, used to get the fi
 
 char Field[20][18];  // for the extracted NMEA fields
 
-#define MAX_NMEA0183_MSG_BUF_LEN 4096
 #define MAX_NMEA_FIELDS 64
 char nmeaLine[MAX_NMEA0183_MSG_BUF_LEN];  //NMEA0183 message buffer
 size_t i = 0, j = 1;                      //indexers
@@ -92,7 +106,16 @@ bool NeedleinHaystack(char ch1, char ch2, char ch3, char *haystack, int &compare
   return false;
 }
 
-bool processPacket(const char *buf, tBoatData &BoatData, sBoatData &OwnBoatString) {  // reads char array buf and places (updates) data if found in stringND
+void prinfFields() {
+  // Serial.println(" Fields:");
+  // for (int x = 0; x <= Num_DataFields; x++) {
+  //   Serial.print(Field[x]);
+  //   Serial.print(",");
+  // }
+  // Serial.println("> ");
+}
+
+bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array buf and places (updates) data if found in stringND
   char *p;
   int Index;
   int Num_Conversions = 0;
@@ -110,7 +133,7 @@ bool processPacket(const char *buf, tBoatData &BoatData, sBoatData &OwnBoatStrin
   char nmeafunct[] = "NUL,DBT,MWV,VHW,RMC,APB,DPT,GGA,HDG,HDM,MTW,MWD,NOP,XS,,AK,,ALK,BWC,WPL, ";  // more can be added to
   // Not using Field[0] as some commands have only two characters. so we can look for (eg) 'XS,' from $IIXS,
   if (NeedleinHaystack(buf[3], buf[4], buf[5], nmeafunct, Index) == false) { return false; }
-  Serial.printf(" Using case %i", Index / 4);
+  Serial.printf(" Using case %i \n", Index / 4);
   // Serial.println(" Fields:");for(int x=0 ;int <Num_DataFields;int++){Serial.print(Field[x]);Serial.print(",");} Serial.println("> ");
   switch (Index / 4) {
     case 1:  //dbt
@@ -128,32 +151,26 @@ bool processPacket(const char *buf, tBoatData &BoatData, sBoatData &OwnBoatStrin
       return true;
       break;
     case 4:  //RMC
-     // Serial.printf("\n Failing in RMC ? numdatafields<%i>  ", Num_DataFields);
-      if (Num_DataFields != 13) { return false; } 
-      return true; //
-      // Serial.println(" Fields:");
-      // for (int x = 0; x <= Num_DataFields; x++) {
-      //   Serial.print(Field[x]);
-      //   Serial.print(",");
-      // }
-      // Serial.println("> ");
-      BoatData.SOG = atof(Field[7]);
-      BoatData.COG = atof(Field[8]);
-      BoatData.Latitude = atof(Field[3]);   //  Temporary until I can fix!  + Field[4];
-      BoatData.Longitude = atof(Field[5]);  // + Field[6];
-      // Serial.println("after Here?");
-      OwnBoatString.Latitude[0] = '0';
-      strcat(OwnBoatString.Latitude, Field[3]);
-      strcat(OwnBoatString.Latitude, Field[4]);
-      OwnBoatString.Longitude[0] = '0';
-      strcat(OwnBoatString.Longitude, Field[5]);
-      strcat(OwnBoatString.Longitude, Field[6]);
-      OwnBoatString.UTC[0] = '0';
-      strcat(OwnBoatString.UTC, Field[1]);
-      // Serial.print("no. passed RMC! \n");
-      return true;
+             // Serial.printf("\n Failing in RMC ? numdatafields<%i>  ", Num_DataFields);
+   //   if (Num_DataFields < 10) { return false; }
+  Serial.println("RMC Fields<");
+  for (int x = 0; x <= Num_DataFields; x++) {
+    Serial.printf("%i=<%s>,",x,Field[x]);
+  }
+  Serial.println(" ");
+
+      BoatData.SOG = atof(Field[7]);   //  was just atof( now use TL function NMEA0183GetDouble to cover some error cases and return NMEA0183DoubleNA if N/A
+      BoatData.COG = atof(Field[8]);    // atof sets nmea0183nan (-10million.. so may need extra stuff to prevent silly displays!)
+
+      BoatData.Latitude = LatLonToDouble(Field[3], Field[4][0]);  // using TL's functions
+      BoatData.Longitude = LatLonToDouble(Field[5], Field[6][0]); //nb we use +1 on his numbering that omits the command
+          Serial.println(BoatData.GPSTime); Serial.println(BoatData.Latitude);  Serial.println(BoatData.Longitude);  Serial.println(BoatData.SOG);
+    
+      BoatData.GPSTime = NMEA0183GPTimeToSeconds(Field[1]);
+ 
+      return true;  //
       break;
-      
+
     case 9:  //HDM
       BoatData.MagHeading = atof(Field[1]);
       return true;
@@ -168,7 +185,7 @@ bool processPacket(const char *buf, tBoatData &BoatData, sBoatData &OwnBoatStrin
 
   return false;
 }
-// chararrayToDouble -- get char*, check it is not null then atof to the double. Use to make a safer atof(). 
+// chararrayToDouble -- get char*, check it is not null then atof to the double. Use to make a safer atof().
 
 // These are the original conversions
 //depth = BoatData.WaterDepth;

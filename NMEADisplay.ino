@@ -4,7 +4,10 @@ From scratch build!
  for keyboard  trying to use elements of https://github.com/fbiego/esp32-touch-keyboard/tree/main
 */
 // * Start of Arduino_GFX setting
-
+// get TL NMEA0183 library stuff for when / if its needed
+#include <NMEA0183.h>
+#include <NMEA0183Msg.h>
+#include <NMEA0183Messages.h>
 
 //******  Wifi stuff
 #include <WiFi.h>
@@ -84,8 +87,9 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 Audio audio;
 
 tBoatData BoatData;                // BoatData values, int double etc
-sBoatData OwnBoat = { "MyBoat" };  // other variables remain unset
 
+
+bool dataUpdated;                   // flag that Nmea Data has been updated
 
 // change key (first parameter) to set defaults
 MySettings Default_Settings = { 6, 0, "GUESTBOAT", "12345678", "2002", true, true, true };
@@ -137,6 +141,8 @@ int text_char_width = 12;  // useful for monotype? only NOT USED YET! Try gfx->g
 
 
 //colour order  background, text, border
+// int h, v, width, height, bordersize;
+//  uint16_t backcol, textcol, BorderColor;
 Button TopLeftbutton = { 0, 0, 75, 75, 5, BLUE, WHITE, BLACK };          //false,0};
 Button TopRightbutton = { 405, 0, 75, 75, 5, BLUE, WHITE, BLACK };       //,false,0};
 Button BottomRightbutton = { 405, 405, 75, 75, 5, BLUE, WHITE, BLACK };  //,false,0};
@@ -159,6 +165,12 @@ Button Full2Center = { 80, 205, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false
 Button Full3Center = { 80, 285, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
 Button Full4Center = { 80, 365, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
 Button Full5Center = { 80, 445, 320, 30, 5, BLUE, WHITE, BLACK };  // was ,false};;
+
+// for the quarter screens
+Button topLeftquarter = { 0, 0, 235, 235, 5, BLUE,WHITE, BLACK};
+Button bottomLeftquarter = {0, 240, 235, 235, 5, BLUE,WHITE, BLACK};
+Button topRightquarter = {240,0, 235,235, 5, BLUE,WHITE, BLACK};
+Button bottomRightquarter = {240, 240, 235, 235, 5,BLUE,WHITE, BLACK};
 
 #define On_Off ? "ON" : "OFF"  // if 1 first case else second (0 or off)
 
@@ -335,8 +347,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (millis() >= slowdown + 10000) {
         slowdown = millis();
         gfx->fillScreen(BLUE);  // clean up redraw buttons
-                                // GFXBorderBoxPrintf(TopLeftbutton,1,"LEFT");
-                                // GFXBorderBoxPrintf(TopRightbutton,1,"RIGHT");
+              
       }
       if (ts.isTouched) {
         TouchCrosshair(20);
@@ -385,11 +396,10 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         setFont(fontlocal);
         Fontname.toCharArray(Tempchar, 30, 0);
         setFont(3);
-        GFXBorderBoxPrintf(0, 0, 480, 75, 1, 5, BLUE, WHITE, BLACK, "FONT:%i name%s", fontlocal, Tempchar);
+        GFXBorderBoxPrintf(0, 0, 480, 75,  5, BLUE, WHITE, BLACK, "FONT:%i name%s", fontlocal, Tempchar);
         setFont(fontlocal);
-        GFXBorderBoxPrintf(0, 150, 480, 330, 1, 5, BLUE, WHITE, BLUE, "Test %4.2f height<%i>", temp, text_height);
-        // if((2*text_height)<180){GFXBorderBoxPrintf(0,160,480,(2*text_height)+10,2,5,BLUE,WHITE,BLACK, "two X %4.2f",temp); }
-        //  if((3*text_height)<180){GFXBorderBoxPrintf(0,265,480,(3*text_height)+10,3,5,BLUE,WHITE,BLACK, "%4.2f",temp);  }
+        GFXBorderBoxPrintf(0, 150, 480, 330, 5, BLUE, WHITE, BLUE, "Test %4.2f height<%i>", temp, text_height);
+       
       }
       if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
       if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = 0; }
@@ -455,7 +465,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         AddTitleBorderBox(Switch2, "UDP");
         GFXBorderBoxPrintf(Switch3, Current_Settings.ESP_NOW_ON On_Off);
         AddTitleBorderBox(Switch3, "ESP-Now");
-        GFXBorderBoxPrintf(Switch4, "SW4");
+        GFXBorderBoxPrintf(Switch4, "NMEA disp");
         GFXBorderBoxPrintf(Terminal, " Terminal text here");
         setFont(0);
         DataChanged = false;
@@ -464,7 +474,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (millis() > slowdown + 1000) {
         slowdown = millis();
 
-        //print recieved data in terminal here
+        //print recieved data in terminal here - or in useNMEA()
       }
       //runsetup to repopulate the text in the boxes!
       if (CheckButton(Switch1)) {
@@ -478,6 +488,9 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(Switch3)) {
         Current_Settings.ESP_NOW_ON = !Current_Settings.ESP_NOW_ON;
         DataChanged = true;
+      };
+      if (CheckButton(Switch4)) {
+        Current_Settings.DisplayPage = 4;;
       };
       if (CheckButton(SSID)) { Current_Settings.DisplayPage = -2; };
       if (CheckButton(PASSWORD)) { Current_Settings.DisplayPage = -3; };
@@ -507,11 +520,11 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         GFXBorderBoxPrintf(Full2Center, "Settings  WIFI etc");
         GFXBorderBoxPrintf(Full3Center, "See NMEA");
         GFXBorderBoxPrintf(Full4Center, "Check Fonts");
-        GFXBorderBoxPrintf(Full5Center, "Reset");
+        GFXBorderBoxPrintf(Full5Center, "Save / Reset to Quad NMEA");
       }
-      if (millis() > slowdown + 1000) {
+      if (millis() > slowdown + 500) {
         slowdown = millis();
-        ShowToplinesettings("Current");
+       // ShowToplinesettings("Current");
         //ShowToplinesettings("Current");
       }
       if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
@@ -519,7 +532,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(Full2Center)) { Current_Settings.DisplayPage = -1; }
       if (CheckButton(Full3Center)) { Current_Settings.DisplayPage = 4; }
       if (CheckButton(Full4Center)) { Current_Settings.DisplayPage = -10; }
-      if (CheckButton(Full5Center)) { ESP.restart(); }
+      if (CheckButton(Full5Center)) { Current_Settings.DisplayPage = 4;EEPROM_WRITE(Current_Settings); delay(50);ESP.restart(); }
 
       break;
     case 1:
@@ -563,33 +576,53 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
       break;
 
-    case 2:
+   
+ 
+    case 4:  // Quad display
       if (RunSetup) {
-        //GFXBoxPrintf(0,480-(text_height*2),  2, "PAGE 2 -SPEED");
-        GFXBorderBoxPrintf(20, 100, 440, 360, 1, 5, BLUE, BLACK, BLACK, "%3.0f", SOG);
+        setFont(5);
+        //GFXBoxPrintf(0,480-(text_height*2),  1,BLACK,BLUE, "quad display");
+        gfx->fillScreen(BLACK);
+        DrawCompass(360, 120, 120);
+        GFXBorderBoxPrintf(topLeftquarter, "STW");
+        AddTitleBorderBox(topLeftquarter,"STW");
+        // AddTitleBorderBox(topLeftquarter, "SPEED");
+        GFXBorderBoxPrintf(bottomLeftquarter, "DEPTH");
+        AddTitleBorderBox(bottomLeftquarter, "DEPTH");
+        // AddTitleBorderBox(bottomLeftquarter, "DEPTH");
+        //GFXBorderBoxPrintf(topRightquarter  "c%3.2F",wind*1.1);
+        GFXBorderBoxPrintf(bottomRightquarter, "SOG");
+        AddTitleBorderBox(bottomRightquarter,"SOG");
+        //AddTitleBorderBox(bottomRightquarter, "SOG");
+        
+        delay(500);
       }
-      if (millis() > slowdown + 200) {
-        //gfx->fillScreen(BLUE);
+      if (millis() > slowdown + 300) {
         slowdown = millis();
-        ShowToplinesettings("Current");
-        SOG = SOG + 1;
-        if (SOG > 360) { SOG = 0; }
-        temp = SOG / 10.0;
-
-        setFont(10);
-        UpdateCentered(20, 100, 440, 360, 1, 5, BLUE, BLACK, BLACK, "%3.1fKts", temp);
-        setFont(0);
+        WindArrow(360, 120, 120, BoatData.WindDirectionT, false);
+       UpdateCentered(topLeftquarter, "%4.2fkts", BoatData.STW);
+       UpdateCentered(bottomLeftquarter, "%4.1fm", BoatData.WaterDepth);  // add units?
+        //UpdateCentered(topRightquarter  "c%3.2F",wind*1.1);
+       UpdateCentered(bottomRightquarter, "%3.2FKts", BoatData.SOG);
       }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; } // first so it has priority! 
+      if (CheckButton(Full1Center)) { Current_Settings.DisplayPage = 0; } //easier to hit two 
+      //        TouchCrosshair(20); quarters select big screens
+      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 6; }
+      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 7; }
+      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 5; }
+      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 8; }
 
-      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1; }
-      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = Current_Settings.DisplayPage + 1; }
+ 
+      // if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1; }
+      // if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 1; }  //loop to page 1
 
 
       break;
-    case 3:
+
+      case 5:      // wind instrument
       if (RunSetup) {
-        setFont(4);
+        setFont(6);
         DrawCompass(240, 240, 240);
       }
       if (millis() > slowdown + 500) {
@@ -597,39 +630,104 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         WindArrow(240, 240, 240, BoatData.WindDirectionT, false);
         //Box in middle for wind dir / speed
         //int h, int v, int width, int height, int textsize, int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
-        GFXBorderBoxPrintf(240 - 70, 240 - 40, 140, 80, 2, 5, BLUE, BLACK, BLACK, "%2.0fkts", BoatData.WindSpeedK);
+        GFXBorderBoxPrintf(240 - 70, 240 - 40, 140, 80, 5, BLACK, WHITE, BLACK, "%2.0fkts", BoatData.WindSpeedK);
       }
-      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1; }
-      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 4; }  //loop to page 1
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 4; }
+            //        TouchCrosshair(20); quarters select big screens
+      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 6; }
+      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 7; }
+      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 8; }
+
+      // if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1; }
+      // if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 4; }  //loop to page 1
 
 
       break;
-    case 4:  // Quad display
+      case 6:
       if (RunSetup) {
-        setFont(5);
-        //GFXBoxPrintf(0,480-(text_height*2),  1,BLACK,BLUE, "quad display");
-        DrawCompass(360, 120, 120);
-        GFXBorderBoxPrintf(0, 0, 235, 235, 1, 5, BLUE, BLACK, BLACK, "SPEED");
-        GFXBorderBoxPrintf(0, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "DEPTH");
-        //GFXBorderBoxPrintf(240,0, 235,235, 1,5,BLUE,BLACK,BLACK, "c%3.2F",wind*1.1);
-        GFXBorderBoxPrintf(240, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "SOG");
-        delay(500);
+        setFont(10);
+        //GFXBoxPrintf(0,480-(text_height*2),  2, "PAGE 2 -SPEED");
+        GFXBorderBoxPrintf(20, 100, 440, 360, 5, BLUE, BLACK, BLACK, "STW");
+         AddTitleBorderBox(20,100,BLACK,"STW");
       }
-      if (millis() > slowdown + 300) {
+      if (millis() > slowdown + 200) {
+        //gfx->fillScreen(BLUE);
         slowdown = millis();
-        WindArrow(360, 120, 120, BoatData.WindDirectionT, false);
-        UpdateCentered(0, 0, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%4.2fkts", BoatData.STW);
-        UpdateCentered(0, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%4.1fm", BoatData.WaterDepth);  // add units?
-        //UpdateCentered(240,0, 235,235, 1,5,BLUE,BLACK,BLACK, "c%3.2F",wind*1.1);
-        UpdateCentered(240, 240, 235, 235, 1, 5, BLUE, BLACK, BLACK, "%3.1Fkts", BoatData.SOG);
+       // ShowToplinesettings("Current");
+        
+        UpdateCentered(20, 100, 440, 360, 5, BLUE, BLACK, BLACK, "%4.2fkts", BoatData.STW);
+        }
+    //  if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 4; }
+            //        TouchCrosshair(20); quarters select big screens
+      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 9; }
+      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 7; }
+      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 5; }
+      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 8; }
+
+      break;
+    case 7:
+      if (RunSetup) {
+        setFont(10);
+        //GFXBoxPrintf(0,480-(text_height*2),  2, "PAGE 2 -SPEED");
+        GFXBorderBoxPrintf(20, 100, 440, 360, 5, BLUE, BLACK, BLACK, "DEPTH");
+         AddTitleBorderBox(20,100,BLACK,"DEPTH");
       }
+      if (millis() > slowdown + 200) {
+        //gfx->fillScreen(BLUE);
+        slowdown = millis();
+          UpdateCentered(20, 100, 440, 360,  5, BLUE, BLACK, BLACK, "%4.1fm", BoatData.WaterDepth);
+        }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 4; }
+            //        TouchCrosshair(20); quarters select big screens
+      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 6; }
+      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 5; }
+      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 8; }
 
-      //        TouchCrosshair(20);
-      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1; }
-      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 1; }  //loop to page 1
+      break;
+    case 8:
+      if (RunSetup) {
+        setFont(10);
 
+        GFXBorderBoxPrintf(20, 100, 440, 360,  5, BLUE, BLACK, BLACK, "SOG");
+        AddTitleBorderBox(20,100,BLACK,"SOG");
+      }
+      if (millis() > slowdown + 200) {
+        //gfx->fillScreen(BLUE);
+        slowdown = millis();
+        UpdateCentered(20, 100, 440, 360, 5, BLUE, BLACK, BLACK, "%3.1Fkts", BoatData.SOG);
+      }
+            //        TouchCrosshair(20); quarters select big screens
+      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 6; }
+      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 7; }
+      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 5; }
+      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 4; }
+
+      break;
+
+       case 9:
+      if (RunSetup) {
+        setFont(8);
+         GFXBorderBoxPrintf(20, 100, 440, 360, 5, BLUE, BLACK, BLACK, "LAT LONG");
+         
+         AddTitleBorderBox(20,130,BLACK, "GPS Time");
+         AddTitleBorderBox(20,230,BLACK, "LATITUDE DD.ddd");
+         AddTitleBorderBox(20,330,BLACK, "LONGITUDE DD.ddd");
+
+      }
+      if (millis() > slowdown + 200) {
+        slowdown = millis();
+       if(BoatData.GPSTime!=NMEA0183DoubleNA){UpdateCentered(20, 130, 440, 80,  5, BLUE, WHITE, BLACK,"%02i:%02i:%02i", 
+           int(BoatData.GPSTime)/3600,(int(BoatData.GPSTime)%3600)/60,(int(BoatData.GPSTime)%3600)%60);}
+       if(BoatData.Latitude!=NMEA0183DoubleNA){UpdateCentered(20, 230, 440, 80,  5, BLUE, WHITE, BLACK,"%f", BoatData.Latitude);}
+       if(BoatData.Longitude!=NMEA0183DoubleNA){ UpdateCentered(20, 330, 440, 80,  5, BLUE, WHITE, BLACK,"%f",BoatData.Longitude);}
+      }
+      //if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 7; }
+      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 5; }
+      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 0; }
 
       break;
 
@@ -836,8 +934,9 @@ void loop() {
   //EventTiming("START");
   delay(1);
   ts.read();
-  Display(Current_Settings.DisplayPage);  //EventTiming("STOP");
   ReadAndUseNMEA(); 
+  Display(Current_Settings.DisplayPage);  //EventTiming("STOP");
+  
   audio.loop();
   //EventTiming(" loop time touch sample display");
   //vTaskDelay(1);  // Audio is distorted without this?? used in https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/plays%20all%20files%20in%20a%20directory/plays_all_files_in_a_directory.ino
@@ -1155,6 +1254,7 @@ boolean CompStruct(MySettings A, MySettings B) {  // does not check ssid and pas
 void Writeat(int h, int v, const char* text) {  //Write text at h,v (using fontoffset to use TOP LEFT of text convention)
   gfx->setCursor(h, v + (text_offset));         // offset up/down for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
   gfx->print(text);
+  gfx->setCursor(h, v + (text_offset));
 }
 // void Writeat(int h, int v, const char* text) {
 //   Writeat(h, v, text);
@@ -1167,12 +1267,15 @@ void WriteinBox(int h, int v, int size, const char* TEXT, uint16_t TextColor, ui
   gfx->setTextColor(TextColor);
   gfx->setTextSize(size);
   Writeat(h, v, TEXT);  // text offset is dealt with in write at
+  gfx->setCursor(h, v + (text_offset));
+
 }
 void WriteinBox(int h, int v, int size, const char* TEXT) {  //Write text in filled box of text height at h,v (using fontoffset to use TOP LEFT of text convention)
   gfx->fillRect(h, v, 480, text_height * size, WHITE);
   gfx->setTextColor(BLACK);
   gfx->setTextSize(size);
   Writeat(h, v, TEXT);  // text offset is dealt with in write at
+  gfx->setCursor(h, v + (text_offset));
 }
 
 
@@ -1184,6 +1287,7 @@ void GFXBoxPrintf(int h, int v, int size, uint16_t TextColor, uint16_t BackColor
   va_end(args);
   int len = strlen(msg);
   WriteinBox(h, v, size, msg, TextColor, BackColor);
+  gfx->setCursor(h, v + (text_offset));
 }
 
 // void GFXBoxPrintf(int h, int v, const char* fmt, ...) {
@@ -1224,13 +1328,13 @@ void GFXPrintf(int h, int v, const char* fmt, ...) {  //complete object type sui
 
 // more general versions including box width size Box draws border OUTside topleft position by 'bordersize'
 //USED BY GFXBorderBoxPrintf
-void WriteinBorderBox(int h, int v, int width, int height, int textsize, int bordersize,
+void WriteinBorderBox(int h, int v, int width, int height, int bordersize,
                       uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* TEXT) {  //Write text in filled box of text height at h,v (using fontoffset to use TOP LEFT of text convention)
   int16_t x, y, TBx1, TBy1;
   uint16_t TBw, TBh;
-  gfx->setTextSize(textsize);
+ // gfx->setTextSize(textsize);
   x = h + bordersize;
-  y = v + bordersize + (text_offset * textsize);             //initial Top Left positioning for print text
+  y = v + bordersize + (text_offset );             //initial Top Left positioning for print text
   gfx->getTextBounds(TEXT, x, y, &TBx1, &TBy1, &TBw, &TBh);  // do not forget '& ! Pointer not value!!!
   //Serial.printf(" Text bounds planned print (x%i y%i)  W:%i H:%i TB_X %i  TB_Y %i \n",x,y, TBw,TBh,TBx1,TBy1);
   //gfx->fillRect(TBx1 , TBy1 , TBw , TBh , WHITE); delay(100); // visulize what the data is!
@@ -1242,9 +1346,9 @@ void WriteinBorderBox(int h, int v, int width, int height, int textsize, int bor
 
   // offset up/down by OFFSET (!) for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
   x = h + bordersize;
-  y = v + bordersize + (text_offset * textsize);
-  x = x + ((width - TBw - (2 * bordersize)) / 2) / textsize;   //try horizontal centering
-  y = y + ((height - TBh - (2 * bordersize)) / 2) / textsize;  //try vertical centering
+  y = v + bordersize + (text_offset );
+  x = x + ((width - TBw - (2 * bordersize)) / 2) ;   //try horizontal centering
+  y = y + ((height - TBh - (2 * bordersize)) / 2) ;  //try vertical centering
   gfx->setCursor(x, y);
   gfx->print(TEXT);
   //reset font ...
@@ -1272,7 +1376,29 @@ void AddTitleBorderBox(Button button, const char* fmt, ...) {  // add a title to
   int len = strlen(Title);
   gfx->getTextBounds(Title, button.h, button.v, &TBx1, &TBy1, &TBw, &TBh);
   gfx->setTextColor(WHITE, button.BorderColor);
-  gfx->setCursor(button.h, button.v);
+  if ((button.v-TBh)>=0){gfx->setCursor(button.h, button.v); }
+  else {gfx->setCursor(button.h, button.v+TBh);}
+  gfx->print(Title);
+  setFont(Font_Before);  //Serial.println("Font selected is %i",MasterFont);
+}
+
+void AddTitleBorderBox(int h, int v, uint16_t BorderColor, const char* fmt, ...) {  // add a title to the box
+  int Font_Before;
+  //Serial.println("Font at start is %i",MasterFont);
+  Font_Before = MasterFont;
+  setFont(0);
+  static char Title[300] = { '\0' };
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(Title, 128, fmt, args);
+  va_end(args);
+  int len = strlen(Title);
+  gfx->getTextBounds(Title,h, v, &TBx1, &TBy1, &TBw, &TBh);
+  gfx->setTextColor(WHITE, BorderColor);
+  if ((v-TBh)>=0){gfx->setCursor(h, v); }
+  else {gfx->setCursor(h, v+TBh);}
   gfx->print(Title);
   setFont(Font_Before);  //Serial.println("Font selected is %i",MasterFont);
 }
@@ -1293,7 +1419,7 @@ void GFXBorderBoxPrintf(Button button, const char* fmt, ...) {
   vsnprintf(msg, 128, fmt, args);
   va_end(args);
   int len = strlen(msg);
-  WriteinBorderBox(button.h, button.v, button.width, button.height, 1, button.bordersize, button.backcol, button.textcol, button.BorderColor, msg);
+  WriteinBorderBox(button.h, button.v, button.width, button.height, button.bordersize, button.backcol, button.textcol, button.BorderColor, msg);
 }
 
 void GFXBorderBoxPrintf(Button button, int textsize, const char* fmt, ...) {
@@ -1303,9 +1429,9 @@ void GFXBorderBoxPrintf(Button button, int textsize, const char* fmt, ...) {
   vsnprintf(msg, 128, fmt, args);
   va_end(args);
   int len = strlen(msg);
-  WriteinBorderBox(button.h, button.v, button.width, button.height, textsize, button.bordersize, button.backcol, button.textcol, button.BorderColor, msg);
+  WriteinBorderBox(button.h, button.v, button.width, button.height,  button.bordersize, button.backcol, button.textcol, button.BorderColor, msg);
 }
-void GFXBorderBoxPrintf(int h, int v, int width, int height, int textsize, int bordersize,
+void GFXBorderBoxPrintf(int h, int v, int width, int height, int bordersize,
                         uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
   static char msg[300] = { '\0' };                                                                               // used in message buildup
   va_list args;
@@ -1313,19 +1439,64 @@ void GFXBorderBoxPrintf(int h, int v, int width, int height, int textsize, int b
   vsnprintf(msg, 128, fmt, args);
   va_end(args);
   int len = strlen(msg);
-  WriteinBorderBox(h, v, width, height, textsize, bordersize, backgroundcol, textcol, BorderColor, msg);
+  WriteinBorderBox(h, v, width, height, bordersize, backgroundcol, textcol, BorderColor, msg);
 }
+
 void UpdateCentered(Button button, const char* fmt, ...) {  // Centers text in space
-  UpdateCentered(button.h, button.v, button.width, button.height, 1,
-                 button.bordersize, button.backcol, button.textcol, button.BorderColor, fmt);
-}
-void UpdateCentered(int h, int v, int width, int height, int textsize,
-                    int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
-  static char msg[300] = { '\0' };
+ static char msg[300] = { '\0' };
+ //Serial.printf("h %i v %i TEXT %i  Background %i \n",button.h,button.v, button.textcol,button.backcol);
+ int textsize =1;
   // calculate new offsets to just center on original box - minimum redraw of blank
   int16_t x, y, TBx1, TBy1;
   uint16_t TBw, TBh;
   gfx->setTextSize(textsize);  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  gfx->getTextBounds(msg, button.h, button.v, &TBx1, &TBy1, &TBw, &TBh);  // do not forget '& ! Pointer not value!!!
+  x = button.h + button.bordersize;
+  y = button.v + button.bordersize + (text_offset * textsize);
+  x = x + ((button.width - TBw - (2 * button.bordersize)) / 2) / textsize;                                                          //try horizontal centering
+  y = y + ((button.height - TBh - (2 * button.bordersize)) / 2) / textsize;                                                         //try vertical centering
+  gfx->fillRect(button.h + button.bordersize,y-TBh-1,button.width -(2 * button.bordersize), TBh+4,button.backcol); // just (plus a little bit ) where the text will be 
+  gfx->setTextColor(button.textcol);
+  gfx->setCursor(x, y);
+  gfx->print(msg);
+  gfx->setTextSize(1);
+}
+
+
+
+void GetGPSPos(char *str,char *NMEAgpspos,uint8_t sign)
+{ unsigned short int u=0,d=0;
+  unsigned int minutes;
+  unsigned char pos,i,j;
+  for(pos=0;pos<strlen(NMEAgpspos) && NMEAgpspos[pos]!='.';pos++);
+  for(i=0;i<pos-2;i++)
+    {
+     u*=10;
+     u+=NMEAgpspos[i]-'0';
+    }
+  d=(NMEAgpspos[pos-2]-'0')*10;
+  d+=(NMEAgpspos[pos-1]-'0');
+  for(i=pos+1,j=0;i<strlen(NMEAgpspos) && j<4;i++,j++) //Only 4 chars
+    {
+     d*=10;
+     d+=NMEAgpspos[i]-'0';
+    }
+  minutes=d/60;
+  gfx->printf(str,"%d.%04d",(sign?-1:1)*u,minutes);
+}
+
+void UpdateCentered(int h, int v, int width, int height, int bordersize, 
+                  uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
+  static char msg[300] = { '\0' };
+  // calculate new offsets to just center on original box - minimum redraw of blank
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;
   va_list args;
   va_start(args, fmt);
   vsnprintf(msg, 128, fmt, args);
@@ -1333,15 +1504,17 @@ void UpdateCentered(int h, int v, int width, int height, int textsize,
   int len = strlen(msg);
   gfx->getTextBounds(msg, h, v, &TBx1, &TBy1, &TBw, &TBh);  // do not forget '& ! Pointer not value!!!
   x = h + bordersize;
-  y = v + bordersize + (text_offset * textsize);
-  x = x + ((width - TBw - (2 * bordersize)) / 2) / textsize;                                                          //try horizontal centering
-  y = y + ((height - TBh - (2 * bordersize)) / 2) / textsize;                                                         //try vertical centering
-  gfx->fillRect(h + bordersize, v + bordersize, width - (2 * bordersize), height - (2 * bordersize), backgroundcol);  // full inner rectangle blanking
+  y = v + bordersize + (text_offset );
+  x = x + ((width - TBw - (2 * bordersize)) / 2) ;                                                          //try horizontal centering
+  y = y + ((height - TBh - (2 * bordersize)) / 2) ;                                                         //try vertical centering
+ // gfx->fillRect(h + bordersize, v + bordersize, width - (2 * bordersize), height - (2 * bordersize), backgroundcol);  // full inner rectangle blanking
+  gfx->fillRect(h + bordersize,y-TBh-1,width -(2 * bordersize), TBh+4, backgroundcol);
   gfx->setTextColor(textcol);
   gfx->setCursor(x, y);
   gfx->print(msg);
   gfx->setTextSize(1);
 }
+
 void UpdateLines(Button button, const char* fmt, ...) {  // Types sequential lines in the button space
   static int Printline;
   int LinesOfType, characters;
@@ -1565,8 +1738,8 @@ int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, 
     //for now just print serial version.
     //Serial.printf("* got UDP:<%s> \n", buf);
     pTOKEN = buf;  // pToken will be used in processPacket to separate out the Data Fields
-    if (processPacket(buf, BoatData, OwnBoat)){Serial.println("Data updated");};  // and then do page updates if true ?
-    Serial.println("after Processpacket"); 
+    if (processPacket(buf, BoatData)){dataUpdated=true;};  // and then do page updates if true ?
+    //Serial.println("after Processpacket"); 
     buf[0] = 0;  //clear buf
     return;
     //     }
@@ -1590,7 +1763,7 @@ void connectwithsettings() {
   }
 }
 
-void ReadAndUseNMEA() {
+void ReadAndUseNMEA() { //multiinput capable will check sources in sequence 
   // if (Current_Settings.ESP_NOW_ON) { UseNMEA(line_EXT, nmea_EXT, Current_Settings.ListTextSize, TFT_GREEN); }
   // if (Current_Settings.Serial_on) {
   //   Test_Serial_1();

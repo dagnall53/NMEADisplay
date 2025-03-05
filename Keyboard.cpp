@@ -69,14 +69,8 @@ void Use_Keyboard(char* DATA, int sizeof_data) {
     //Serial.printf(" Key test %s \n",KEY);
     if (!strcmp(KEY, "^")) {
       caps = caps + 1;
-      if (caps > 2) { caps = 0; }  //NB strcmp returns 0 if NO Difference, else position of non match characters
-                                   ///gfx->setFont(&FreeMonoBold18pt7b);
-                                   //text_height=18; //(see the name!!)
-      //font_offset = text_height - 2;  // lift slightly?
+      if (caps > 2) { caps = 0; }  
       keyboard(caps);
-      ///gfx->setFont(&FreeMono8pt7b);
-      //text_height=8; //(see the name!!)
-      //font_offset = text_height - 2;  // lift slightly?
       Command_Key = true;
     }
     if (!strcmp(KEY, "DEL")) {
@@ -108,6 +102,7 @@ void Use_Keyboard(char* DATA, int sizeof_data) {
       strcat(Local_var, KEY);
     }
     Serial.printf(" end of loop <%s> \n",Local_var);
+    setFont(4);
     WriteinBox(result_positionX, result_positionY, 1, Local_var);
     }
   if (!ts.isTouched && KeyPressUsed && (millis() > (250 + lastkeypressed))) { KeyPressUsed = false; }
@@ -162,7 +157,7 @@ void keyboard(int type) {
     gfx->print(BOTTOM[((x * sz) + type)]);
   }
    ///gfx->setFont(&FreeMonoBold12pt7b);
-   setFont(1);
+   setFont(1); // smaller font for the bottm row keys
    DrawKey(2,50, 3,30,"CLR");
    DrawKey(2,155, 3,30,"DEL");
    DrawKey(2,190, 3,50,"ENT");

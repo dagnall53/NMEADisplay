@@ -1,5 +1,5 @@
 /* 
-sBoatdata and tBoatdata from Timo Llapinen by Dr.András Szép under GNU General Public License (GPL).
+tBoatdata from Timo Llapinen by Dr.András Szép under GNU General Public License (GPL).
 
 
 */
@@ -21,16 +21,6 @@ struct MyColors {  // for later Day/Night settings
   uint16_t TextColor;
   uint16_t BackColor;
   uint16_t BorderColor;
-};
-
-struct sBoatData {
-  char Name[30];
-  char Heading[30];
-  char GPSTime[30];
-  char UTC[30];
-  char Date[30];
-  char Latitude[30];
-  char Longitude[30];
 };
 
 

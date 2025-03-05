@@ -14,6 +14,7 @@ This NMEA display will start with these elements retained, but I will probably a
 From Andreas Szep I have appopriated the idea of having a String  boatdata (sBoatData) structure using character arrays. 
 This is sensible here, as the NMEA data is read and stored as Char Arrays, and I am (mostly) not planning on doing any arithmetic with the data. 
 I will use atoi() and atof() to convert to double where needed.
+I have used some of the Timo Lappinen NMEA01983 conversion functions. 
 
 The GFX is based on GFX Library for Arduino and I am using Version 1.5.4 : Getting the ST7701 display to work correctly was part of the initial reaspon for the "cheap display" Github.
 
