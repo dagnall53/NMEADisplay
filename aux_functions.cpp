@@ -90,7 +90,7 @@ boolean FillTokenLast(char *ptr) {
 
 
 
-extern void EventTiming(String input);
+extern void EventTiming(String input); // to permit timing functions here during development
 
 bool NeedleinHaystack(char ch1, char ch2, char ch3, char *haystack, int &compareOffset) {
   // Serial.printf("\n Looking for<%c%c%c> in strlen(%i) %s \n", ch1, ch2, ch3, strlen(haystack), haystack);
@@ -106,14 +106,14 @@ bool NeedleinHaystack(char ch1, char ch2, char ch3, char *haystack, int &compare
   return false;
 }
 
-void prinfFields() {
+//********* Add this if needed in the case statements to help sort bugs!
   // Serial.println(" Fields:");
   // for (int x = 0; x <= Num_DataFields; x++) {
   //   Serial.print(Field[x]);
   //   Serial.print(",");
   // }
   // Serial.println("> ");
-}
+
 
 bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array buf and places (updates) data if found in stringND
   char *p;
@@ -128,10 +128,10 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
   p = Field[Num_DataFields];  // searches for '*' and if not found, looks for a CR
   if (!FillTokenLast(Field[Num_DataFields])) { return false; }
   //Serial.printf("  Found  <%i> Fields Field0<%s> Field1<%s> Field2<%s> Field3<%s>\n", Num_DataFields, Field[0],Field[1], Field[2], Field[3]);
-  //NeedleInHaystack/4/will (should !) give Note Nul to prevent zero ! being passed to Switch or Div4
+  //NeedleInHaystack/4/will (should !) identify the command.  Note Nul to prevent zero ! being passed to Switch or Div4
   //                  0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17 ....
   char nmeafunct[] = "NUL,DBT,MWV,VHW,RMC,APB,DPT,GGA,HDG,HDM,MTW,MWD,NOP,XS,,AK,,ALK,BWC,WPL, ";  // more can be added to
-  // Not using Field[0] as some commands have only two characters. so we can look for (eg) 'XS,' from $IIXS,
+  // Not using Field[0] as some commands have only two characters. so we can look for (eg) 'XS,' from $IIXS, =13
   if (NeedleinHaystack(buf[3], buf[4], buf[5], nmeafunct, Index) == false) { return false; }
   Serial.printf(" Using case %i \n", Index / 4);
   // Serial.println(" Fields:");for(int x=0 ;int <Num_DataFields;int++){Serial.print(Field[x]);Serial.print(",");} Serial.println("> ");

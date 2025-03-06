@@ -35,10 +35,10 @@ Arduino_RGB_Display *gfx = new Arduino_RGB_Display(
   0 /* rotation */,  true /* auto_flush */,  bus, // as defined in Arduino_DataBus *bus 
   GFX_NOT_DEFINED /* RST */,  st7701_type9_init_operations,  sizeof(st7701_type9_init_operations));
 /*
-Note: Use Type1 modified 
+Note: Use Type1 modified (line ~ 511)  or type 9 modified 
 WRITE_COMMAND_8, 0x20, // 0x20 normal, 0x21 IPS
 WRITE_C8_D8, 0x3A, 0x50, // 0x70 RGB888, 0x60 RGB666, 0x50 RGB565
-or type 9
+
 
  
 */

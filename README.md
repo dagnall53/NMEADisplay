@@ -1,5 +1,9 @@
 # NMEADisplay
 A Wireless NMEA display
+Compiled and tested with ESp32 V2.0.11  V3has deprecated some functions and this code does not work!
+GFX library 1.5.5
+Select "ESP32-S3 DEV Module"
+Select PSRAM "OPI PSRAM"
 
 Project to use a CHEAP 4" square ESP32 Lcd module to display wirelessly available NMEA data. 
 
@@ -17,6 +21,13 @@ I will use atoi() and atof() to convert to double where needed.
 I have used some of the Timo Lappinen NMEA01983 conversion functions. 
 
 The GFX is based on GFX Library for Arduino and I am using Version 1.5.4 : Getting the ST7701 display to work correctly was part of the initial reaspon for the "cheap display" Github.
+I plan to keep the relevant - functional -  cpp and h in /documents with modified :
+ st7701_type9_init_operations,  sizeof(st7701_type9_init_operations));
+Note: Use Type1 modified 
+WRITE_COMMAND_8, 0x20, // 0x20 normal, 0x21 IPS
+WRITE_C8_D8, 0x3A, 0x50, // 0x70 RGB888, 0x60 RGB666, 0x50 RGB565
+ 
+- as it seems to change occasionally!
 
 I have built a number of GFX box print functions and button touch features into this project to try (?) and simplify the design of the user interface. 
 There is a lot of duplication in these at the start. I may try to tidy up later.
