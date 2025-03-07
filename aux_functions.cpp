@@ -133,7 +133,7 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
   char nmeafunct[] = "NUL,DBT,MWV,VHW,RMC,APB,DPT,GGA,HDG,HDM,MTW,MWD,NOP,XS,,AK,,ALK,BWC,WPL, ";  // more can be added to
   // Not using Field[0] as some commands have only two characters. so we can look for (eg) 'XS,' from $IIXS, =13
   if (NeedleinHaystack(buf[3], buf[4], buf[5], nmeafunct, Index) == false) { return false; }
-  Serial.printf(" Using case %i \n", Index / 4);
+ // Serial.printf(" Using case %i \n", Index / 4);
   // Serial.println(" Fields:");for(int x=0 ;int <Num_DataFields;int++){Serial.print(Field[x]);Serial.print(",");} Serial.println("> ");
   switch (Index / 4) {
     case 1:  //dbt
@@ -153,18 +153,18 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
     case 4:  //RMC
              // Serial.printf("\n Failing in RMC ? numdatafields<%i>  ", Num_DataFields);
    //   if (Num_DataFields < 10) { return false; }
-  Serial.println("RMC Fields<");
-  for (int x = 0; x <= Num_DataFields; x++) {
-    Serial.printf("%i=<%s>,",x,Field[x]);
-  }
-  Serial.println(" ");
+  // Serial.println("RMC Fields<");                  // un copy this lot to assist debugging!!
+  // for (int x = 0; x <= Num_DataFields; x++) {
+  //   Serial.printf("%i=<%s>,",x,Field[x]);
+  // }
+  // Serial.println(" ");
 
       BoatData.SOG = atof(Field[7]);   //  was just atof( now use TL function NMEA0183GetDouble to cover some error cases and return NMEA0183DoubleNA if N/A
       BoatData.COG = atof(Field[8]);    // atof sets nmea0183nan (-10million.. so may need extra stuff to prevent silly displays!)
 
       BoatData.Latitude = LatLonToDouble(Field[3], Field[4][0]);  // using TL's functions
       BoatData.Longitude = LatLonToDouble(Field[5], Field[6][0]); //nb we use +1 on his numbering that omits the command
-          Serial.println(BoatData.GPSTime); Serial.println(BoatData.Latitude);  Serial.println(BoatData.Longitude);  Serial.println(BoatData.SOG);
+  //        Serial.println(BoatData.GPSTime); Serial.println(BoatData.Latitude);  Serial.println(BoatData.Longitude);  Serial.println(BoatData.SOG);
     
       BoatData.GPSTime = NMEA0183GPTimeToSeconds(Field[1]);
  

@@ -13,8 +13,8 @@ From scratch build!
 
 #include <WiFi.h>
 #include <WiFiUdp.h>
-// 
-#include "ESP_NOW_files.h"  
+//
+#include "ESP_NOW_files.h"
 #include <esp_now.h>
 #include <esp_wifi.h>
 // #include <WebServer.h>
@@ -43,7 +43,7 @@ char* pTOKEN;
 
 #include <Arduino_GFX_Library.h>
 // Original version was for GFX 1.3.1 only. #include "GUITIONESP32-S3-4848S040_GFX_133.h"
-#include "Esp32_4inch.h" // may need to save /documents Arduino_RGB_Display.cpp and .h to ...Documents\Arduino\libraries\GFX_Library_for_Arduino
+#include "Esp32_4inch.h"  // may need to save /documents Arduino_RGB_Display.cpp and .h to ...Documents\Arduino\libraries\GFX_Library_for_Arduino
 
 //For SD card (see display page -98 for test)
 
@@ -156,22 +156,24 @@ Button BottomRightbutton = { 405, 405, 75, 75, 5, BLUE, WHITE, BLACK };  //,fals
 Button BottomLeftbutton = { 0, 405, 75, 75, 5, BLUE, WHITE, BLACK };     //false,0};
 
 // buttons for the wifi/settings pages // no need to set the bools ?
-Button SSID = { 30, 50, 420, 35, 5, WHITE, BLACK, BLUE };       // was ,false};
-Button PASSWORD = { 30, 90, 420, 35, 5, WHITE, BLACK, BLUE };   // was ,false};
-Button UDPPORT = { 30, 130, 420, 35, 5, WHITE, BLACK, BLUE };   // was ,false};
-Button Switch1 = { 30, 180, 100, 35, 5, WHITE, BLACK, BLUE };   // was ,false};
-Button Switch2 = { 135, 180, 100, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
-Button Switch3 = { 240, 180, 100, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
-Button Switch4 = { 345, 180, 100, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
-Button Spare = { 30, 170, 420, 35, 5, WHITE, BLACK, BLUE };     // was ,false};
-Button Terminal = { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };  // was ,false};
+Button TOPbutton = { 30, 10, 420, 35, 5, WHITE, BLACK, BLUE };
+Button SSID = { 30, 50, 420, 35, 5, WHITE, BLACK, BLUE };      // was ,false};
+Button PASSWORD = { 30, 90, 420, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
+Button UDPPORT = { 30, 130, 420, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
+#define sw_width 70
+Button Switch1 = { 20, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };   // was ,false};
+Button Switch2 = { 105, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
+Button Switch3 = { 190, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
+Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };       // was ,false};
+Button Spare = { 30, 170, 420, 35, 5, WHITE, BLACK, BLUE };          // was ,false};
+Button Terminal = { 0, 240, 480, 240, 0, WHITE, BLACK, BLUE };       // was ,false};
 //for selections
-Button Full0Center = { 80, 35, 320, 75, 5, BLUE, WHITE, BLACK };   // ,false,0};
-Button Full1Center = { 80, 125, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
-Button Full2Center = { 80, 205, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
-Button Full3Center = { 80, 285, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
-Button Full4Center = { 80, 365, 320, 75, 5, BLUE, WHITE, BLACK };  // was ,false};;
-Button Full5Center = { 80, 445, 320, 30, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full0Center = { 80, 55, 320, 55, 5, BLUE, WHITE, BLACK };   // ,false,0};
+Button Full1Center = { 80, 125, 320, 55, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full2Center = { 80, 195, 320, 55, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full3Center = { 80, 265, 320, 55, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full4Center = { 80, 335, 320, 55, 5, BLUE, WHITE, BLACK };  // was ,false};;
+Button Full5Center = { 80, 405, 320, 55, 5, BLUE, WHITE, BLACK };  // was ,false};;
 
 // for the quarter screens
 Button topLeftquarter = { 0, 0, 235, 235, 5, BLUE, WHITE, BLACK };
@@ -254,11 +256,13 @@ void ShowToplinesettings(MySettings A, String Text) {
   long rssiValue = WiFi.RSSI();
   gfx->setTextSize(1);
   GFXBoxPrintf(0, 0, 1, "%s: Serial<%s> UDP<%s> ESP<%s>", Text, A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off);
-  GFXBoxPrintf(0, text_height, 1, "SSID<%s> PWD<%s> UDPPORT<%s>", A.ssid, A.password, A.UDP_PORT);
+  GFXBoxPrintf(0, text_height, 1, " SSID<%s> PWD<%s> UDPPORT<%s>", A.ssid, A.password, A.UDP_PORT);
   gfx->fillRect(0, text_height * 2, 480, text_height, WHITE);  // manual equivalent of my function so I can print IP address!
   gfx->setTextColor(BLACK);
   gfx->setCursor(0, (text_height * 2) + (text_offset));
-  gfx->print(" IP:");
+  gfx->print(" Page:<");
+  gfx->print(A.DisplayPage);
+  gfx->print(">    IP:");
   sta_ip = WiFi.localIP();
   udp_st = Get_UDP_IP(sta_ip, subnet);
   gfx->print(WiFi.localIP());
@@ -277,8 +281,9 @@ void ShowToplinesettings(String Text) {
 void Display(int page) {  // setups for alternate pages to be selected by page.
   static int LastPageselected;
   static bool DataChanged;
+  static int wifissidpointer;
   // some local variables for tests;
-
+  char blank[] = "null";
   static int SwipeTestLR, SwipeTestUD, volume;
   static bool RunSetup;
   static unsigned int slowdown, timer2;
@@ -288,7 +293,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
   char Tempchar[30];
   String tempstring;
   int FS = 1;  // for font size test
-
+  int tempint;
   if (page != LastPageselected) { RunSetup = true; }
   //generic stuff  for ALL pages
   if (RunSetup) {
@@ -410,10 +415,9 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         GFXBorderBoxPrintf(0, 150, 480, 330, 5, BLUE, WHITE, BLUE, "Test %4.2f height<%i>", temp, text_height);
       }
       if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(BottomLeftbutton)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(BottomRightbutton)) { Current_Settings.DisplayPage = 0; }
+
+      if (CheckButton(BottomLeftbutton)) { fontlocal = fontlocal - 1; }
+      if (CheckButton(BottomRightbutton)) { fontlocal = fontlocal + 1; }
       break;
     case -9:
       if (RunSetup || DataChanged) {
@@ -456,43 +460,103 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
       break;
 
+    case -5:  ///Wifiscan
+      if (RunSetup) {
+        setFont(4);
+        GFXBorderBoxPrintf(TOPbutton, "Current <%s>", Current_Settings.ssid);
+        GFXBorderBoxPrintf(SSID, "SCANNING...");
+        gfx->setCursor(0, 140);  //(location of terminal. make better later!)
+        int n = WiFi.scanNetworks();
+        GFXBorderBoxPrintf(SSID, "scan done");
+        if (n == 0) {
+          GFXBorderBoxPrintf(SSID, "no networks found");
+        } else {
+          GFXBorderBoxPrintf(SSID, " %i networks found", n);
+          for (int i = 0; i < n; ++i) {
+            gfx->setCursor(0, 200 + ((i + 1) * text_height));
+            // Print SSID and RSSI for each network found
+            gfx->print(i + 1);
+            gfx->print(": ");
+            gfx->print(WiFi.SSID(i));
+            gfx->print(" (");
+            gfx->print(WiFi.RSSI(i));
+            gfx->println(")");
+            //    gfx->println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*");
+            delay(10);
+          }
+        }
+      }
+      if (millis() > slowdown + 1000) {
+        slowdown = millis();
+        //other stuff?
+      }
+      if ((ts.isTouched) && (ts.points[0].y >= 200)) {  // nb check on location on screenor it will get reset when you press one of the boxes
+        TouchCrosshair(1);
+        wifissidpointer = ((ts.points[0].y - 200) / text_height) - 1;
+        int str_len = WiFi.SSID(wifissidpointer).length() + 1;
+        char result[str_len];
+        if (str_len << sizeof(Current_Settings.ssid)) {  //-1 check small enough for our ssid register!
+          WiFi.SSID(wifissidpointer).toCharArray(result, 15);
+          //  WiFi.SSID(wifissidpointer).toCharArray(Current_Settings.ssid,str_len);
+          Serial.printf(" touched at %i  equates to %i ? %s \n", ts.points[0].y, tempint, WiFi.SSID(wifissidpointer));
+          GFXBorderBoxPrintf(SSID, "use<%s>?", result);
+        } else {
+          GFXBorderBoxPrintf(SSID, "ssid too long ");
+        }
+      }
+      if (CheckButton(SSID)) {
+        WiFi.SSID(wifissidpointer).toCharArray(Current_Settings.ssid, 15);
+        Serial.printf(" Updating ssid to <%s>", Current_Settings.ssid);
+        Current_Settings.DisplayPage = -1;
+      }
+      if (CheckButton(TOPbutton)) { Current_Settings.DisplayPage = -2; }
+      break;
 
     case -4:
       if (RunSetup) {
+        GFXBorderBoxPrintf(TOPbutton, "Current <%s>", Current_Settings.UDP_PORT);
         GFXBorderBoxPrintf(Full0Center, "Set UDP PORT");
         keyboard(-1);  //reset
         keyboard(0);
+        Use_Keyboard(blank, sizeof(blank));
+        Use_Keyboard(Current_Settings.UDP_PORT, sizeof(Current_Settings.UDP_PORT));
       }
 
       Use_Keyboard(Current_Settings.UDP_PORT, sizeof(Current_Settings.UDP_PORT));
-      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = -1; }
-      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = -1; }
       break;
 
 
     case -3:
       if (RunSetup) {
+        GFXBorderBoxPrintf(TOPbutton, "Current <%s>", Current_Settings.password);
         GFXBorderBoxPrintf(Full0Center, "Set Password");
         keyboard(-1);  //reset
-
+        Use_Keyboard(Current_Settings.password, sizeof(Current_Settings.password));
         keyboard(0);
       }
 
       Use_Keyboard(Current_Settings.password, sizeof(Current_Settings.password));
-      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = -1; }
-      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = -1; }
       break;
 
     case -2:
       if (RunSetup) {
         GFXBorderBoxPrintf(Full0Center, "Set SSID");
+        GFXBorderBoxPrintf(TopRightbutton, "Scan");
+        AddTitleBorderBox(TopRightbutton, "WiFi");
         keyboard(-1);  //reset
+        Use_Keyboard(Current_Settings.ssid, sizeof(Current_Settings.ssid));
         keyboard(0);
+        //Terminal for show ssids?
       }
 
       Use_Keyboard(Current_Settings.ssid, sizeof(Current_Settings.ssid));
-      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = -1; }
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = -1; }
+      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = -5; }
+
       break;
 
     case -1:  // this is the main WIFI settings page
@@ -500,7 +564,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         gfx->fillScreen(BLACK);
         gfx->setTextColor(WHITE, BLACK);
         gfx->setTextSize(1);
-        ShowToplinesettings("Current");
+        ShowToplinesettings(Saved_Settings,"SAVED");
         setFont(4);
         gfx->setCursor(180, 180);
         GFXBorderBoxPrintf(SSID, "Set SSID <%s>", Current_Settings.ssid);
@@ -512,8 +576,10 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         AddTitleBorderBox(Switch2, "UDP");
         GFXBorderBoxPrintf(Switch3, Current_Settings.ESP_NOW_ON On_Off);
         AddTitleBorderBox(Switch3, "ESP-Now");
-        GFXBorderBoxPrintf(Switch4, "NMEA disp");
-        GFXBorderBoxPrintf(Terminal, " Terminal text here");
+        GFXBorderBoxPrintf(Switch4, "SAVE");
+        AddTitleBorderBox(Switch4, "EEPROM");
+        GFXBorderBoxPrintf(Terminal, "- NMEA DATA -");
+        AddTitleBorderBox(Terminal, "TERMINAL");
         setFont(0);
         DataChanged = false;
         //while (ts.sTouched{yield(); Serial.println("yeilding -1");}
@@ -537,30 +603,21 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         DataChanged = true;
       };
       if (CheckButton(Switch4)) {
-        Current_Settings.DisplayPage = 4;
+        Current_Settings.DisplayPage = 0;
         ;
       };
-      if (CheckButton(SSID)) { Current_Settings.DisplayPage = -2; };
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(SSID)) { Current_Settings.DisplayPage = -5; };
       if (CheckButton(PASSWORD)) { Current_Settings.DisplayPage = -3; };
       if (CheckButton(UDPPORT)) { Current_Settings.DisplayPage = -4; };
-      //if (CheckButton(TopRightbutton)){Current_Settings.DisplayPage=Current_Settings.DisplayPage+1;delay(300);}
-      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(BottomRightbutton)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(BottomLeftbutton)) { Current_Settings.DisplayPage = 0; }
-
-
-
       break;
     case 0:
       if (RunSetup) {
-       
+
         ShowToplinesettings("Now");
         setFont(3);
-        GFXBorderBoxPrintf(TopLeftbutton, "Page-");
-        GFXBorderBoxPrintf(TopRightbutton, "Page+");
+        // GFXBorderBoxPrintf(TopLeftbutton, "Page-");
+        // GFXBorderBoxPrintf(TopRightbutton, "Page+");
         setFont(3);
         GFXBorderBoxPrintf(Full0Center, "-Top page-");
         GFXBorderBoxPrintf(Full1Center, "Check SD /Audio");
@@ -618,8 +675,8 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
                                                                            //UpdateCentered(topRightquarter  "c%3.2F",wind*1.1);
         UpdateCentered(bottomRightquarter, "%3.2FKts", BoatData.SOG);
       }
-      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }  // first so it has priority!
-      if (CheckButton(Full1Center)) { Current_Settings.DisplayPage = 0; }  //easier to hit two
+      // if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }  // first so it has priority!
+      // if (CheckButton(Full1Center)) { Current_Settings.DisplayPage = 0; }  //easier to hit two
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 6; }
       if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 7; }
@@ -645,12 +702,12 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         //int h, int v, int width, int height, int textsize, int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
         GFXBorderBoxPrintf(240 - 70, 240 - 40, 140, 80, 5, BLACK, WHITE, BLACK, "%2.0fkts", BoatData.WindSpeedK);
       }
-      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 4; }
+
       //        TouchCrosshair(20); quarters select big screens
-      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 6; }
-      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 7; }
-      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 4; }
-      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 8; }
+      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 4; }
 
       // if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = Current_Settings.DisplayPage - 1; }
       // if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 4; }  //loop to page 1
@@ -674,9 +731,9 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       //  if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 4; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 9; }
-      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 7; }
-      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 5; }
-      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 8; }
+      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 4; }
 
       break;
     case 7:
@@ -693,10 +750,10 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       }
       if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 4; }
       //        TouchCrosshair(20); quarters select big screens
-      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 6; }
-      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 4; }
-      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 5; }
-      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 8; }
+      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 11; }
+      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 4; }
 
       break;
     case 8:
@@ -712,10 +769,10 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         UpdateCentered(20, 100, 440, 360, 5, BLUE, BLACK, BLACK, "%3.1Fkts", BoatData.SOG);
       }
       //        TouchCrosshair(20); quarters select big screens
-      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 6; }
-      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 7; }
-      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 5; }
-      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 12; }
 
       break;
 
@@ -736,10 +793,10 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         if (BoatData.Longitude != NMEA0183DoubleNA) { UpdateCentered(20, 330, 440, 80, 5, BLUE, WHITE, BLACK, "%f", BoatData.Longitude); }
       }
       //if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 4; }
-      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 4; }
-      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 20; }  //Loop to the main settings page 
-      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 20; }
-      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 20; }  // test! check default loops back to 0
+      if (CheckButton(topLeftquarter)) { Current_Settings.DisplayPage = 10; }
+      if (CheckButton(bottomLeftquarter)) { Current_Settings.DisplayPage = 4; }  //Loop to the main settings page
+      if (CheckButton(topRightquarter)) { Current_Settings.DisplayPage = 4; }
+      if (CheckButton(bottomRightquarter)) { Current_Settings.DisplayPage = 4; }  // test! check default loops back to 0
 
       break;
 
@@ -922,7 +979,7 @@ void setup() {
   // while(1){ // trying to avoid RTOS
   // ts.read();
   // Display(Current_Settings.DisplayPage);  //EventTiming("STOP");
-  // ReadAndUseNMEA();
+  // CheckAndUseInputs();
   // audio.loop();   //
   // vTaskDelay(1);
   // }
@@ -935,7 +992,7 @@ void loop() {
   //EventTiming("START");
   delay(1);
   ts.read();
-  ReadAndUseNMEA();
+  CheckAndUseInputs();
   Display(Current_Settings.DisplayPage);  //EventTiming("STOP");
   EXTHeartbeat();
   audio.loop();
@@ -952,7 +1009,7 @@ void TouchCrosshair(int size) {
 }
 void TouchCrosshair(int point, int size, uint16_t colour) {
   gfx->setCursor(ts.points[point].x, ts.points[point].y);
-  gfx->printf("%i", point);
+  // gfx->printf("%i", point);
   gfx->drawFastVLine(ts.points[point].x, ts.points[point].y - size, 2 * size, colour);
   gfx->drawFastHLine(ts.points[point].x - size, ts.points[point].y, 2 * size, colour);
 }
@@ -1279,7 +1336,7 @@ void WriteinBox(int h, int v, int size, const char* TEXT) {  //Write text in fil
 
 
 void GFXBoxPrintf(int h, int v, int size, uint16_t TextColor, uint16_t BackColor, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
-  static char msg[300] = { '\0' };                                                                         // used in message buildup
+  char msg[300] = { '\0' };                                                                                // used in message buildup
   va_list args;
   va_start(args, fmt);
   vsnprintf(msg, 128, fmt, args);
@@ -1293,7 +1350,7 @@ void GFXBoxPrintf(int h, int v, int size, uint16_t TextColor, uint16_t BackColor
 //  GFXBoxPrintf(h, v, 1, fmt);
 // }
 void GFXBoxPrintf(int h, int v, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
-  static char msg[300] = { '\0' };                       // used in message buildup
+  char msg[300] = { '\0' };                              // used in message buildup
   va_list args;
   va_start(args, fmt);
   vsnprintf(msg, 128, fmt, args);
@@ -1316,7 +1373,7 @@ void GFXBoxPrintf(int h, int v, int size, const char* fmt, ...) {  //complete ob
 
 
 void GFXPrintf(int h, int v, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
-  static char msg[300] = { '\0' };                    // used in message buildup
+  char msg[300] = { '\0' };                           // used in message buildup
   va_list args;
   va_start(args, fmt);
   vsnprintf(msg, 128, fmt, args);
@@ -1521,7 +1578,7 @@ void UpdateCentered(int h, int v, int width, int height, int bordersize,
   gfx->setTextSize(1);
 }
 
-void UpdateLines(Button button, const char* fmt, ...) {  // Types sequential lines in the button space
+void UpdateLinef(Button button, const char* fmt, ...) {  // Types sequential lines in the button space
   static int Printline;
   int LinesOfType, characters;
   int16_t x, y;
@@ -1536,17 +1593,14 @@ void UpdateLines(Button button, const char* fmt, ...) {  // Types sequential lin
   vsnprintf(msg, 128, fmt, args);
   va_end(args);
   int len = strlen(msg);
-  //   strncpy(limitedWidth,msg,40);
-  //   //xy for printing of max 40 characters relative to top left Need to update to include text width?
   x = button.h + button.bordersize;
   y = button.v + button.bordersize + (text_offset);
   gfx->setCursor(x, y + (Printline * (text_height + 2)));
-  //   gfx->fillRect(x,y+((Printline-1)*(text_height+2))-1,typingspaceW,(text_height+4),button.backcol);
-  gfx->println(msg);
+  gfx->print(msg);  // lines should already have CRLF!
   Printline = Printline + 1;
   if (len >= 40) { Printline = Printline + 1; }
   if (Printline >= (LinesOfType)) {
-    Printline = 1;
+    Printline = 0;
     gfx->fillRect(x, y - (text_offset), typingspaceW, typingspaceH, WHITE);
   }
 }
@@ -1732,29 +1786,28 @@ void Audio_setup() {
   // audio.connecttoFS(SD, AUDIO_FILENAME_02); // would start some music -- not needed !
 }
 
-void UseNMEA(bool& Line_Ready, char* buf) {  //&sets pointer so I can modify Line_Ready in this function
-                                             //if (Line_Ready){
+void UseNMEA(bool& Line_Ready, char* buf, int type) {  //&sets pointer aso I can modify Line_Ready in this function
+                                                       //if (Line_Ready){
   if (buf[0] != 0) {
-
-    //     if (TEXT_Colour == TFT_BLUE) {
-    /*void UpdateCentered(int h, int v, int width, int height, int textsize, 
-int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
-
-  */
-
-    //for now just print serial version.
-    //Serial.printf("* got UDP:<%s> \n", buf);
-    pTOKEN = buf;                                               // pToken will be used in processPacket to separate out the Data Fields
-    if (processPacket(buf, BoatData)) { dataUpdated = true; };  // and then do page updates if true ?
-    //Serial.println("after Processpacket");
-    buf[0] = 0;  //clear buf
+    // now just print serial version if on the wifi page terminal window page.
+    if (Current_Settings.DisplayPage == -1) {
+      if (type == 2) {
+        gfx->setTextColor(BLUE);
+        UpdateLinef(Terminal, "UDP:%s", buf);
+      }
+      if (type == 3) {
+        gfx->setTextColor(RED);
+        UpdateLinef(Terminal, "ESP:%s", buf);
+      }
+      gfx->setTextColor(BLACK);  // reset to black now!
+      if (type == 1) { UpdateLinef(Terminal, "Ser:%s", buf); }
+    }
+    // now decode it
+    pTOKEN = buf;                                               // pToken is used in processPacket to separate out the Data Fields
+    if (processPacket(buf, BoatData)) { dataUpdated = true; };  // NOTE processPacket will search for CR! so do not remove it and then do page updates if true ?
+                                                                // Serial.printf("    ****after Processpacket buf <%s> \n", buf);
+    buf[0] = 0;                                                 //clear buf !
     return;
-    //     }
-    //     if (TEXT_Colour == TFT_WHITE) {
-    //       Serial.printf("Serial  :%s", buf);
-    //       buf[0] = 0;
-    //       return;
-    //     }
   }
 }
 void ConnectWiFiusingCurrentSettings() {
@@ -1771,35 +1824,27 @@ void ConnectWiFiusingCurrentSettings() {
   }
 }
 
-void ReadAndUseNMEA() {  //multiinput capable, will check sources in sequence
-                         //debug page stuff:
-  if ((Current_Settings.UDP_ON) && (Current_Settings.DisplayPage == -1) && line_U) { UpdateLines(Terminal, "UDP:%s", nmea_U); }
-  if ((Current_Settings.ESP_NOW_ON) && (Current_Settings.DisplayPage == -1) && line_EXT) { UpdateLines(Terminal, "EXT:%s", nmea_EXT); }
-  if ((Current_Settings.Serial_on) && (Current_Settings.DisplayPage == -1) && line_1) { UpdateLines(Terminal, "Serial:%s", nmea_1); }
-
-
+void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
   if (Current_Settings.ESP_NOW_ON) {
-    UseNMEA(line_EXT, nmea_EXT);
-    line_EXT = false;
+    if (nmea_EXT[0] != 0) { UseNMEA(line_EXT, nmea_EXT, 3); }
+    // line_EXT = false;
   }
 
   if (Current_Settings.Serial_on) {
-    Test_Serial_1();
-    UseNMEA(line_1, nmea_1 );
-    line_1=false;
+    if (Test_Serial_1()) { UseNMEA(line_1, nmea_1, 1); }
+    //line_1=false;
   }
   if (Current_Settings.UDP_ON) {
-    Test_U();
-    UseNMEA(line_U, nmea_U);
-    line_U = false;
+    if (Test_U()) { UseNMEA(line_U, nmea_U, 2); }
   }
 }
-void Test_Serial_1() {  // UART0 port P1
+bool Test_Serial_1() {  // UART0 port P1
   static bool LineReading_1 = false;
   static int Skip_1 = 1;
   static int i_1;
+  static bool line_1;  //has found a full line!
   byte b;
-  if (!line_1) {                  // ONLY get characters if we are NOT still processing the last message!
+  if (!line_1) {                  // ONLY get characters if we are NOT still processing the last line message!
     while (Serial.available()) {  // get the character
       b = Serial.read();
       if (LineReading_1 == false) {
@@ -1814,18 +1859,21 @@ void Test_Serial_1() {  // UART0 port P1
           nmea_1[i_1] = 0x00;  // put end in buffer.
           LineReading_1 = false;
           line_1 = true;
-          return;
+          return true;
         }
         if (i_1 > 150) {
           LineReading_1 = false;
           i_1 = 0;
-          return;
+          line_1 = false;
+          return false;
         }
       }
     }
   }
+  line_1 = false;
+  return false;
 }
-void Test_U() {  // check if udp packet (UDP is sent in lines..) has arrived
+bool Test_U() {  // check if udp packet (UDP is sent in lines..) has arrived
   static int Skip_U = 1;
   // if (!line_U) {  // only process if we have dealt with the last line.
   nmea_U[0] = 0x00;
@@ -1833,7 +1881,7 @@ void Test_U() {  // check if udp packet (UDP is sent in lines..) has arrived
   if (packetSize) {  // Deal with UDP packet
     if (packetSize >= (BufferLength)) {
       Udp.flush();
-      return;
+      return false;
     }  // Simply discard if too long
     int len = Udp.read(nmea_U, BufferLength);
     byte b = nmea_U[0];
@@ -1841,8 +1889,10 @@ void Test_U() {  // check if udp packet (UDP is sent in lines..) has arrived
     // nmea_UpacketSize = packetSize;
     //Serial.print(nmea_U);
     line_U = true;
+    return true;
   }  // udp PACKET DEALT WITH
      // }
+  return false;
 }
 IPAddress Get_UDP_IP(IPAddress ip, IPAddress mk) {
   uint16_t ip_h = ((ip[0] << 8) | ip[1]);  // high 2 bytes
@@ -1871,4 +1921,27 @@ void UDPSEND(const char* buf) {                              // this is the one 
   // Udp.beginPacket(udp_ap, udpport);
   // Udp.print(buf);
   // Udp.endPacket();
+}
+
+void ScannetworkstoGFX(int x) {
+  gfx->setCursor(0, x);  //(location of terminal. make better later!)
+  int n = WiFi.scanNetworks();
+  gfx->println("scan done");
+  if (n == 0) {
+    gfx->println("no networks found");
+  } else {
+    gfx->print(n);
+    gfx->println(" networks found");
+    for (int i = 0; i < n; ++i) {
+      // Print SSID and RSSI for each network found
+      gfx->print(i + 1);
+      gfx->print(": ");
+      gfx->print(WiFi.SSID(i));
+      gfx->print(" (");
+      gfx->print(WiFi.RSSI(i));
+      gfx->println(")");
+      //    gfx->println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*");
+      delay(10);
+    }
+  }
 }
