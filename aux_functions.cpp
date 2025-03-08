@@ -171,6 +171,11 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
       return true;  //
       break;
 
+        case 6:  //DPT
+      BoatData.WaterDepth = atof(Field[3]);
+      return true;
+      break;
+
     case 9:  //HDM
       BoatData.MagHeading = atof(Field[1]);
       return true;
@@ -187,21 +192,7 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
 }
 // chararrayToDouble -- get char*, check it is not null then atof to the double. Use to make a safer atof().
 
-// These are the original conversions
-//depth = BoatData.WaterDepth;
-//         }else if (Command == "RMC") {    //nav info
-//           BoatData.SOG = Field[7];
-//           BoatData.Latitude = convertGPString(Field[3]) + Field[4];
-//           BoatData.Longitude = convertGPString(Field[5]) + Field[6];
-//           BoatData.UTC = Field[1];
-//           // int hours = BoatData.UTC.substring(0, 2).toInt();
-//           // int minutes = BoatData.UTC.substring(2, 4).toInt();
-//           // int seconds = BoatData.UTC.substring(4, 6).toInt();
-//           // BoatData.GPSTime = BoatData.UTC.toDouble();
-//           // BoatData.UTC = int2string(hours) + ":" + int2string(minutes) + ":" + int2string(seconds);
-//          // BoatData.Date = "20"+ Field[9].substring(4,6) + "-" + Field[9].substring(2,4) + "-" + Field[9].substring(0,2) ;
-
-//         }
+// These are the original conversions - remove correct and delete as we progress.....
 
 // //         if(command == "APB") {
 // //  //          Serial.print("APB");    //autopilot
@@ -210,8 +201,6 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
 // //         } else if (command == "DBT") {
 // //           BoatData.WaterDepth = Field[3];
 // //           depth = BoatData.WaterDepth;
-// //           jsonDoc["depth"] = depth;
-// //           notifyClients();
 // //         } else if (command == "DPT") {
 // //  /*
 // //           BoatData.WaterDepth = Field[1];

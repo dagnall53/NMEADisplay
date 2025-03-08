@@ -27,14 +27,14 @@ IPAddress subnet(0, 0, 0, 0);   // the SubNet Mask in Station mode
 boolean IsConnected = false;    // used when MAIN_MODE == AP_AND_STA to flag connection success (got IP)
 WiFiUDP Udp;
 #define BufferLength 500
-bool line_1;
+//bool line_1;
 char nmea_1[500];  //serial
 
-bool line_U = false;
+//bool line_U = false;
 char nmea_U[BufferLength];  // NMEA buffer for UDP input port
 //int nmea_UpacketSize;
 // *************  ESP-NOW variables and functions in ESP_NOW_files************
-bool line_EXT;
+//bool line_EXT;
 char nmea_EXT[500];
 bool EspNowIsRunning = false;
 
@@ -59,6 +59,15 @@ char* pTOKEN;
 #define AUDIO_FILENAME_02 "/SoundofSilence.mp3"
 #define AUDIO_FILENAME_03 "/MoonlightBay.mp3"
 #define AUDIO_FILENAME_START "/StartSound.mp3"
+//String file_list[20];  //for MP3 player part https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L119
+char  File_List[20][20]; //array instead..
+String runtimes[20];
+int file_num = 0;
+//int file_index = 0;
+bool started = 0;
+int counter = 0;
+
+
 //*********** for keyboard*************
 #include "Keyboard.h"
 #include "Touch.h"
@@ -156,7 +165,7 @@ Button BottomRightbutton = { 405, 405, 75, 75, 5, BLUE, WHITE, BLACK };  //,fals
 Button BottomLeftbutton = { 0, 405, 75, 75, 5, BLUE, WHITE, BLACK };     //false,0};
 
 // buttons for the wifi/settings pages // no need to set the bools ?
-Button TOPbutton = { 30, 10, 420, 35, 5, WHITE, BLACK, BLUE };
+Button TOPButton = { 30, 10, 420, 35, 5, WHITE, BLACK, BLUE };
 Button SSID = { 30, 50, 420, 35, 5, WHITE, BLACK, BLUE };      // was ,false};
 Button PASSWORD = { 30, 90, 420, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
 Button UDPPORT = { 30, 130, 420, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
@@ -207,7 +216,7 @@ void DrawCompass(int x, int y, int rad) {
   for (int i = 0; i < (360 / 10); i++) { gfx->fillArc(x, y, dot, Start, i * 10, (i * 10) + 1, BLACK); }      // dots at 10 degrees
 }
 
-bool WindpointToBoat = false;
+
 void drawCompassPointer(int x, int y, int rad, int angle, uint16_t COLOUR, bool to) {
   int x_offset, y_offset, tail1x, tail1y, tail2x, tail2y;  // The resulting offsets from the center point
                                                            // Normalize the angle to the range 0 to 359
@@ -220,6 +229,8 @@ void drawCompassPointer(int x, int y, int rad, int angle, uint16_t COLOUR, bool 
   //if (rad=240){inner=0.6;outer=2;}else{inner=0.3;outer=1;}
   inner = (rad * 98) / 400;  // just a tiny bit smaller!
   outer = (rad * 98) / 120;
+
+  // these print a big triangle
   if (to) {  //Point to boat from wind
     x_offset = x + ((outer * getSine(angle)) / 100);
     y_offset = y + ((outer * getCosine(angle)) / 100);
@@ -235,10 +246,7 @@ void drawCompassPointer(int x, int y, int rad, int angle, uint16_t COLOUR, bool 
     tail2x = x + ((outer * getSine(angle - 7)) / 100);
     tail2y = y + ((outer * getCosine(angle - 7)) / 100);
   }
-  // The actual drawing command will depend on your display library
-  /*fillTriangle(int16_t x0, int16_t y0,
-                               int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color)
-  */
+  // gfx->drawLine(x_offset, y_offset,(tail1x+tail2x)/2, (tail1y+tail2y)/2,BLACK);
   gfx->fillTriangle(x_offset, y_offset, tail1x, tail1y, tail2x, tail2y, COLOUR);
 }
 
@@ -290,6 +298,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
   static float wind, SOG, Depth;
   float temp, oldtemp;
   static int fontlocal;
+  static int FileIndex; // static to hold after selection and before pressing play!
   char Tempchar[30];
   String tempstring;
   int FS = 1;  // for font size test
@@ -419,24 +428,44 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(BottomLeftbutton)) { fontlocal = fontlocal - 1; }
       if (CheckButton(BottomRightbutton)) { fontlocal = fontlocal + 1; }
       break;
-    case -9:
-      if (RunSetup || DataChanged) {
-        setFont(3);
-        if (volume > 21) { volume = 21; };
-        GFXBorderBoxPrintf(Full0Center, "SD Contents / Run Audio vol%i", volume);
-        gfx->setTextColor(WHITE, BLUE);
 
+    case -9:  // Play with the audio ..NOTE  Needs the resistors resoldered to connect to the audio chip on the Guitron (mains relay type) version!! 
+      if (RunSetup || DataChanged) {
+        setFont(4);        
+        gfx->setTextSize(1); 
+        if (volume > 21) { volume = 21; };
+        GFXBorderBoxPrintf(TOPButton, "SD Contents / Run Audio vol%i", volume);
+        gfx->setTextColor(WHITE, BLUE);
         GFXBorderBoxPrintf(BottomLeftbutton, "vol-");
         GFXBorderBoxPrintf(BottomRightbutton, "vol+");
-        setFont(1);
         gfx->setCursor(0, 80);
-        gfx->setTextSize(1);  // Full0Center is 75, add 5 for space.
-        listDir(SD, "/", 0);
+                                  
+        int file_num;// = get_music_list(SD, "/", 0, file_list);  // see https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
+        file_num = get_music_list(SD, "/", 0);  // Char array  based version of  https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
+       
+        //  listDir(SD, "/", 0); 
+        int localy = 0;
+        for (int i = 0; i < file_num; i++) {
+          gfx->setCursor(0, 118 + localy);
+          gfx->printf("  %i = ",i);gfx->println(File_List[i]);
+          Serial.println(File_List[i]);
+          localy = localy + text_height;
+        }
+        GFXBorderBoxPrintf(SSID, "Found %i files", file_num);
         DataChanged = false;
       }
+      if (CheckButton(TOPButton)) {Serial.printf("selected %i  %s \n",FileIndex,File_List[FileIndex]);
+         open_new_song(File_List[FileIndex]);}
 
-      if (!audio.isRunning()) { audio.connecttoFS(SD, AUDIO_FILENAME_02); }
-
+      if ((ts.isTouched) && (ts.points[0].y >= 118)) {  // nb check on location on screenor it will get reset when you press one of the boxes
+        TouchCrosshair(1);
+        FileIndex = ((ts.points[0].y - 118) / text_height) - 1;
+        Serial.printf(" pointing at %i %s\n",FileIndex,File_List[FileIndex]);
+        GFXBorderBoxPrintf(SSID,"Select %i %s?",FileIndex,File_List[FileIndex]);  // lots of trouble hewe with the string ! needs to be proper char string arrays?
+        
+      }
+      // if (!audio.isRunning()) {  open_new_song(file_list[file_index]);audio.connecttoFS(SD, AUDIO_FILENAME_02); }
+  
       if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
       if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = 0; }
       if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 0; }
@@ -463,7 +492,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
     case -5:  ///Wifiscan
       if (RunSetup) {
         setFont(4);
-        GFXBorderBoxPrintf(TOPbutton, "Current <%s>", Current_Settings.ssid);
+        GFXBorderBoxPrintf(TOPButton, "Current <%s>", Current_Settings.ssid);
         GFXBorderBoxPrintf(SSID, "SCANNING...");
         gfx->setCursor(0, 140);  //(location of terminal. make better later!)
         int n = WiFi.scanNetworks();
@@ -491,7 +520,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         //other stuff?
       }
       if ((ts.isTouched) && (ts.points[0].y >= 200)) {  // nb check on location on screenor it will get reset when you press one of the boxes
-        TouchCrosshair(1);
+        //TouchCrosshair(1);
         wifissidpointer = ((ts.points[0].y - 200) / text_height) - 1;
         int str_len = WiFi.SSID(wifissidpointer).length() + 1;
         char result[str_len];
@@ -509,12 +538,12 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         Serial.printf(" Updating ssid to <%s>", Current_Settings.ssid);
         Current_Settings.DisplayPage = -1;
       }
-      if (CheckButton(TOPbutton)) { Current_Settings.DisplayPage = -2; }
+      if (CheckButton(TOPButton)) { Current_Settings.DisplayPage = -2; }
       break;
 
     case -4:
       if (RunSetup) {
-        GFXBorderBoxPrintf(TOPbutton, "Current <%s>", Current_Settings.UDP_PORT);
+        GFXBorderBoxPrintf(TOPButton, "Current <%s>", Current_Settings.UDP_PORT);
         GFXBorderBoxPrintf(Full0Center, "Set UDP PORT");
         keyboard(-1);  //reset
         keyboard(0);
@@ -530,7 +559,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
     case -3:
       if (RunSetup) {
-        GFXBorderBoxPrintf(TOPbutton, "Current <%s>", Current_Settings.password);
+        GFXBorderBoxPrintf(TOPButton, "Current <%s>", Current_Settings.password);
         GFXBorderBoxPrintf(Full0Center, "Set Password");
         keyboard(-1);  //reset
         Use_Keyboard(Current_Settings.password, sizeof(Current_Settings.password));
@@ -564,7 +593,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         gfx->fillScreen(BLACK);
         gfx->setTextColor(WHITE, BLACK);
         gfx->setTextSize(1);
-        ShowToplinesettings(Saved_Settings,"SAVED");
+        ShowToplinesettings(Saved_Settings, "SAVED");
         setFont(4);
         gfx->setCursor(180, 180);
         GFXBorderBoxPrintf(SSID, "Set SSID <%s>", Current_Settings.ssid);
@@ -606,6 +635,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         Current_Settings.DisplayPage = 0;
         ;
       };
+      if (CheckButton(TOPButton)) { Current_Settings.DisplayPage = 0; }
       if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
       if (CheckButton(SSID)) { Current_Settings.DisplayPage = -5; };
       if (CheckButton(PASSWORD)) { Current_Settings.DisplayPage = -3; };
@@ -968,7 +998,7 @@ void setup() {
   Serial.print(WiFi.SSID());
   Serial.print(">  Ip:");
   Serial.println(WiFi.localIP());
-  Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel Sets line_EXT if (line of) data recieved and sends out the Serialprint messages.
+  Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
   SD_Setup();
   Audio_setup();
   keyboard(-1);  //reset keyboard display update settings
@@ -1783,13 +1813,13 @@ void Audio_setup() {
     Serial.println("Audio setup FAILED");
   };
   // gfx->println("Exiting Setup");
-  // audio.connecttoFS(SD, AUDIO_FILENAME_02); // would start some music -- not needed !
+  // audio.connecttoFS(SD, AUDIO_FILENAME_02); // would start some music -- not needed but fun !
 }
 
-void UseNMEA(bool& Line_Ready, char* buf, int type) {  //&sets pointer aso I can modify Line_Ready in this function
-                                                       //if (Line_Ready){
+void UseNMEA(char* buf, int type) {  //&sets pointer aso I can modify Line_Ready in this function
+                                     //if (Line_Ready){
   if (buf[0] != 0) {
-    // now just print serial version if on the wifi page terminal window page.
+    // print serial version if on the wifi page terminal window page.
     if (Current_Settings.DisplayPage == -1) {
       if (type == 2) {
         gfx->setTextColor(BLUE);
@@ -1802,11 +1832,10 @@ void UseNMEA(bool& Line_Ready, char* buf, int type) {  //&sets pointer aso I can
       gfx->setTextColor(BLACK);  // reset to black now!
       if (type == 1) { UpdateLinef(Terminal, "Ser:%s", buf); }
     }
-    // now decode it
+    // now decode it for the displays to use
     pTOKEN = buf;                                               // pToken is used in processPacket to separate out the Data Fields
     if (processPacket(buf, BoatData)) { dataUpdated = true; };  // NOTE processPacket will search for CR! so do not remove it and then do page updates if true ?
-                                                                // Serial.printf("    ****after Processpacket buf <%s> \n", buf);
-    buf[0] = 0;                                                 //clear buf !
+    buf[0] = 0;                                                 //clear buf  when finished!
     return;
   }
 }
@@ -1826,16 +1855,16 @@ void ConnectWiFiusingCurrentSettings() {
 
 void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
   if (Current_Settings.ESP_NOW_ON) {
-    if (nmea_EXT[0] != 0) { UseNMEA(line_EXT, nmea_EXT, 3); }
+    if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
     // line_EXT = false;
   }
 
   if (Current_Settings.Serial_on) {
-    if (Test_Serial_1()) { UseNMEA(line_1, nmea_1, 1); }
+    if (Test_Serial_1()) { UseNMEA(nmea_1, 1); }
     //line_1=false;
   }
   if (Current_Settings.UDP_ON) {
-    if (Test_U()) { UseNMEA(line_U, nmea_U, 2); }
+    if (Test_U()) { UseNMEA(nmea_U, 2); }
   }
 }
 bool Test_Serial_1() {  // UART0 port P1
@@ -1888,7 +1917,7 @@ bool Test_U() {  // check if udp packet (UDP is sent in lines..) has arrived
     nmea_U[len] = 0;
     // nmea_UpacketSize = packetSize;
     //Serial.print(nmea_U);
-    line_U = true;
+    //line_U = true;
     return true;
   }  // udp PACKET DEALT WITH
      // }
@@ -1944,4 +1973,96 @@ void ScannetworkstoGFX(int x) {
       delay(10);
     }
   }
+}
+
+struct Music_info {
+  String name;
+  int length;
+  int runtime;
+  int volume;
+  int status;
+  int mute_volume;
+  int m;
+  int s;
+} music_info = { "", 0, 0, 0, 0, 0, 0, 0 };
+
+int get_music_list(fs::FS& fs, const char* dirname, uint8_t levels ) { // uses char* File_List[30] ?? how to pass the name here ?? 
+  Serial.printf("Listing directory: %s\n", dirname);
+  int i = 0;
+  char temp[20];
+  File root = fs.open(dirname);
+  if (!root){Serial.println("Failed to open directory");return i;}
+  if (!root.isDirectory()){Serial.println("Not a directory");return i;}
+  File file = root.openNextFile();
+  while (file) {
+    if (file.isDirectory()) {
+    } else {
+      strcpy(temp,file.name());
+     // if (temp.endsWith(".wav")) {
+    strcpy(File_List[i],temp); //, sizeof(File_List[i]));  // char array version of '=' !! with limit on size
+        i++;
+      //} else if (temp.endsWith(".mp3")) {
+    //strcpy(File_List[i],temp); // sizeof(File_List[i]));
+      //  i++;
+      //}
+    }
+    file = root.openNextFile();
+  }
+  return i;
+}
+
+// void open_new_song(char filename) {
+//    Serial.print(" Open _NEW song..");Serial.println (filename ); 
+//   music_info.name = filename;
+//   Serial.print(" audio input..");Serial.println (music_info.name );
+//   audio.connecttoFS(SD, filename);  // Does this need the '/' before the filename?? 
+//   music_info.runtime = audio.getAudioCurrentTime();
+//   music_info.length = audio.getAudioFileDuration();
+//   music_info.volume = audio.getVolume();
+//   music_info.status = 1;
+//   music_info.m = music_info.length / 60;
+//   music_info.s = music_info.length % 60;
+// }
+
+
+// int get_music_list(fs::FS& fs, const char* dirname, uint8_t levels, String wavlist[30]) {
+//   Serial.printf("Listing directory: %s\n", dirname);
+//   int i = 0;
+//   File root = fs.open(dirname);
+//   if (!root) {
+//     Serial.println("Failed to open directory");
+//     return i;
+//   }
+//   if (!root.isDirectory()) {
+//     Serial.println("Not a directory");
+//     return i;
+//   }
+//   File file = root.openNextFile();
+//   while (file) {
+//     if (file.isDirectory()) {
+//     } else {
+//       String temp = file.name();
+//       if (temp.endsWith(".wav")) {
+//         wavlist[i] = temp;
+//         i++;
+//       } else if (temp.endsWith(".mp3")) {
+//         wavlist[i] = temp;
+//         i++;
+//       }
+//     }
+//     file = root.openNextFile();
+//   }
+//   return i;
+// }
+void open_new_song(String filename) {
+   Serial.print(" Open _NEW song..");Serial.println (filename ); 
+  music_info.name = filename.substring(1, filename.indexOf("."));
+  Serial.print(" audio input..");Serial.println (music_info.name );
+  audio.connecttoFS(SD, filename.c_str());
+  music_info.runtime = audio.getAudioCurrentTime();
+  music_info.length = audio.getAudioFileDuration();
+  music_info.volume = audio.getVolume();
+  music_info.status = 1;
+  music_info.m = music_info.length / 60;
+  music_info.s = music_info.length % 60;
 }

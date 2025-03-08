@@ -4,7 +4,7 @@
 #include <Arduino.h>  // else does not recognise variable names
 
 // these must be defined in main ino
-extern bool line_EXT;
+//extern bool line_EXT;
 extern char nmea_EXT[500];
 extern bool EspNowIsRunning;
 

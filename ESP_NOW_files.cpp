@@ -30,7 +30,7 @@ void Test_EspNOW(const uint8_t* mac, const uint8_t* incomingData, int len) {
   //if (!line_EXT) { // wait until previous capture has been processed?
   memcpy(&nmea_EXT, incomingData, sizeof(nmea_EXT));
   //Serial.printf( "esp_now INTERRUPT :%s",nmea_EXT);
-  line_EXT = true;  //}
+  //line_EXT = true;  //}
 }
 void EXTHeartbeat() {
   if (!EspNowIsRunning) { return; }
