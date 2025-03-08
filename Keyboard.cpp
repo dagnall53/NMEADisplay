@@ -51,7 +51,7 @@ void Use_Keyboard(char* DATA, int sizeof_data) {
   
   if (!VariableChanged && !Keyboardinuse) {
     strcpy(Local_var, DATA);
-    Serial.printf(" !variable changed  <%s>\n",Local_var);
+   // Serial.printf(" !variable changed  <%s>\n",Local_var);
     WriteinBox(result_positionX, result_positionY, 1, Local_var);
     Keyboardinuse=true;
   }
