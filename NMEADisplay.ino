@@ -25,6 +25,7 @@ IPAddress sta_ip(0, 0, 0, 0);   // the IP address (or received from DHCP if 0.0.
 IPAddress gateway(0, 0, 0, 0);  // the IP address for Gateway in Station mode
 IPAddress subnet(0, 0, 0, 0);   // the SubNet Mask in Station mode
 boolean IsConnected = false;    // used when MAIN_MODE == AP_AND_STA to flag connection success (got IP)
+int NetworksFound;              // used for scan Networks result.
 WiFiUDP Udp;
 #define BufferLength 500
 //bool line_1;
@@ -40,6 +41,7 @@ bool EspNowIsRunning = false;
 
 char* pTOKEN;
 
+bool debugpause;
 
 #include <Arduino_GFX_Library.h>
 // Original version was for GFX 1.3.1 only. #include "GUITIONESP32-S3-4848S040_GFX_133.h"
@@ -55,9 +57,7 @@ char* pTOKEN;
 #define JPEG_FILENAME_LOGO "/logo.jpg"  // logo in jpg on sd card
 //audio
 #include "Audio.h"
-#define AUDIO_FILENAME_01 "/HotelCalifornia.mp3"
-#define AUDIO_FILENAME_02 "/SoundofSilence.mp3"
-#define AUDIO_FILENAME_03 "/MoonlightBay.mp3"
+
 #define AUDIO_FILENAME_START "/StartSound.mp3"
 //String file_list[20];  //for MP3 player part https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L119
 char File_List[20][20];  //array instead..
@@ -108,7 +108,7 @@ tBoatData BoatData;  // BoatData values, int double etc
 bool dataUpdated;  // flag that Nmea Data has been updated
 
 // change key (first parameter) to set defaults
-MySettings Default_Settings = { 6, 0, "GUESTBOAT", "12345678", "2002", true, true, true };
+MySettings Default_Settings = { 10, -200, "GUESTBOAT", "12345678", "2002", true, true, true };
 MySettings Saved_Settings;
 MySettings Current_Settings;
 struct Displaysettings {
@@ -180,17 +180,19 @@ Button BottomRightbutton = { 405, 405, 75, 75, 5, BLUE, WHITE, BLACK };  //,fals
 Button BottomLeftbutton = { 0, 405, 75, 75, 5, BLUE, WHITE, BLACK };     //false,0};
 
 // buttons for the wifi/settings pages // no need to set the bools ?
-Button TOPButton = { 30, 10, 420, 35, 5, WHITE, BLACK, BLUE };
-Button SSID = { 30, 50, 420, 35, 5, WHITE, BLACK, BLUE };      // was ,false};
-Button PASSWORD = { 30, 90, 420, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
-Button UDPPORT = { 30, 130, 420, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
+Button TOPButton = { 80, 10, 320, 35, 5, WHITE, BLACK, BLUE };
+Button SecondRowButton = { 80, 50, 320, 35, 5, WHITE, BLACK, BLUE };   // was ,false};
+Button ThirdRowButton = { 80, 90, 320, 35, 5, WHITE, BLACK, BLUE };    // was ,false};
+Button FourthRowButton = { 80, 130, 320, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
+Button FifthRowButton = { 80, 170, 320, 35, 5, WHITE, BLACK, BLUE };   // was ,false};
+
 #define sw_width 70
 Button Switch1 = { 20, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };   // was ,false};
 Button Switch2 = { 105, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
 Button Switch3 = { 190, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };  // was ,false};
 Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };       // was ,false};
-Button Spare = { 30, 170, 420, 35, 5, WHITE, BLACK, BLUE };          // was ,false};
-Button Terminal = { 0, 240, 480, 240, 0, WHITE, BLACK, BLUE };       // was ,false};
+
+Button Terminal = { 0, 240, 480, 240, 0, WHITE, BLACK, BLUE };  // was ,false};
 //for selections
 Button Full0Center = { 80, 55, 320, 55, 5, BLUE, WHITE, BLACK };   // ,false,0};
 Button Full1Center = { 80, 125, 320, 55, 5, BLUE, WHITE, BLACK };  // was ,false};;
@@ -209,6 +211,8 @@ Button Full5Center = { 80, 405, 320, 55, 5, BLUE, WHITE, BLACK };  // was ,false
 void DrawCompass(int x, int y, int rad) {
   //Work in progress!
   int Start, dot, colorbar, bigtick;
+  float inner,outer;
+    outer = (rad * 98) / 120;inner = (rad * 98) / 420; //same as pointer
   // gfx->drawRect(x-rad,y-rad,rad*2,rad*2,BLACK);gfx->drawCircle(x,y,rad,WHITE);gfx->drawCircle(x,y,rad-1,Blue);gfx->drawCircle(x,y,Start,Blue);
   Start = rad * 0.83;     //200
   dot = rad * 0.86;       //208
@@ -216,8 +220,13 @@ void DrawCompass(int x, int y, int rad) {
   bigtick = rad - 1;      //239
   gfx->fillRect(x - rad, y - rad, rad * 2, rad * 2, BLACK);
   gfx->fillCircle(x, y, rad, WHITE);
-  gfx->fillCircle(x, y, rad - 1, BLUE);
+  gfx->fillCircle(x, y, outer, BLUE);
   gfx->fillCircle(x, y, Start, BLACK);
+  
+  gfx->fillCircle(x, y, inner, WHITE);
+  gfx->fillCircle(x, y, inner-5, BLACK);
+
+
   //rad =240 example dot is 200 to 208   bar is 200 to 239 wind colours 200 to 220
   // colour segments
   gfx->fillArc(x, y, colorbar, Start, 270 - 45, 270, RED);
@@ -229,8 +238,8 @@ void DrawCompass(int x, int y, int rad) {
 
 
 void drawCompassPointer(int x, int y, int rad, int angle, uint16_t COLOUR, bool to) {
-  int x_offset, y_offset, tail1x, tail1y, tail2x, tail2y;  // The resulting offsets from the center point
-                                                           // Normalize the angle to the range 0 to 359
+  int x_offset, y_offset, x_arrow, y_arrow, tail1x, tail1y, tail2x, tail2y;  // The resulting offsets from the center point
+                                                                             // Normalize the angle to the range 0 to 359
   float inner, outer;
 
 
@@ -238,13 +247,15 @@ void drawCompassPointer(int x, int y, int rad, int angle, uint16_t COLOUR, bool 
   while (angle > 359) angle -= 360;
   // rose radius is default at 100 and returns 100*sine.. so may need to make offsets 2x bigger for 200 size triangel ?
   //if (rad=240){inner=0.6;outer=2;}else{inner=0.3;outer=1;}
-  inner = (rad * 98) / 400;  // just a tiny bit smaller!
+  inner = (rad * 98) / 420;  // just a tiny bit smaller!
   outer = (rad * 98) / 120;
 
   // these print a big triangle
   if (to) {  //Point to boat from wind
     x_offset = x + ((outer * getSine(angle)) / 100);
     y_offset = y + ((outer * getCosine(angle)) / 100);
+    x_arrow = x + ((outer * getSine(angle)) / 90);
+    y_arrow = y + ((outer * getCosine(angle)) / 90);
     tail1x = x + ((inner * getSine(angle + 20)) / 100);
     tail1y = y + ((inner * getCosine(angle + 20)) / 100);
     tail2x = x + ((inner * getSine(angle - 20)) / 100);
@@ -252,13 +263,16 @@ void drawCompassPointer(int x, int y, int rad, int angle, uint16_t COLOUR, bool 
   } else {
     x_offset = x + ((inner * getSine(angle)) / 100);
     y_offset = y + ((inner * getCosine(angle)) / 100);
+    x_arrow = x + ((inner * getSine(angle)) / 90);
+    y_arrow = y + ((inner * getCosine(angle)) / 90);
     tail1x = x + ((outer * getSine(angle + 7)) / 100);
     tail1y = y + ((outer * getCosine(angle + 7)) / 100);
     tail2x = x + ((outer * getSine(angle - 7)) / 100);
     tail2y = y + ((outer * getCosine(angle - 7)) / 100);
   }
-  // gfx->drawLine(x_offset, y_offset,(tail1x+tail2x)/2, (tail1y+tail2y)/2,BLACK);
+
   gfx->fillTriangle(x_offset, y_offset, tail1x, tail1y, tail2x, tail2y, COLOUR);
+  if (COLOUR != BLACK) { gfx->drawLine(x_arrow, y_arrow, (tail1x + tail2x) / 2, (tail1y + tail2y) / 2, WHITE); }
 }
 
 void WindArrow(int x, int y, int rad, int wind, bool to) {
@@ -299,6 +313,7 @@ void ShowToplinesettings(String Text) {
 
 void Display(int page) {  // setups for alternate pages to be selected by page.
   static int LastPageselected;
+
   static bool DataChanged;
   static int wifissidpointer;
   // some local variables for tests;
@@ -308,9 +323,10 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
   static unsigned int slowdown, timer2;
   static float wind, SOG, Depth;
   float temp, oldtemp;
-  static int16_t NetworksFound;
+
   static int fontlocal;
-  static int FileIndex;  // static to hold after selection and before pressing play!
+  static int FileIndex, Playing;  // static to hold after selection and before pressing play!
+  static int V_offset;            // used in the audio file selection to sort print area
   char Tempchar[30];
   String tempstring;
   int FS = 1;  // for font size test
@@ -326,7 +342,27 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
   // Now specific stuff for each page
 
-  switch (page) {
+  switch (page) {  // just show the top page
+    case -200:
+      if (RunSetup) { jpegDraw("/logo.jpg", jpegDrawCallback, true /* useBigEndian */,
+                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
+
+      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(Full1Center)) { jpegDraw("/logo.jpg", jpegDrawCallback, true /* useBigEndian */,
+                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
+      if (CheckButton(Full1Center)) { jpegDraw("/logo1.jpg", jpegDrawCallback, true /* useBigEndian */,
+                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
+      if (CheckButton(Full2Center)) { jpegDraw("/logo4.jpg", jpegDrawCallback, false /* useBigEndian */,
+                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
+      if (CheckButton(Full3Center)) { jpegDraw("/logo2.jpg", jpegDrawCallback, true /* useBigEndian */,
+                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
+                                               if (CheckButton(Full4Center)) { jpegDraw("/logo4.jpg", jpegDrawCallback, true /* useBigEndian */,
+                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
+      if (CheckButton(Full4Center)) { jpegDraw("/logo4.jpg", jpegDrawCallback, true /* useBigEndian */,
+                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
+                                               if (CheckButton(Full4Center)) { jpegDraw("/logo4.jpg", jpegDrawCallback, true /* useBigEndian */,
+                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
+      break;
     case -101:  //a test for Swipes
       if (RunSetup) {
         gfx->fillScreen(BLACK);
@@ -387,21 +423,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (ts.isTouched) {
         TouchCrosshair(20);
       }
-      if (CheckButton(TopLeftbutton)) {
-        volume = volume + 1;
-        if (volume > 21) { volume = 21; };
-        Serial.println("LEFT");
-        GFXBoxPrintf(80, 0, 2, WHITE, BLUE, " LEFT   %i\n", volume);
-        audio.setVolume(volume);
-      }
-      if (CheckButton(TopRightbutton)) {
-        volume = volume - 1;
-        if (volume < 1) { volume = 0; };
-        Serial.println("RIGHT");
-        GFXBoxPrintf(80, 0, 2, WHITE, BLUE, " RIGHT  %i\n", volume);
-        audio.setVolume(volume);
-      }
-      if (!audio.isRunning()) { audio.connecttoFS(SD, AUDIO_FILENAME_02); }
+
       if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
 
       break;
@@ -445,58 +467,67 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
     case -9:  // Play with the audio ..NOTE  Needs the resistors resoldered to connect to the audio chip on the Guitron (mains relay type) version!!
       if (RunSetup || DataChanged) {
         setFont(4);
+        gfx->setTextColor(WHITE, BLUE);
         gfx->setTextSize(1);
         if (volume > 21) { volume = 21; };
-        GFXBorderBoxPrintf(TOPButton, "SD Contents / Run Audio vol%i", volume);
-        gfx->setTextColor(WHITE, BLUE);
+        GFXBorderBoxPrintf(TOPButton, "Main Menu");
+        GFXBorderBoxPrintf(SecondRowButton, "PLAY Audio vol %i", volume);
         GFXBorderBoxPrintf(BottomLeftbutton, "vol-");
         GFXBorderBoxPrintf(BottomRightbutton, "vol+");
-        gfx->setCursor(0, 80);
+        //gfx->setCursor(0, 80);
 
-        int file_num;                           // = get_music_list(SD, "/", 0, file_list);  // see https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
-        file_num = get_music_list(SD, "/", 0);  // Char array  based version of  https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
-
+        int file_num;                                                                                           // = get_music_list(SD, "/", 0, file_list);  // see https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
+        file_num = get_music_list(SD, "/", 0);                                                                  // Char array  based version of  https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
+        V_offset = text_height + (ThirdRowButton.v + ThirdRowButton.height + (3 * ThirdRowButton.bordersize));  // start below the third button
         //  listDir(SD, "/", 0);
         int localy = 0;
         for (int i = 0; i < file_num; i++) {
-          gfx->setCursor(0, 118 + localy);
-          gfx->printf("  %i = ", i);
+          gfx->setCursor(0, V_offset + localy);
+          gfx->print("   ");
           gfx->println(File_List[i]);
           Serial.println(File_List[i]);
           localy = localy + text_height;
         }
-        GFXBorderBoxPrintf(SSID, "Found %i files", file_num);
+        GFXBorderBoxPrintf(ThirdRowButton, "Found %i files", file_num);
         DataChanged = false;
       }
-      if (CheckButton(TOPButton)) {
-        Serial.printf("selected %i  %s \n", FileIndex, File_List[FileIndex]);
-        open_new_song(File_List[FileIndex]);
+
+      if (millis() > slowdown + 1000) {
+        slowdown = millis();
+        //DataChanged = false;
+        //periodic updates.. other stuff?
+        if (audio.isRunning()) {
+          GFXBorderBoxPrintf(SecondRowButton, "Playing:%s", File_List[Playing]);
+        } else {
+          GFXBorderBoxPrintf(SecondRowButton, "PLAY Audio vol %i", volume);
+        }
+      }
+      if ((ts.isTouched) && (ts.points[0].y >= V_offset) && (ts.points[0].y <= BottomLeftbutton.v)) {  // nb check on location on screen or it will get reset when you press one of the boxes
+        //TouchCrosshair(1); // to help debugging only!
+        FileIndex = ((ts.points[0].y - V_offset) / text_height) - 1;
+        // Serial.printf(" pointing at %i %s\n", FileIndex, File_List[FileIndex]);
+        GFXBorderBoxPrintf(ThirdRowButton, "%s", File_List[FileIndex]);
       }
 
-      if ((ts.isTouched) && (ts.points[0].y >= 118)) {  // nb check on location on screenor it will get reset when you press one of the boxes
-        TouchCrosshair(1);
-        FileIndex = ((ts.points[0].y - 118) / text_height) - 1;
-        Serial.printf(" pointing at %i %s\n", FileIndex, File_List[FileIndex]);
-        GFXBorderBoxPrintf(SSID, "Select %i %s?", FileIndex, File_List[FileIndex]);  // lots of trouble hewe with the string ! needs to be proper char string arrays?
+      if (CheckButton(SecondRowButton)) {
+        Playing = FileIndex;
+        volume = 8;
+        open_new_song(File_List[Playing]);
+        GFXBorderBoxPrintf(SecondRowButton, "Playing:%s", File_List[Playing]);
       }
-      // if (!audio.isRunning()) {  open_new_song(file_list[file_index]);audio.connecttoFS(SD, AUDIO_FILENAME_02); }
 
-      if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
+      if (CheckButton(TOPButton)) { Current_Settings.DisplayPage = 0; }
       if (CheckButton(TopLeftbutton)) { Current_Settings.DisplayPage = 0; }
       if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = 0; }
       if (CheckButton(BottomRightbutton)) {
         volume = volume + 1;
         if (volume > 21) { volume = 21; };
         audio.setVolume(volume);
-        //Serial.printf("Right %i and ", volume);
-        //Serial.println(volume);
         DataChanged = true;
       }
       if (CheckButton(BottomLeftbutton)) {
         volume = volume - 1;
         if (volume < 1) { volume = 0; };
-        // Serial.printf("LEFT %i  and ", volume);
-        //Serial.println(volume);
         audio.setVolume(volume);
         DataChanged = true;
       }
@@ -509,30 +540,33 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (RunSetup || DataChanged) {
         setFont(4);
         GFXBorderBoxPrintf(TopRightbutton, "reScan");
-        GFXBorderBoxPrintf(TOPButton, "Current <%s>", Current_Settings.ssid);
-        GFXBorderBoxPrintf(SSID, "SCANNING...");
+        if (IsConnected) {
+          GFXBorderBoxPrintf(TOPButton, "Connected<%s>", Current_Settings.ssid);
+        } else {
+          GFXBorderBoxPrintf(TOPButton, "look for:%s", Current_Settings.ssid);
+        }
+        GFXBorderBoxPrintf(SecondRowButton, "SCANNING...");
         gfx->setCursor(0, 140);  //(location of terminal. make better later!)
         Serial.println(" starting WiFi.Scan");
         //(bool async, bool show_hidden, bool passive, uint32_t max_ms_per_chan, uint8_t channel, const char * ssid, const uint8_t * bssid)
-      
-        gfx->println(" Starting WiFi SCAN");
-        NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
-        delay(100);
-        gfx->printf(" Scan found <%i> networks", NetworksFound);
-        Serial.printf(" Scan found <%i> networks", NetworksFound);
-        GFXBorderBoxPrintf(SSID, "scan done");
+
+        // gfx->println(" Starting WiFi SCAN");
+        // NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
+        GFXBorderBoxPrintf(SecondRowButton, "scan done");
         if (NetworksFound <= 0) {  // note scan error can give negative number
           NetworksFound = 0;
-          GFXBorderBoxPrintf(SSID, " Use keyboard ");
+          GFXBorderBoxPrintf(SecondRowButton, " Use keyboard ");
         } else {
-          GFXBorderBoxPrintf(SSID, " %i networks found", NetworksFound);
+          GFXBorderBoxPrintf(SecondRowButton, " %i Networks Found", NetworksFound);
+          gfx->fillRect(0, 200, 480, 280, BLUE);  // clear the place wherethe wifi wil be printed
           for (int i = 0; i < NetworksFound; ++i) {
             gfx->setCursor(0, 200 + ((i + 1) * text_height));
             // Print SSID and RSSI for each network found
             gfx->print(i + 1);
             gfx->print(": ");
-            if (WiFi.SSID(i).length() > 20) { gfx->print("..(toolong).."); }
+            //if (WiFi.SSID(i).length() > 20) { gfx->print("..(toolong).."); }
             gfx->print(WiFi.SSID(i).substring(0, 20));
+            if (WiFi.SSID(i).length() > 20) { gfx->print(".."); }
             Serial.println(WiFi.SSID(i));
             gfx->print(" (");
             gfx->print(WiFi.RSSI(i));
@@ -549,31 +583,42 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         //other stuff?
       }
 
-      if ((ts.isTouched) && (ts.points[0].y >= 200)) {  // nb check on location on screenor it will get reset when you press one of the boxes
+      if ((ts.isTouched) && (ts.points[0].y >= 200)) {  // nb check on location on screen or it will get reset when you press one of the boxes
         //TouchCrosshair(1);
         wifissidpointer = ((ts.points[0].y - 200) / text_height) - 1;
         int str_len = WiFi.SSID(wifissidpointer).length() + 1;
         char result[str_len];
-        if (str_len << sizeof(Current_Settings.ssid)) {  //-1 check small enough for our ssid register!
-          WiFi.SSID(wifissidpointer).toCharArray(result, 15);
+        Serial.printf(" touched at %i  equates to %i ? %s ", ts.points[0].y, wifissidpointer, WiFi.SSID(wifissidpointer));
+        Serial.printf("  result str_len%i   sizeof settings.ssid%i \n", str_len, sizeof(Current_Settings.ssid));
+        if (str_len <= sizeof(Current_Settings.ssid)) {                                       // check small enough for our ssid register array!
+          WiFi.SSID(wifissidpointer).toCharArray(result, sizeof(Current_Settings.ssid) - 1);  // I like to keep a spare space!
           //  WiFi.SSID(wifissidpointer).toCharArray(Current_Settings.ssid,str_len);
-          Serial.printf(" touched at %i  equates to %i ? %s \n", ts.points[0].y, tempint, WiFi.SSID(wifissidpointer));
-          GFXBorderBoxPrintf(SSID, "use<%s>?", result);
+          if (str_len == 1) {
+            GFXBorderBoxPrintf(SecondRowButton, "Set via Keyboard?");
+          } else {
+            GFXBorderBoxPrintf(SecondRowButton, "Select<%s>?", result);
+          }
         } else {
-          GFXBorderBoxPrintf(SSID, "ssid too long ");
+          GFXBorderBoxPrintf(SecondRowButton, "ssid too long ");
         }
       }
-      if (CheckButton(TopRightbutton)) { DataChanged = true; }  // do the scan again
-      if (CheckButton(SSID)) {
-        if (NetworksFound >= 1) {
-          WiFi.SSID(wifissidpointer).toCharArray(Current_Settings.ssid, 15);
-          Serial.printf(" Updating ssid to <%s>", Current_Settings.ssid);
+      if (CheckButton(TopRightbutton)) {
+        GFXBorderBoxPrintf(SecondRowButton, " Starting WiFi re-SCAN ");
+        NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
+        DataChanged = true;
+      }  // do the scan again
+      if (CheckButton(SecondRowButton)) {
+        if ((NetworksFound >= 1) && (wifissidpointer >= 1)) {
+          WiFi.SSID(wifissidpointer).toCharArray(Current_Settings.ssid, sizeof(Current_Settings.ssid) - 1);
+          Serial.printf(" Update ssid to <%s>", Current_Settings.ssid);
           Current_Settings.DisplayPage = -1;
         } else {
+          Serial.println(" Update ssid via keyboard");
           Current_Settings.DisplayPage = -2;
         }
       }
-      if (CheckButton(TOPButton)) { Current_Settings.DisplayPage = -2; }
+      if (CheckButton(TOPButton)) { Current_Settings.DisplayPage = -1; }
+
       break;
 
     case -4:
@@ -585,12 +630,9 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         Use_Keyboard(blank, sizeof(blank));
         Use_Keyboard(Current_Settings.UDP_PORT, sizeof(Current_Settings.UDP_PORT));
       }
-
       Use_Keyboard(Current_Settings.UDP_PORT, sizeof(Current_Settings.UDP_PORT));
-
       if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = -1; }
       break;
-
 
     case -3:
       if (RunSetup) {
@@ -600,9 +642,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         Use_Keyboard(Current_Settings.password, sizeof(Current_Settings.password));
         keyboard(0);
       }
-
       Use_Keyboard(Current_Settings.password, sizeof(Current_Settings.password));
-
       if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = -1; }
       break;
 
@@ -620,7 +660,6 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       Use_Keyboard(Current_Settings.ssid, sizeof(Current_Settings.ssid));
       if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = -1; }
       if (CheckButton(TopRightbutton)) { Current_Settings.DisplayPage = -5; }
-
       break;
 
     case -1:  // this is the main WIFI settings page
@@ -631,16 +670,16 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         ShowToplinesettings(Saved_Settings, "SAVED");
         setFont(4);
         gfx->setCursor(180, 180);
-        GFXBorderBoxPrintf(SSID, "Set SSID <%s>", Current_Settings.ssid);
-        GFXBorderBoxPrintf(PASSWORD, "Set Password <%s>", Current_Settings.password);
-        GFXBorderBoxPrintf(UDPPORT, "Set UDP Port <%s>", Current_Settings.UDP_PORT);
+        GFXBorderBoxPrintf(SecondRowButton, "Set SSID <%s>", Current_Settings.ssid);
+        GFXBorderBoxPrintf(ThirdRowButton, "Set Password <%s>", Current_Settings.password);
+        GFXBorderBoxPrintf(FourthRowButton, "Set UDP Port <%s>", Current_Settings.UDP_PORT);
         GFXBorderBoxPrintf(Switch1, Current_Settings.Serial_on On_Off);  //A.Serial_on On_Off,  A.UDP_ON On_Off, A.ESP_NOW_ON On_Off
         AddTitleBorderBox(Switch1, "Serial");
         GFXBorderBoxPrintf(Switch2, Current_Settings.UDP_ON On_Off);
         AddTitleBorderBox(Switch2, "UDP");
         GFXBorderBoxPrintf(Switch3, Current_Settings.ESP_NOW_ON On_Off);
         AddTitleBorderBox(Switch3, "ESP-Now");
-        GFXBorderBoxPrintf(Switch4, "SAVE");
+        GFXBorderBoxPrintf(Switch4, "UPDATE");
         AddTitleBorderBox(Switch4, "EEPROM");
         GFXBorderBoxPrintf(Terminal, "- NMEA DATA -");
         AddTitleBorderBox(Terminal, "TERMINAL");
@@ -651,8 +690,10 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (millis() > slowdown + 1000) {
         slowdown = millis();
 
-        //print recieved data in terminal here - or in useNMEA()
+        //print recieved data in terminal here? - or in UpdateLinef()
       }
+
+      if (CheckButton(Terminal)) { debugpause = !debugpause; }
       //runsetup to repopulate the text in the boxes!
       if (CheckButton(Switch1)) {
         Current_Settings.Serial_on = !Current_Settings.Serial_on;
@@ -670,13 +711,16 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         Current_Settings.DisplayPage = 0;
         ;
       };
+
+
       if (CheckButton(TOPButton)) { Current_Settings.DisplayPage = 0; }
       if (CheckButton(Full0Center)) { Current_Settings.DisplayPage = 0; }
-      if (CheckButton(SSID)) { Current_Settings.DisplayPage = -5; };
-      if (CheckButton(PASSWORD)) { Current_Settings.DisplayPage = -3; };
-      if (CheckButton(UDPPORT)) { Current_Settings.DisplayPage = -4; };
+      if (CheckButton(SecondRowButton)) { Current_Settings.DisplayPage = -5; };
+      if (CheckButton(ThirdRowButton)) { Current_Settings.DisplayPage = -3; };
+      if (CheckButton(FourthRowButton)) { Current_Settings.DisplayPage = -4; };
+
       break;
-    case 0:
+    case 0:  // main settings
       if (RunSetup) {
 
         ShowToplinesettings("Now");
@@ -757,16 +801,17 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
     case 5:  // wind instrument
       if (RunSetup) {
-        setFont(6);
+        setFont(8);
         DrawCompass(240, 240, 240);
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
+        GFXBorderBoxPrintf(WindSpeedBox, "%2.0fkts", BoatData.WindSpeedK);
         WindArrow(240, 240, 240, BoatData.WindDirectionT, false);
         //Box in middle for wind dir / speed
         //int h, int v, int width, int height, int textsize, int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
 
-        GFXBorderBoxPrintf(WindSpeedBox, "%2.0fkts", BoatData.WindSpeedK);
+        
       }
 
       //        TouchCrosshair(20); quarters select big screens
@@ -1010,44 +1055,27 @@ void setup() {
   //if GFX> 1.3.1 try and do this as the invert colours write 21h or 20h to 0Dh has been lost from the structure!
   gfx->invertDisplay(false);
   gfx->fillScreen(BLUE);
+  gfx->setCursor(0, 150);
+  gfx->setTextColor(WHITE);
 #ifdef GFX_BL
   pinMode(GFX_BL, OUTPUT);
   digitalWrite(GFX_BL, HIGH);
 #endif
+  setFont(4);
   SD_Setup();
   Audio_setup();
-  gfx->setCursor(0, 50);
-  setFont(4);
-  gfx->setTextColor(WHITE);
   EEPROM_READ();  // setup and read Saved_Settings (saved variables)
   Current_Settings = Saved_Settings;
   ConnectWiFiusingCurrentSettings();
-  if (WiFi.status() == WL_CONNECTED) {
-    gfx->println(" Connected ! ");
-    Serial.print("** Connected.: ");
-    IsConnected = true;
-    gfx->println(" Using :");
-    gfx->print(WiFi.SSID());
-    gfx->print(" ");
-    gfx->println(WiFi.localIP());
-    Serial.print(" *Running with:  ssid<");
-    Serial.print(WiFi.SSID());
-    Serial.print(">  Ip:");
-    Serial.println(WiFi.localIP());
-  } else {
-     WiFi.disconnect(false); // allows the later scan to work ? //https://github.com/espressif/arduino-esp32/issues/8916
-    gfx->println(" NO WIFI Connected");
-    Serial.print(" NO WIFI Connected");
-    IsConnected = false;
-  }
 
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
 
   keyboard(-1);  //reset keyboard display update settings
   gfx->println(F("***START Screen***"));
   Udp.begin(atoi(Current_Settings.UDP_PORT));
-  delay(100);    // .1 seconds
-  Display(100);  // trigger default
+  delay(1500);    // 1.5 seconds
+  Current_Settings.DisplayPage = 4;// select first page to show or use non defined page to start with default
+   Display(Current_Settings.DisplayPage);  
 }
 
 void loop() {
@@ -1321,6 +1349,8 @@ void TouchValueShow(int offset, bool debug) {  // offset display down in pixels
 //*********** EEPROM functions *********
 void EEPROM_WRITE(MySettings A) {
   // save my current settings
+  // ALWAYS Write the Default display page!  may change this later and save separately?!!
+  A.DisplayPage = Default_Settings.DisplayPage;
   Serial.printf("SAVING EEPROM key:%i \n", A.EpromKEY);
   EEPROM.put(1, A.EpromKEY);  // separate and duplicated so it can be checked by itsself first in case structures change
   EEPROM.put(10, A);
@@ -1362,7 +1392,7 @@ void dataline(MySettings A, String Text) {
   Serial.print(A.password);
   Serial.println("> ");
 }
-boolean CompStruct(MySettings A, MySettings B) {  // does not check ssid and password
+boolean CompStruct(MySettings A, MySettings B) {  // Does NOT compare the display page!
   bool same = false;
   // have to check each variable individually
   if (A.EpromKEY == B.EpromKEY) { same = true; }
@@ -1370,8 +1400,11 @@ boolean CompStruct(MySettings A, MySettings B) {  // does not check ssid and pas
   if (A.UDP_ON == B.UDP_ON) { same = true; }
   if (A.ESP_NOW_ON == B.ESP_NOW_ON) { same = true; }
   if (A.Serial_on == B.Serial_on) { same = true; }
+  if (A.ssid == B.ssid) { same = true; }
+  if (A.password == B.password) { same = true; }
   return same;
 }
+
 
 void Writeat(int h, int v, const char* text) {  //Write text at h,v (using fontoffset to use TOP LEFT of text convention)
   gfx->setCursor(h, v + (text_offset));         // offset up/down for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
@@ -1646,9 +1679,11 @@ void UpdateCentered(int h, int v, int width, int height, int bordersize,
 void UpdateLinef(Button button, const char* fmt, ...) {  // Types sequential lines in the button space
   static int Printline;
   int LinesOfType, characters;
+  static bool screenfull;
   int16_t x, y;
   char limitedWidth[80];
   int typingspaceH, typingspaceW;
+  if (screenfull && debugpause) { return; }
   typingspaceH = button.height - 2 * button.bordersize;
   typingspaceW = button.width - 2 * button.bordersize;
   LinesOfType = typingspaceH / (text_height + 2);
@@ -1664,9 +1699,13 @@ void UpdateLinef(Button button, const char* fmt, ...) {  // Types sequential lin
   gfx->print(msg);  // lines should already have CRLF!
   Printline = Printline + 1;
   if (len >= 40) { Printline = Printline + 1; }
+
   if (Printline >= (LinesOfType)) {
-    Printline = 0;
-    gfx->fillRect(x, y - (text_offset), typingspaceW, typingspaceH, WHITE);
+    screenfull = true;
+    if (!debugpause) {
+      Printline = 0;
+      gfx->fillRect(x, y - (text_offset), typingspaceW, typingspaceH, WHITE);
+    }
   }
 }
 
@@ -1798,8 +1837,8 @@ void SD_Setup() {
   } else {
     // avoid the flash screen for now...
     // unsigned long start = millis();
-    // jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
-    //          0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+    jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
+             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
     // Serial.printf("Time used: %lums\n", millis() - start);
   }
   uint8_t cardType = SD.cardType();
@@ -1840,16 +1879,14 @@ void Audio_setup() {
   delay(200);
   audio.setPinout(I2S_BCLK, I2S_LRCK, I2S_DOUT);
   audio.setVolume(15);  // 0...21
-  if (audio.connecttoFS(SD, AUDIO_FILENAME_START)) {
-    gfx->setCursor(10, 100);
-    delay(200);
+  if (audio.connecttoFS(SD, "/StartSound.mp3")) {
+    delay(10);
     if (audio.isRunning()) { gfx->println("Playing Ships bells"); }
     while (audio.isRunning()) {
       audio.loop();
       vTaskDelay(1);
     }
   } else {
-    gfx->setCursor(10, 100);
     gfx->print(" Failed  audio setup ");
     Serial.println("Audio setup FAILED");
   };
@@ -1861,7 +1898,7 @@ void UseNMEA(char* buf, int type) {  //&sets pointer aso I can modify Line_Ready
                                      //if (Line_Ready){
   if (buf[0] != 0) {
     // print serial version if on the wifi page terminal window page.
-    if (Current_Settings.DisplayPage == -1) {
+    if ((Current_Settings.DisplayPage == -1)) {  //debugpause in UpdateLinef
       if (type == 2) {
         gfx->setTextColor(BLUE);
         UpdateLinef(Terminal, "UDP:%s", buf);
@@ -1882,28 +1919,40 @@ void UseNMEA(char* buf, int type) {  //&sets pointer aso I can modify Line_Ready
 }
 void ConnectWiFiusingCurrentSettings() {
   uint32_t StartTime = millis();
-  static int NetworksFound;
-  gfx->println(" Using EEPROM settings");
-
+  gfx->println("Setting up WiFi");
   WiFi.softAP("NMEADISPLAY", "123245678");
   delay(5);  // start an AP ?.. does this ure the WiFI scan bug?
   WiFi.mode(WIFI_AP_STA);
-
   //MDNS.begin("NMEA_Display");
-
-   NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
-        delay(100);
-        gfx->printf(" Scan found <%i> networks", NetworksFound);
-        Serial.printf(" Scan found <%i> networks", NetworksFound);
-
-  gfx->println(" Starting WiFi");
-  Serial.println(" Starting WiFi");
+  // experiment.. do the WIfI/scan(i) get independently stored??
+  NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
+  delay(100);
+  gfx->printf(" Scan found <%i> networks\n", NetworksFound);
+  Serial.printf(" Scan found <%i> networks", NetworksFound);
 
   WiFi.begin(Current_Settings.ssid, Current_Settings.password);                 //standard wifi start
   while ((WiFi.status() != WL_CONNECTED) && (millis() <= StartTime + 10000)) {  //Give it 10 seconds
     delay(500);
     gfx->print(".");
     Serial.print(".");
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    gfx->println(" Connected ! ");
+    Serial.print("** Connected.: ");
+    IsConnected = true;
+    gfx->println(" Using :");
+    gfx->print(WiFi.SSID());
+    gfx->print(" ");
+    gfx->println(WiFi.localIP());
+    Serial.print(" *Running with:  ssid<");
+    Serial.print(WiFi.SSID());
+    Serial.print(">  Ip:");
+    Serial.println(WiFi.localIP());
+  } else {
+    WiFi.disconnect(false);  // VERY IMPORTANT allows the later scan to work if we do not initially connect to a station!!! //https://github.com/espressif/arduino-esp32/issues/8916
+    gfx->println(" NO WIFI Connected");
+    Serial.print(" NO WIFI Connected");
+    IsConnected = false;
   }
 }
 
@@ -2028,7 +2077,8 @@ void ScannetworkstoGFX(int x) {
     }
   }
 }
-
+//************ Music stuff  Purely to explore if the ESP32 has any spare capacity while doing display etc! 
+//***  
 struct Music_info {
   String name;
   int length;
@@ -2041,16 +2091,17 @@ struct Music_info {
 } music_info = { "", 0, 0, 0, 0, 0, 0, 0 };
 
 int get_music_list(fs::FS& fs, const char* dirname, uint8_t levels) {  // uses char* File_List[30] ?? how to pass the name here ??
-  Serial.printf("Listing directory: %s\n", dirname);
+  //Serial.printf("Listing directory: %s\n", dirname);
+  bool ismusic;
   int i = 0;
   char temp[20];
   File root = fs.open(dirname);
   if (!root) {
-    Serial.println("Failed to open directory");
+    // Serial.println("Failed to open directory");
     return i;
   }
   if (!root.isDirectory()) {
-    Serial.println("Not a directory");
+    //  Serial.println("Not a directory");
     return i;
   }
   File file = root.openNextFile();
@@ -2059,8 +2110,11 @@ int get_music_list(fs::FS& fs, const char* dirname, uint8_t levels) {  // uses c
     } else {
       strcpy(temp, file.name());
       // if (temp.endsWith(".wav")) {
-      strcpy(File_List[i], temp);  //, sizeof(File_List[i]));  // char array version of '=' !! with limit on size
-      i++;
+      // Serial.printf("    temp %s  strstr %i \n",temp,strstr(temp,".mp3"));//strstr(temp,".wav"),strstr(temp,".wav"),( strstr(temp,".wav") || strstr(temp,".wav")));
+      if (strstr(temp, ".mp3")) {
+        strcpy(File_List[i], temp);  //, sizeof(File_List[i]));  // char array version of '=' !! with limit on size
+        i++;
+      }
       //} else if (temp.endsWith(".mp3")) {
       //strcpy(File_List[i],temp); // sizeof(File_List[i]));
       //  i++;
@@ -2071,49 +2125,7 @@ int get_music_list(fs::FS& fs, const char* dirname, uint8_t levels) {  // uses c
   return i;
 }
 
-// void open_new_song(char filename) {
-//    Serial.print(" Open _NEW song..");Serial.println (filename );
-//   music_info.name = filename;
-//   Serial.print(" audio input..");Serial.println (music_info.name );
-//   audio.connecttoFS(SD, filename);  // Does this need the '/' before the filename??
-//   music_info.runtime = audio.getAudioCurrentTime();
-//   music_info.length = audio.getAudioFileDuration();
-//   music_info.volume = audio.getVolume();
-//   music_info.status = 1;
-//   music_info.m = music_info.length / 60;
-//   music_info.s = music_info.length % 60;
-// }
 
-
-// int get_music_list(fs::FS& fs, const char* dirname, uint8_t levels, String wavlist[30]) {
-//   Serial.printf("Listing directory: %s\n", dirname);
-//   int i = 0;
-//   File root = fs.open(dirname);
-//   if (!root) {
-//     Serial.println("Failed to open directory");
-//     return i;
-//   }
-//   if (!root.isDirectory()) {
-//     Serial.println("Not a directory");
-//     return i;
-//   }
-//   File file = root.openNextFile();
-//   while (file) {
-//     if (file.isDirectory()) {
-//     } else {
-//       String temp = file.name();
-//       if (temp.endsWith(".wav")) {
-//         wavlist[i] = temp;
-//         i++;
-//       } else if (temp.endsWith(".mp3")) {
-//         wavlist[i] = temp;
-//         i++;
-//       }
-//     }
-//     file = root.openNextFile();
-//   }
-//   return i;
-// }
 void open_new_song(String filename) {
   Serial.print(" Open _NEW song..");
   Serial.println(filename);

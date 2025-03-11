@@ -18,7 +18,7 @@ but highly modified!
 //   }
 //   return val;
 // }
-extern double NMEA0183GetDouble(const char *data);// have to do this as its local to NMEA0183Messagesmessages.cpp!
+extern double NMEA0183GetDouble(const char *data);  // have to do this as its local to NMEA0183Messagesmessages.cpp!
 
 extern char *pTOKEN;  // const ?global? pointer of type char, used to get the fields in a nmea sentence
                       // when a new sentence is processed we advance this pointer n positions
@@ -90,7 +90,7 @@ boolean FillTokenLast(char *ptr) {
 
 
 
-extern void EventTiming(String input); // to permit timing functions here during development
+extern void EventTiming(String input);  // to permit timing functions here during development
 
 bool NeedleinHaystack(char ch1, char ch2, char ch3, char *haystack, int &compareOffset) {
   // Serial.printf("\n Looking for<%c%c%c> in strlen(%i) %s \n", ch1, ch2, ch3, strlen(haystack), haystack);
@@ -107,12 +107,12 @@ bool NeedleinHaystack(char ch1, char ch2, char ch3, char *haystack, int &compare
 }
 
 //********* Add this if needed in the case statements to help sort bugs!
-  // Serial.println(" Fields:");
-  // for (int x = 0; x <= Num_DataFields; x++) {
-  //   Serial.print(Field[x]);
-  //   Serial.print(",");
-  // }
-  // Serial.println("> ");
+// Serial.println(" Fields:");
+// for (int x = 0; x <= Num_DataFields; x++) {
+//   Serial.print(Field[x]);
+//   Serial.print(",");
+// }
+// Serial.println("> ");
 
 
 bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array buf and places (updates) data if found in stringND
@@ -130,59 +130,62 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
   //Serial.printf("  Found  <%i> Fields Field0<%s> Field1<%s> Field2<%s> Field3<%s>\n", Num_DataFields, Field[0],Field[1], Field[2], Field[3]);
   //NeedleInHaystack/4/will (should !) identify the command.  Note Nul to prevent zero ! being passed to Switch or Div4
   //                  0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17 ....
-  char nmeafunct[] = "NUL,DBT,MWV,VHW,RMC,APB,DPT,GGA,HDG,HDM,MTW,MWD,NOP,XS,,AK,,ALK,BWC,WPL, ";  // more can be added to
+  char nmeafunct[] = "NUL,DBT,DPT,DBK,MWV,VHW,RMC,APB,GLL,HDG,HDM,MTW,MWD,NOP,XS,,AK,,ALK,BWC,WPL, ";  // more can be added to
   // Not using Field[0] as some commands have only two characters. so we can look for (eg) 'XS,' from $IIXS, =13
   if (NeedleinHaystack(buf[3], buf[4], buf[5], nmeafunct, Index) == false) { return false; }
- // Serial.printf(" Using case %i \n", Index / 4);
+  // Serial.printf(" Using case %i \n", Index / 4);
   // Serial.println(" Fields:");for(int x=0 ;int <Num_DataFields;int++){Serial.print(Field[x]);Serial.print(",");} Serial.println("> ");
   switch (Index / 4) {
     case 1:  //dbt
       BoatData.WaterDepth = atof(Field[3]);
       return true;
       break;
-
-    case 2:  //mwv
-      BoatData.WindDirectionT = atof(Field[1]);
-      BoatData.WindSpeedK = atof(Field[3]);
+    case 2:  //DPT //dIFFERENT TO DBT/DBK
+      BoatData.WaterDepth = atof(Field[1]);
       return true;
       break;
-    case 3:                           //VHW
-      BoatData.STW = atof(Field[5]);  // other VHW data (directions!) are usually false!
-      return true;
-      break;
-    case 4:  //RMC
-             // Serial.printf("\n Failing in RMC ? numdatafields<%i>  ", Num_DataFields);
-   //   if (Num_DataFields < 10) { return false; }
-  // Serial.println("RMC Fields<");                  // un copy this lot to assist debugging!!
-  // for (int x = 0; x <= Num_DataFields; x++) {
-  //   Serial.printf("%i=<%s>,",x,Field[x]);
-  // }
-  // Serial.println(" ");
-
-      BoatData.SOG = atof(Field[7]);   //  was just atof( now use TL function NMEA0183GetDouble to cover some error cases and return NMEA0183DoubleNA if N/A
-      BoatData.COG = atof(Field[8]);    // atof sets nmea0183nan (-10million.. so may need extra stuff to prevent silly displays!)
-
-      BoatData.Latitude = LatLonToDouble(Field[3], Field[4][0]);  // using TL's functions
-      BoatData.Longitude = LatLonToDouble(Field[5], Field[6][0]); //nb we use +1 on his numbering that omits the command
-  //        Serial.println(BoatData.GPSTime); Serial.println(BoatData.Latitude);  Serial.println(BoatData.Longitude);  Serial.println(BoatData.SOG);
-    
-      BoatData.GPSTime = NMEA0183GPTimeToSeconds(Field[1]);
- 
-      return true;  //
-      break;
-
-        case 6:  //DPT
+    case 3:  //DBK
       BoatData.WaterDepth = atof(Field[3]);
       return true;
       break;
 
-    case 9:  //HDM
+    case 4:  //mwv
+      BoatData.WindDirectionT = atof(Field[1]);
+      BoatData.WindSpeedK = atof(Field[3]);
+      return true;
+      break;
+    case 5:                           //VHW
+      BoatData.STW = atof(Field[5]);  // other VHW data (directions!) are usually false!
+      return true;
+      break;
+    case 6:  //RMC
+             // Serial.printf("\n Failing in RMC ? numdatafields<%i>  ", Num_DataFields);
+             //   if (Num_DataFields < 10) { return false; }
+             // Serial.println("RMC Fields<");                  // un copy this lot to assist debugging!!
+             // for (int x = 0; x <= Num_DataFields; x++) {
+             //   Serial.printf("%i=<%s>,",x,Field[x]);
+             // }
+             // Serial.println(" ");
+      BoatData.SOG = atof(Field[7]);  //  was just atof( now use TL function NMEA0183GetDouble to cover some error cases and return NMEA0183DoubleNA if N/A
+      BoatData.COG = atof(Field[8]);  // atof sets nmea0183nan (-10million.. so may need extra stuff to prevent silly displays!)
+      BoatData.Latitude = LatLonToDouble(Field[3], Field[4][0]);   // using TL's functions
+      BoatData.Longitude = LatLonToDouble(Field[5], Field[6][0]);  //nb we use +1 on his numbering that omits the command
+                                                                   //        Serial.println(BoatData.GPSTime); Serial.println(BoatData.Latitude);  Serial.println(BoatData.Longitude);  Serial.println(BoatData.SOG);
+      BoatData.GPSTime = NMEA0183GPTimeToSeconds(Field[1]);
+
+      return true;  //
+      break;
+    case 7: //APA  3=xte 8 = bearing to dest (9=M agnetic or  T rue)
+             //APB  3= xte 11 = CURRENT BEARING TO DEST  and 12(m/t) same..AS APA 
+
+      return true;
+      break;
+    case 10:  //HDM
       BoatData.MagHeading = atof(Field[1]);
       return true;
       break;
 
     default:
-
       return false;
       break;
   }

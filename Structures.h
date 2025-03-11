@@ -9,7 +9,7 @@ tBoatdata from Timo Llapinen by Dr.András Szép under GNU General Public Licens
 
 struct MySettings {  //key,default page,ssid,PW,Displaypage, UDP,Mode,serial,Espnow
   int EpromKEY;      // Key is changed to allow check for clean EEprom and no data stored change in the default will result in eeprom being reset
-  int DisplayPage;   // start page after defaults (currently -100 to show fonts data)
+  int DisplayPage;   // start page after defaults 
   char ssid[16];
   char password[16];
   char UDP_PORT[5];  // hold udp port as char to make using keyboard easier for now. use atoi when needed!!

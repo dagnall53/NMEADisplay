@@ -29,6 +29,7 @@ Arduino_ESP32RGBPanel *rgbpanel = new Arduino_ESP32RGBPanel(  // MY BOARD modifi
   20 /* vsync_back_porch */    // Vertical back porch duration
                                // ,1, 30000000 // Uncomment for additional parameters if needed
 );
+
 // Initialize ST7701 display // comments at end of  https://github.com/Makerfabs/ESP32-S3-Parallel-TFT-with-Touch-4inch
 Arduino_RGB_Display *gfx = new Arduino_RGB_Display(
   480 /* width */,  480 /* height */,  rgbpanel,
@@ -38,7 +39,7 @@ Arduino_RGB_Display *gfx = new Arduino_RGB_Display(
 Note: Use Type1 modified (line ~ 511)  or type 9 modified 
 WRITE_COMMAND_8, 0x20, // 0x20 normal, 0x21 IPS
 WRITE_C8_D8, 0x3A, 0x50, // 0x70 RGB888, 0x60 RGB666, 0x50 RGB565
-
+try 0x60 ?
 
  
 */
