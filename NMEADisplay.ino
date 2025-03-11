@@ -19,6 +19,8 @@ From scratch build!
 #include <esp_wifi.h>
 // #include <WebServer.h>
 // #include <ESPmDNS.h>
+
+#include "OTA.h"
 IPAddress udp_ap(0, 0, 0, 0);   // the IP address to send UDP data in SoftAP mode
 IPAddress udp_st(0, 0, 0, 0);   // the IP address to send UDP data in Station mode
 IPAddress sta_ip(0, 0, 0, 0);   // the IP address (or received from DHCP if 0.0.0.0) in Station mode
@@ -1067,8 +1069,15 @@ void setup() {
   EEPROM_READ();  // setup and read Saved_Settings (saved variables)
   Current_Settings = Saved_Settings;
   ConnectWiFiusingCurrentSettings();
+  
+  SetupOTA();
+
+
 
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
+
+
+
 
   keyboard(-1);  //reset keyboard display update settings
   gfx->println(F("***START Screen***"));
@@ -1080,6 +1089,7 @@ void setup() {
 
 void loop() {
   yield();
+  server.handleClient();// for OTA;
   //
   //DisplayCheck(false);
   //EventTiming("START");
