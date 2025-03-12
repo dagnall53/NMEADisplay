@@ -1,13 +1,16 @@
 
-#include "Keyboard.h"
+
 #include <Arduino_GFX_Library.h> 
 // also includes Arduino etc, so variable names are understood
+#include "Structures.h"
+
+#include "Keyboard.h"
 // Based on Felix Biego's keyboard   https://github.com/fbiego/esp32-touch-keyboard/tree/main
-// modified to use char and not strings.
+// modified to use strings (char array) and not Strings.
 #include "fonts.h"
 //#include "Touch.h"
 #include <TAMC_GT911.h>
-#include "Structures.h"
+
 
 char TOP[] = "qQ1wW2eE3rR4tT5yY6uU7iI8oO9pP0";
 char MIDDLE[] = "aA_sS/dD:fF;gG(hH)jJ$kK&lL@";
@@ -28,13 +31,22 @@ int KBD_size = 2;  //generic size modifier for Kbd 1=small, 2=480 wide
   #define voffset 35 
 
 extern int text_height;  //so we can get them if we change heights etc inside functions
-extern void WriteinBox(int h, int v, int size, const char* TEXT);
+
 extern void EEPROM_WRITE(MySettings A);
 extern void setFont(int);
-
+extern int Display_Page;
 extern TAMC_GT911 ts;
 extern struct MySettings Current_Settings;
 extern void TouchCrosshair(int);
+extern int text_offset;
+
+void WriteinKey(int h, int v, int size, const char* TEXT) {  //Write WHITE text in filled BLACK box of text height at h,v (using fontoffset to use TOP LEFT of text convention)
+  gfx->fillRect(h, v, 480, text_height * size, WHITE);
+  gfx->setTextColor(BLACK);
+  gfx->setTextSize(size);
+  gfx->setCursor(h, v + (text_offset));         // offset up/down for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
+  gfx->print(TEXT);
+}
 
 void Use_Keyboard(char* DATA, int sizeof_data) {
   static unsigned long lastkeypressed, last_Displayed;
@@ -52,7 +64,7 @@ void Use_Keyboard(char* DATA, int sizeof_data) {
   if (!VariableChanged && !Keyboardinuse) {
     strcpy(Local_var, DATA);
    // Serial.printf(" !variable changed  <%s>\n",Local_var);
-    WriteinBox(result_positionX, result_positionY, 1, Local_var);
+    WriteinKey(result_positionX, result_positionY, 1, Local_var);
     Keyboardinuse=true;
   }
   int st;
@@ -84,7 +96,7 @@ void Use_Keyboard(char* DATA, int sizeof_data) {
     if (!strcmp(KEY, "rst")) {
       strcpy(Local_var, DATA);
       //Serial.printf(" reset  <%s> \n",Local_var);
-      WriteinBox(result_positionX, result_positionY, 1, Local_var);
+      WriteinKey(result_positionX, result_positionY, 1, Local_var);
       Command_Key = true;
     }
     if (!strcmp(KEY, "ENT")) {
@@ -96,14 +108,14 @@ void Use_Keyboard(char* DATA, int sizeof_data) {
       EEPROM_WRITE(Current_Settings);
       Keyboardinuse=false;
       setFont(0);
-      Current_Settings.DisplayPage=-1; //Always return to settings, page -1
+      Display_Page=-1; //Always return to settings, page -1
     }
     if (!Command_Key) {  //Serial.printf(" adding %s on end of variable<%s>\n",KEY,Local_var);
       strcat(Local_var, KEY);
     }
     Serial.printf(" end of loop <%s> \n",Local_var);
     setFont(4);
-    WriteinBox(result_positionX, result_positionY, 1, Local_var);
+    WriteinKey(result_positionX, result_positionY, 1, Local_var);
     }
   if (!ts.isTouched && KeyPressUsed && (millis() > (250 + lastkeypressed))) { KeyPressUsed = false; }
 }

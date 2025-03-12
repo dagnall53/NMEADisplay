@@ -2,22 +2,18 @@
 Original version by Dr.András Szép under GNU General Public License (GPL).
 but highly modified! 
 */
+
 #include <Arduino.h>     //necessary for the String variables
-#include "Structures.h"  // to tell it about the boat data structs.
-                         // for the TL NMEA0183 library functions
-#include <NMEA0183.h>
+#include "aux_functions.h"
+          // defines gfx and has pin details of the display                      
+#include <NMEA0183.h>    // for the TL NMEA0183 library functions
 #include <NMEA0183Msg.h>
 #include <NMEA0183Messages.h>
 
-// double NMEA0183GetDouble(const char *data) {  // have to copy this as its local to NMEA0183Messagesmessages.cpp!
-//   double val=NMEA0183DoubleNA;
-//   if ( data==0 ) return val;
-//   for ( ;*data==' ';data++); // Pass spaces
-//   if ( *data!=0 && *data!=',' ) { // not empty field
-//     val=atof(data);
-//   }
-//   return val;
-// }
+extern int text_offset;
+extern int MasterFont;
+extern void setFont(int);
+
 extern double NMEA0183GetDouble(const char *data);  // have to do this as its local to NMEA0183Messagesmessages.cpp!
 
 extern char *pTOKEN;  // const ?global? pointer of type char, used to get the fields in a nmea sentence
@@ -129,12 +125,13 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
   if (!FillTokenLast(Field[Num_DataFields])) { return false; }
   //Serial.printf("  Found  <%i> Fields Field0<%s> Field1<%s> Field2<%s> Field3<%s>\n", Num_DataFields, Field[0],Field[1], Field[2], Field[3]);
   //NeedleInHaystack/4/will (should !) identify the command.  Note Nul to prevent zero ! being passed to Switch or Div4
-  //                  0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17 ....
-  char nmeafunct[] = "NUL,DBT,DPT,DBK,MWV,VHW,RMC,APB,GLL,HDG,HDM,MTW,MWD,NOP,XS,,AK,,ALK,BWC,WPL, ";  // more can be added to
+  //                  0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17  18  19....
+  char nmeafunct[] = "NUL,DBT,DPT,DBK,MWV,VHW,RMC,APB,GLL,HDG,HDM,MTW,MWD,NOP,XS,,AK,,ALK,BWC,WPL,GSV ";  // more can be added to
   // Not using Field[0] as some commands have only two characters. so we can look for (eg) 'XS,' from $IIXS, =13
   if (NeedleinHaystack(buf[3], buf[4], buf[5], nmeafunct, Index) == false) { return false; }
   // Serial.printf(" Using case %i \n", Index / 4);
   // Serial.println(" Fields:");for(int x=0 ;int <Num_DataFields;int++){Serial.print(Field[x]);Serial.print(",");} Serial.println("> ");
+  
   switch (Index / 4) {
     case 1:  //dbt
       BoatData.WaterDepth = atof(Field[3]);
@@ -154,19 +151,14 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
       BoatData.WindSpeedK = atof(Field[3]);
       return true;
       break;
+
     case 5:                           //VHW
       BoatData.STW = atof(Field[5]);  // other VHW data (directions!) are usually false!
       return true;
       break;
     case 6:  //RMC
-             // Serial.printf("\n Failing in RMC ? numdatafields<%i>  ", Num_DataFields);
-             //   if (Num_DataFields < 10) { return false; }
-             // Serial.println("RMC Fields<");                  // un copy this lot to assist debugging!!
-             // for (int x = 0; x <= Num_DataFields; x++) {
-             //   Serial.printf("%i=<%s>,",x,Field[x]);
-             // }
-             // Serial.println(" ");
-      BoatData.SOG = atof(Field[7]);  //  was just atof( now use TL function NMEA0183GetDouble to cover some error cases and return NMEA0183DoubleNA if N/A
+
+      BoatData.SOG = atof(Field[7]);  //  was just atof( or  use TL function NMEA0183GetDouble to cover some error cases and return NMEA0183DoubleNA if N/A
       BoatData.COG = atof(Field[8]);  // atof sets nmea0183nan (-10million.. so may need extra stuff to prevent silly displays!)
       BoatData.Latitude = LatLonToDouble(Field[3], Field[4][0]);   // using TL's functions
       BoatData.Longitude = LatLonToDouble(Field[5], Field[6][0]);  //nb we use +1 on his numbering that omits the command
@@ -184,6 +176,18 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
       BoatData.MagHeading = atof(Field[1]);
       return true;
       break;
+
+    case 19:  //GSV
+      // Serial.printf("\n Debug GSV ? numdatafields<%i>  ", Num_DataFields);
+      //          if (Num_DataFields < 10) { return false; }
+      //        Serial.println("Fields<");                  // un copy this lot to assist debugging!!
+      //        for (int x = 0; x <= Num_DataFields; x++) {
+      //          Serial.printf("%i=<%s>,",x,Field[x]);
+      //        }
+      //        Serial.println(" ");
+      BoatData.SatsInView = atof(Field[3]);
+      return true;
+      break;  
 
     default:
       return false;
@@ -343,3 +347,152 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
 //         jsonDoc.clear();
 //         j=0;
 //       }
+
+
+void UpdateCentered(Button button, const char* fmt, ...) {  // Centers text in space
+  static char msg[300] = { '\0' };
+  //Serial.printf("h %i v %i TEXT %i  Background %i \n",button.h,button.v, button.textcol,button.backcol);
+  int textsize = 1;
+  // calculate new offsets to just center on original box - minimum redraw of blank
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;
+  gfx->setTextSize(textsize);  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  gfx->getTextBounds(msg, button.h, button.v, &TBx1, &TBy1, &TBw, &TBh);  // do not forget '& ! Pointer not value!!!
+  x = button.h + button.bordersize;
+  y = button.v + button.bordersize + (text_offset * textsize);
+  x = x + ((button.width - TBw - (2 * button.bordersize)) / 2) / textsize;                                                    //try horizontal centering
+  y = y + ((button.height - TBh - (2 * button.bordersize)) / 2) / textsize;                                                   //try vertical centering
+  gfx->fillRect(button.h + button.bordersize, y - TBh - 1, button.width - (2 * button.bordersize), TBh + 4, button.backcol);  // just (plus a little bit ) where the text will be
+  gfx->setTextColor(button.textcol);
+  gfx->setCursor(x, y);
+  gfx->print(msg);
+  gfx->setTextSize(1);
+}
+
+void UpdateCentered(int h, int v, int width, int height, int bordersize,
+                    uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
+  static char msg[300] = { '\0' };
+  // calculate new offsets to just center on original box - minimum redraw of blank
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  gfx->getTextBounds(msg, h, v, &TBx1, &TBy1, &TBw, &TBh);  // do not forget '& ! Pointer not value!!!
+  x = h + bordersize;
+  y = v + bordersize + (text_offset);
+  x = x + ((width - TBw - (2 * bordersize)) / 2);   //try horizontal centering
+  y = y + ((height - TBh - (2 * bordersize)) / 2);  //try vertical centering
+                                                    // gfx->fillRect(h + bordersize, v + bordersize, width - (2 * bordersize), height - (2 * bordersize), backgroundcol);  // full inner rectangle blanking
+  gfx->fillRect(h + bordersize, y - TBh - 1, width - (2 * bordersize), TBh + 4, backgroundcol);
+  gfx->setTextColor(textcol);
+  gfx->setCursor(x, y);
+  gfx->print(msg);
+  gfx->setTextSize(1);
+}
+
+//USED BY GFXBorderBoxPrintf
+void WriteinBorderBox(int h, int v, int width, int height, int bordersize,
+                      uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* TEXT) {  //Write text in filled box of text height at h,v (using fontoffset to use TOP LEFT of text convention)
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;
+  // gfx->setTextSize(textsize);
+  x = h + bordersize;
+  y = v + bordersize + (text_offset);                        //initial Top Left positioning for print text
+  gfx->getTextBounds(TEXT, x, y, &TBx1, &TBy1, &TBw, &TBh);  // do not forget '& ! Pointer not value!!!
+  //Serial.printf(" Text bounds planned print (x%i y%i)  W:%i H:%i TB_X %i  TB_Y %i \n",x,y, TBw,TBh,TBx1,TBy1);
+  //gfx->fillRect(TBx1 , TBy1 , TBw , TBh , WHITE); delay(100); // visulize what the data is!
+  // move to center is  add (width-2*bordersize-TBw)/2 ?
+  //move vertical is add (height -2*bordersize-TBh)/2
+  gfx->fillRect(h, v, width, height, BorderColor);
+  gfx->fillRect(h + bordersize, v + bordersize, width - (2 * bordersize), height - (2 * bordersize), backgroundcol);
+  gfx->setTextColor(textcol);
+
+  // offset up/down by OFFSET (!) for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
+  x = h + bordersize;
+  y = v + bordersize + (text_offset);
+  x = x + ((width - TBw - (2 * bordersize)) / 2);   //try horizontal centering
+  y = y + ((height - TBh - (2 * bordersize)) / 2);  //try vertical centering
+  gfx->setCursor(x, y);
+  gfx->print(TEXT);
+  //reset font ...
+  gfx->setTextSize(1);
+}
+
+void GFXBorderBoxPrintf(int h, int v, int width, int height, int bordersize,
+                        uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
+  static char msg[300] = { '\0' };                                                                               // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  WriteinBorderBox(h, v, width, height, bordersize, backgroundcol, textcol, BorderColor, msg);
+}
+
+void GFXBorderBoxPrintf(Button button, const char* fmt, ...) {
+  static char msg[300] = { '\0' };  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  WriteinBorderBox(button.h, button.v, button.width, button.height, button.bordersize, button.backcol, button.textcol, button.BorderColor, msg);
+}
+
+void AddTitleBorderBox(Button button, const char* fmt, ...) {  // add a title to the box
+  int Font_Before;
+  //Serial.println("Font at start is %i",MasterFont);
+  Font_Before = MasterFont;
+  setFont(0);
+  static char Title[300] = { '\0' };
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(Title, 128, fmt, args);
+  va_end(args);
+  int len = strlen(Title);
+  gfx->getTextBounds(Title, button.h, button.v, &TBx1, &TBy1, &TBw, &TBh);
+  gfx->setTextColor(WHITE, button.BorderColor);
+  if ((button.v - TBh) >= 0) {
+    gfx->setCursor(button.h, button.v);
+  } else {
+    gfx->setCursor(button.h, button.v + TBh);
+  }
+  gfx->print(Title);
+  setFont(Font_Before);  //Serial.println("Font selected is %i",MasterFont);
+}
+
+void AddTitleBorderBox(int h, int v, uint16_t BorderColor, const char* fmt, ...) {  // add a title to the box
+  int Font_Before;
+  //Serial.println("Font at start is %i",MasterFont);
+  Font_Before = MasterFont;
+  setFont(0);
+  static char Title[300] = { '\0' };
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(Title, 128, fmt, args);
+  va_end(args);
+  int len = strlen(Title);
+  gfx->getTextBounds(Title, h, v, &TBx1, &TBy1, &TBw, &TBh);
+  gfx->setTextColor(WHITE, BorderColor);
+  if ((v - TBh) >= 0) {
+    gfx->setCursor(h, v);
+  } else {
+    gfx->setCursor(h, v + TBh);
+  }
+  gfx->print(Title);
+  setFont(Font_Before);  //Serial.println("Font selected is %i",MasterFont);
+}
+

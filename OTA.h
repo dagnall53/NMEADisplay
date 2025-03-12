@@ -5,6 +5,11 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <Update.h>
+#include <Arduino_GFX_Library.h>
+
+// if v131 extern Arduino_ST7701_RGBPanel *gfx ;  // declare the gfx structure so I can use GFX commands in Keyboard.cpp
+extern Arduino_RGB_Display* gfx;  //  change if alternate displays !
+extern void setFont(int);
 
 const char* host = "NMEADisplay";
 //const char* ssid = "GUESTBOAT";
@@ -23,14 +28,14 @@ String style =
 /* Login page */
 String loginIndex =
   "<form name=loginForm>"
-  "<h1>ESP32 Login</h1>"
+  "<h1>OTA Interface for NMEA DISPLAY</h1>"
   "<input name=userid placeholder='User ID'> "
   "<input name=pwd placeholder=Password type=Password> "
   "<input type=submit onclick=check(this.form) class=btn value=Login></form>"
   "<script>"
   "function check(form) {"
   "if(form.userid.value=='admin' && form.pwd.value=='admin')"
-  "{window.open('/serverIndex')}"
+  "{window.open('/OTA')}"
   "else"
   "{alert('Error Password or Username')}"
   "}"
@@ -42,6 +47,7 @@ String serverIndex =
   "<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"
   "<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
   "<input type='file' name='update' id='file' onchange='sub(this)' style=display:none>"
+  "<h1>OTA Interface for NMEA DISPLAY</h1>"
   "<label id='file-input' for='file'>   Choose file...</label>"
   "<input type='submit' class=btn value='Update'>"
   "<br><br>"
@@ -85,8 +91,8 @@ String serverIndex =
 
 void SetupOTA() {
 
-    /*use mdns for host name resolution*/
-  if (!MDNS.begin(host)) { //http://esp32.local
+  /*use mdns for host name resolution*/
+  if (!MDNS.begin(host)) {  //http://esp32.local
     Serial.println("Error setting up MDNS responder!");
     while (1) {
       delay(1000);
@@ -98,7 +104,11 @@ void SetupOTA() {
     server.sendHeader("Connection", "close");
     server.send(200, "text/html", loginIndex);
   });
-  server.on("/serverIndex", HTTP_GET, []() {
+  server.on("/OTA", HTTP_GET, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", serverIndex);
+  });
+  server.on("/ota", HTTP_GET, []() {
     server.sendHeader("Connection", "close");
     server.send(200, "text/html", serverIndex);
   });
@@ -112,7 +122,13 @@ void SetupOTA() {
     []() {
       HTTPUpload& upload = server.upload();
       if (upload.status == UPLOAD_FILE_START) {
+        setFont(5);
+        gfx->setTextColor(WHITE);
+        gfx->fillScreen(BLUE);
+        gfx->setCursor(0, 40);
+        gfx->printf("Update: %s\n", upload.filename.c_str());
         Serial.printf("Update: %s\n", upload.filename.c_str());
+        Serial.printf("   current size: %u   total size %u\n", upload.currentSize, upload.totalSize);
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {  //start with max available size
           Update.printError(Serial);
         }
@@ -121,9 +137,20 @@ void SetupOTA() {
         if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
           Update.printError(Serial);
         }
+        //monitor upload milestones (100k 200k 300k)?  
+        uint16_t chunk_size = 51200;
+        static uint32_t next = 51200;
+        if (upload.totalSize >= next) {
+        
+          gfx->printf("%dk ", next / 1024);
+          Serial.printf("%dk ", next / 1024);
+          next += chunk_size;
+        }
       } else if (upload.status == UPLOAD_FILE_END) {
-        if (Update.end(true)) {  //true to set the size to the current progress
+        if (Update.end(true)) {             //true to set the size to the current progress
+          gfx->printf("Update Success:n");  // no point in sending size to display - it only flashes momentarily!
           Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+          delay(500);
         } else {
           Update.printError(Serial);
         }
