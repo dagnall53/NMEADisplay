@@ -22,18 +22,25 @@ struct MyColors {  // for later Day/Night settings
   uint16_t BackColor;
   uint16_t BorderColor;
 };
- // defined in main ino int Display_Page; //separate so it is not saved on changes of ssid etc
+
+struct instData{  // struct to hold instrument data AND the time it was updated. 
+  double data;
+  unsigned long updated;
+  bool displayed;
+  bool greyed;
+};
 
   struct tBoatData {
     unsigned long DaysSince1970;  // Days since 1970-01-01
+    instData SOG,STW,COG,MagHeading,TrueHeading,WaterDepth,SatsInView,
+    WindDirectionT, WindDirectionM, WindSpeedK, WindSpeedM,WindAngle,
+    WindAngleA
+    ;      //instData will be used with NEWUPdate and greys if old
 
-    double SOG, STW, COG, MagHeading, TrueHeading, Variation,
-      GPSTime,  // Secs since midnight,
-      Latitude, Longitude, Altitude, HDOP, GeoidalSeparation, DGPSAge,SatsInView,
-      WaterTemperature, WaterDepth, Offset,
-      RPM,
-      WindDirectionT, WindDirectionM, WindSpeedK, WindSpeedM,
-      WindAngle;
+    double Variation,GPSTime,Latitude, Longitude,   // keep GPS stuff in double.. 
+     Altitude, HDOP, GeoidalSeparation, DGPSAge,
+      WaterTemperature, Offset,RPM;
+
     int GPSQualityIndicator, SatelliteCount, DGPSReferenceStationID;
     bool MOBActivated;
     char Status;
@@ -46,6 +53,10 @@ struct MyColors {  // for later Day/Night settings
   bool Keypressed;           //used by keypressed
   unsigned long LastDetect;  //used by keypressed
   int PrintLine;      // used for UpdateLinef() 
+};
+
+struct Phv{
+  int h,v;
 };
 
 #endif  // _BoatData_H_

@@ -13,6 +13,8 @@ but highly modified!
 extern int text_offset;
 extern int MasterFont;
 extern void setFont(int);
+extern int text_height;
+extern bool debugpause;
 
 extern double NMEA0183GetDouble(const char *data);  // have to do this as its local to NMEA0183Messagesmessages.cpp!
 
@@ -110,6 +112,13 @@ bool NeedleinHaystack(char ch1, char ch2, char ch3, char *haystack, int &compare
 // }
 // Serial.println("> ");
 
+void toNewStruct(char* field, instData &data){
+  data.data=atof(field);
+  data.updated =millis();
+  data.displayed=false;
+  data.greyed=false;
+}
+
 
 bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array buf and places (updates) data if found in stringND
   char *p;
@@ -134,32 +143,39 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
   
   switch (Index / 4) {
     case 1:  //dbt
-      BoatData.WaterDepth = atof(Field[3]);
+       toNewStruct(Field[3],BoatData.WaterDepth);
+     // BoatData.WaterDepth = atof(Field[3]);
       return true;
       break;
     case 2:  //DPT //dIFFERENT TO DBT/DBK
-      BoatData.WaterDepth = atof(Field[1]);
+    toNewStruct(Field[1],BoatData.WaterDepth);
+     // BoatData.WaterDepth = atof(Field[1]);
       return true;
       break;
     case 3:  //DBK
-      BoatData.WaterDepth = atof(Field[3]);
+    toNewStruct(Field[3],BoatData.WaterDepth);
+    //  BoatData.WaterDepth = atof(Field[3]);
       return true;
       break;
 
     case 4:  //mwv
-      BoatData.WindDirectionT = atof(Field[1]);
-      BoatData.WindSpeedK = atof(Field[3]);
+    toNewStruct(Field[1],BoatData.WindAngle);
+    toNewStruct(Field[1],BoatData.WindAngleA);
+    toNewStruct(Field[3],BoatData.WindSpeedK);
+    
       return true;
       break;
 
     case 5:                           //VHW
-      BoatData.STW = atof(Field[5]);  // other VHW data (directions!) are usually false!
+    toNewStruct(Field[5],BoatData.STW);
+     // BoatData.STW = atof(Field[5]);  // other VHW data (directions!) are usually false!
       return true;
       break;
     case 6:  //RMC
-
-      BoatData.SOG = atof(Field[7]);  //  was just atof( or  use TL function NMEA0183GetDouble to cover some error cases and return NMEA0183DoubleNA if N/A
-      BoatData.COG = atof(Field[8]);  // atof sets nmea0183nan (-10million.. so may need extra stuff to prevent silly displays!)
+    toNewStruct(Field[7],BoatData.SOG);
+    toNewStruct(Field[8],BoatData.COG);
+     // BoatData.SOG = atof(Field[7]);  //  was just atof( or  use TL function NMEA0183GetDouble to cover some error cases and return NMEA0183DoubleNA if N/A
+     // BoatData.COG = atof(Field[8]);  // atof sets nmea0183nan (-10million.. so may need extra stuff to prevent silly displays!)
       BoatData.Latitude = LatLonToDouble(Field[3], Field[4][0]);   // using TL's functions
       BoatData.Longitude = LatLonToDouble(Field[5], Field[6][0]);  //nb we use +1 on his numbering that omits the command
                                                                    //        Serial.println(BoatData.GPSTime); Serial.println(BoatData.Latitude);  Serial.println(BoatData.Longitude);  Serial.println(BoatData.SOG);
@@ -173,7 +189,8 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
       return true;
       break;
     case 10:  //HDM
-      BoatData.MagHeading = atof(Field[1]);
+     toNewStruct(Field[1],BoatData.MagHeading);
+      //BoatData.MagHeading = atof(Field[1]);
       return true;
       break;
 
@@ -185,7 +202,8 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
       //          Serial.printf("%i=<%s>,",x,Field[x]);
       //        }
       //        Serial.println(" ");
-      BoatData.SatsInView = atof(Field[3]);
+      toNewStruct(Field[3],BoatData.SatsInView);
+      //BoatData.SatsInView = atof(Field[3]);
       return true;
       break;  
 
@@ -348,6 +366,104 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
 //         j=0;
 //       }
 
+int yforLine(Button button, int printline) {
+  int y = button.v + button.bordersize;
+  y = y + printline * (text_height + 2);
+  return y;
+}
+
+
+
+
+void UpdateLinef(Button& button, const char* fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
+  //static int button.PrintLine; // place in button so its static for each button!
+  int LinesOfType, characters;
+  static bool screenfull;
+  char limitedWidth[80];
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;
+  int typingspaceH, typingspaceW;
+  if (screenfull && debugpause) { return; }
+  typingspaceH = button.height - (2 * button.bordersize);
+  typingspaceW = button.width - (2 * button.bordersize);
+  LinesOfType = typingspaceH / (text_height + 2);  //assumes textsize 1?
+  static char msg[300] = { '\0' };
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  x = button.h + button.bordersize;  // shift inwards for border
+  gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
+  gfx->setTextWrap(true);
+  y=yforLine(button, button.PrintLine); //Needed for the text bounds?
+  gfx->getTextBounds(msg, x, y, &TBx1, &TBy1, &TBw, &TBh);
+ // if (TBh/text_height) {  // calculate how many lines?? 
+ //   Serial.printf(" x %i y%i &TBx1 %i, &TBy1 %i, &TBw %i, &TBh %i \n",x,y, TBx1, TBy1, TBw, TBh);
+    //tbh is always the full height of the box! 
+ // not needed as clear on full screen is simpler ? 
+  gfx->fillRect(x, yforLine(button, button.PrintLine), typingspaceW, TBh+2, button.backcol);
+  
+  gfx->setCursor(x, yforLine(button, button.PrintLine) + text_offset + 1);  // puts cursor on a specific line with 2 pixels of V spacing
+  //gfx->setTextColor(button.textcol);
+  gfx->print(msg);   
+  //Serial.printf(" lines  tbh %i textheight %i  >lines are %i  \n",TBh,text_height,TBh/text_height);                                                       // lines should be blanked by previous filRect
+  button.PrintLine = button.PrintLine + (TBh/(text_height+2))+1;
+  if (button.PrintLine >= (LinesOfType)) {
+    screenfull = true;
+    if (!debugpause) {
+      button.PrintLine = 0;
+      gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH, button.backcol);
+      screenfull = false;
+    }
+  }
+  gfx->setTextBound(0, 0, 480, 480);  //MUST RESET IT 
+}
+
+// simplify call for special instData data types.. 
+////  ******* First a LOCAL function **********
+void NEWUpdate(Button button,instData &data, const char* fmt, ...) {  // Centers text in space GREYS if data is OLD 
+  static char msg[300] = { '\0' };
+  //Serial.printf("h %i v %i TEXT %i  Background %i \n",button.h,button.v, button.textcol,button.backcol);
+  int textsize = 1;
+  // calculate new offsets to just center on original box - minimum redraw of blank
+  int16_t x, y, TBx1, TBy1;
+  uint16_t TBw, TBh;
+  int typingspaceH, typingspaceW;
+  bool recent = (data.updated >= millis()-3000);
+  typingspaceH = button.height - (2 * button.bordersize);
+  typingspaceW = button.width - (2 * button.bordersize);
+  gfx->setTextSize(textsize);  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
+  gfx->getTextBounds(msg, button.h, button.v, &TBx1, &TBy1, &TBw, &TBh);  // do not forget '& ! Pointer not value!!!
+  x = button.h + button.bordersize;
+  y = button.v + button.bordersize + (text_offset * textsize);
+  x = x + ((button.width - TBw - (2 * button.bordersize)) / 2) / textsize;                                                    //try horizontal centering
+  y = y + ((button.height - TBh - (2 * button.bordersize)) / 2) / textsize;                                                   //try vertical centering
+  gfx->fillRect(x-8, y-(text_offset * textsize)-4, TBw+16, TBh+10,button.backcol);  // visualise by changing colour ! where the text will be plus a bit 
+  gfx->setTextColor(button.textcol);
+  gfx->setCursor(x, y);
+  if (!recent){gfx->setTextColor(DARKGREY); data.greyed=true;}
+  gfx->print(msg);
+  gfx->setTextSize(1);
+  gfx->setTextColor(button.textcol);
+  gfx->setTextBound(0,0,480,480); //MUST reset it !
+  data.displayed= true;//reset to false inside toNewStruct
+}
+//******* Now the generic version used in the display code will return instantly if data is not recent and has already been displayed
+void UpdateData(Button button, instData &data , const char* fmt){
+  bool recent = (data.updated >= millis()-3000);
+  if (data.greyed){return;}
+  if (!data.displayed){NEWUpdate(button,data,fmt,data.data);}
+  if (!recent && !data.greyed){NEWUpdate(button,data,fmt,data.data);}
+     
+}
+
 
 void UpdateCentered(Button button, const char* fmt, ...) {  // Centers text in space
   static char msg[300] = { '\0' };
@@ -356,23 +472,28 @@ void UpdateCentered(Button button, const char* fmt, ...) {  // Centers text in s
   // calculate new offsets to just center on original box - minimum redraw of blank
   int16_t x, y, TBx1, TBy1;
   uint16_t TBw, TBh;
+  int typingspaceH, typingspaceW;
+  typingspaceH = button.height - (2 * button.bordersize);
+  typingspaceW = button.width - (2 * button.bordersize);
   gfx->setTextSize(textsize);  // used in message buildup
   va_list args;
   va_start(args, fmt);
-
   vsnprintf(msg, 128, fmt, args);
   va_end(args);
   int len = strlen(msg);
+  gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
   gfx->getTextBounds(msg, button.h, button.v, &TBx1, &TBy1, &TBw, &TBh);  // do not forget '& ! Pointer not value!!!
+  gfx->fillRect(TBx1,TBy1,TBw, TBh, LIGHTGREY  ); // visualise
   x = button.h + button.bordersize;
   y = button.v + button.bordersize + (text_offset * textsize);
   x = x + ((button.width - TBw - (2 * button.bordersize)) / 2) / textsize;                                                    //try horizontal centering
   y = y + ((button.height - TBh - (2 * button.bordersize)) / 2) / textsize;                                                   //try vertical centering
-  gfx->fillRect(button.h + button.bordersize, y - TBh - 1, button.width - (2 * button.bordersize), TBh + 4, button.backcol);  // just (plus a little bit ) where the text will be
+  //gfx->fillRect(button.h + button.bordersize, y - TBh - 1, button.width - (2 * button.bordersize), TBh + 4, button.backcol);  // just (plus a little bit ) where the text will be
   gfx->setTextColor(button.textcol);
   gfx->setCursor(x, y);
   gfx->print(msg);
   gfx->setTextSize(1);
+  gfx->setTextBound(0,0,480,480); //MUST reset it !
 }
 
 void UpdateCentered(int h, int v, int width, int height, int bordersize,
@@ -412,7 +533,7 @@ void WriteinBorderBox(int h, int v, int width, int height, int bordersize,
   //gfx->fillRect(TBx1 , TBy1 , TBw , TBh , WHITE); delay(100); // visulize what the data is!
   // move to center is  add (width-2*bordersize-TBw)/2 ?
   //move vertical is add (height -2*bordersize-TBh)/2
-  gfx->fillRect(h, v, width, height, BorderColor);
+  gfx->fillRect(h, v, width, height, BorderColor); // width and height are for the OVERALL box.
   gfx->fillRect(h + bordersize, v + bordersize, width - (2 * bordersize), height - (2 * bordersize), backgroundcol);
   gfx->setTextColor(textcol);
 

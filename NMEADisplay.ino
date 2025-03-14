@@ -46,6 +46,10 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 #define AUDIO_FILENAME_START "/StartSound.mp3"
 //audio
 #include "Audio.h"
+
+const char soft_version[ ] = " Version 1.0 " ; 
+
+
 //set up Audio
 Audio audio;
 
@@ -108,12 +112,16 @@ int text_char_width = 12;  // useful for monotype? only NOT USED YET! Try gfx->g
 
 //****  My displays are based on 'Button' structures to define position, width height, borders and colours.
 // int h, v, width, height, bordersize;  uint16_t backcol, textcol, BorderColor;
-Button Fontdescriber = { 0, 0, 480, 75, 5, BLUE, WHITE, BLACK };
+Button Fontdescriber = { 0, 0, 480, 75, 5, BLUE, WHITE, BLACK };  //also used for showing the current settings
 Button FontBox = { 0, 150, 480, 330, 5, BLUE, WHITE, BLUE };
-Button WindSpeedBox = { 240 - 70, 240 - 40, 140, 80, 5, BLACK, WHITE, BLACK };
+
+Button WindDisplay = { 0, 0, 480, 480, 0, BLUE, WHITE, BLACK }; // full screen no border
+
 //used for single data display
-Button BigSingleDisplay = { 20, 100, 440, 360, 5, BLUE, BLACK, BLACK };
-//used for nmea display // was only three lines to start!
+Button BigSingleDisplay = { 10, 110, 460, 360, 5, BLUE, WHITE, BLACK };
+Button BigSingleTopRight ={240,0,230,110,5, BLUE, WHITE, BLACK };
+Button BigSingleTopLeft ={0,0,235,110,5,BLUE, WHITE, BLACK };
+//used for nmea RMC /GPS display // was only three lines to start!
 Button Threelines0 = { 20, 30, 440, 80, 5, BLUE, WHITE, BLACK };
 Button Threelines1 = { 20, 130, 440, 80, 5, BLUE, WHITE, BLACK };
 Button Threelines2 = { 20, 230, 440, 80, 5, BLUE, WHITE, BLACK };
@@ -129,12 +137,12 @@ Button TopRightbutton = { 405, 0, 75, 75, 5, BLUE, WHITE, BLACK };
 Button BottomRightbutton = { 405, 405, 75, 75, 5, BLUE, WHITE, BLACK };
 Button BottomLeftbutton = { 0, 405, 75, 75, 5, BLUE, WHITE, BLACK };
 
-// buttons for the wifi/settings pages // no need to set the bools ?
-Button TOPButton = { 80, 10, 320, 35, 5, WHITE, BLACK, BLUE };
-Button SecondRowButton = { 80, 50, 320, 35, 5, WHITE, BLACK, BLUE };
-Button ThirdRowButton = { 80, 90, 320, 35, 5, WHITE, BLACK, BLUE };
-Button FourthRowButton = { 80, 130, 320, 35, 5, WHITE, BLACK, BLUE };
-Button FifthRowButton = { 80, 170, 320, 35, 5, WHITE, BLACK, BLUE };
+// buttons for the wifi/settings pages 
+Button TOPButton = { 20, 10, 430, 35, 5, WHITE, BLACK, BLUE };
+Button SecondRowButton = { 20, 50, 430, 35, 5, WHITE, BLACK, BLUE };
+Button ThirdRowButton = { 20, 90, 430, 35, 5, WHITE, BLACK, BLUE };
+Button FourthRowButton = { 20, 130, 430, 35, 5, WHITE, BLACK, BLUE };
+Button FifthRowButton = { 20, 170, 430, 35, 5, WHITE, BLACK, BLUE };
 
 #define sw_width 70
 Button Switch1 = { 20, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
@@ -154,100 +162,118 @@ Button Full5Center = { 80, 405, 320, 55, 5, BLUE, WHITE, BLACK };
 #define On_Off ? "ON" : "OFF"  // if 1 first case else second (0 or off)
 
 // Draw the compass pointer at an angle in degrees
-void DrawCompass(int x, int y, int rad) {
+
+
+void WindArrow2(Button button,instData Speed, instData &Wind){
+    bool recent = (Wind.updated >= millis()-3000);
+  if (!Wind.displayed){WindArrowSub(button,Speed,Wind);} 
+  if (Wind.greyed){return;}
+  if (!recent && !Wind.greyed){WindArrowSub(button,Speed,Wind);}
+}
+
+
+void WindArrowSub(Button button,instData Speed, instData &wind) {
+ bool recent = (wind.updated >= millis()-3000);
+  Phv center;
+  int rad, outer, inner;
+  static int lastwind, lastfont;
+  center.h = button.h + button.width / 2;
+  center.v = button.v + button.height / 2;
+  rad = (button.height - (2 * button.bordersize)) / 2;  // height used as more likely to be squashed in height
+  outer = (rad * 82) / 100;                             //% of full radius (at full height) (COMPASS has .83 as inner circle)
+  inner = (rad * 28) / 100;                             //25% USe same settings as pointer
+  DrawMeterPointer(center, lastwind, inner, outer, 2, button.backcol,button.backcol);
+  if ( wind.updated >= millis() - 3000) {
+    DrawMeterPointer(center, wind.data, inner, outer, 2, button.textcol,BLACK);
+  } else { wind.greyed =true;
+    DrawMeterPointer(center, wind.data, inner, outer, 2, LIGHTGREY,LIGHTGREY);
+  }
+  lastwind = wind.data;
+  wind.displayed= true; 
+  lastfont = MasterFont;
+  if (rad <= 130) { setFont(3); }
+
+  UpdateData(button, Speed, "%2.0fkt");
+
+  setFont(lastfont);
+  
+}
+
+
+void DrawMeterPointer(Phv center, int wind, int inner, int outer, int linewidth, uint16_t FILLCOLOUR,uint16_t LINECOLOUR) {  // WIP
+  Phv P1, P2, P3, P4, P5, P6;
+  P1 = translate(center, wind - linewidth, outer);
+  P2 = translate(center, wind + linewidth, outer);
+  P3 = translate(center, wind - (4 * linewidth), inner);
+  P4 = translate(center, wind + (4 * linewidth), inner);
+  P5 = translate(center, wind, inner);
+  P6 = translate(center, wind, outer);
+  PTriangleFill(P1, P2, P3, FILLCOLOUR);
+  PTriangleFill(P2, P3, P4, FILLCOLOUR);
+  Pdrawline(P5, P6, LINECOLOUR);
+}
+
+Phv translate(Phv center, int angle, int rad) {
+  Phv moved;
+  moved.h = center.h + ((rad * getSine(angle)) / 100);
+  moved.v = center.v + ((rad * getCosine(angle)) / 100);
+  return moved;
+}
+void PTriangleFill(Phv P1, Phv P2, Phv P3, uint16_t COLOUR) {
+  gfx->fillTriangle(P1.h, P1.v, P2.h, P2.v, P3.h, P3.v, COLOUR);
+}
+void Pdrawline(Phv P1, Phv P2, uint16_t COLOUR) {
+  gfx->drawLine(P1.h, P1.v, P2.h, P2.v, COLOUR);
+}
+
+
+
+
+
+void DrawCompass(Button button) {
+  //xy are center in draw compass
+  int x, y, rad;
+  x = button.h + button.width / 2;
+  y = button.v + button.height / 2;
+  rad = (button.height - (2 * button.bordersize)) / 2;
   //Work in progress!
-  int Start, dot, colorbar, bigtick;
-  float inner, outer;
-  outer = (rad * 98) / 120;
-  inner = (rad * 98) / 420;  //same as pointer
+  int Rad1, Rad2, Rad3, Rad4, inner;
   // gfx->drawRect(x-rad,y-rad,rad*2,rad*2,BLACK);gfx->drawCircle(x,y,rad,WHITE);gfx->drawCircle(x,y,rad-1,Blue);gfx->drawCircle(x,y,Start,Blue);
-  Start = rad * 0.83;     //200
-  dot = rad * 0.86;       //208
-  colorbar = rad * 0.91;  //220
-  bigtick = rad - 1;      //239
-  gfx->fillRect(x - rad, y - rad, rad * 2, rad * 2, BLACK);
-  gfx->fillCircle(x, y, rad, WHITE);
-  gfx->fillCircle(x, y, outer, BLUE);
-  gfx->fillCircle(x, y, Start, BLACK);
-  gfx->fillCircle(x, y, inner, WHITE);
-  gfx->fillCircle(x, y, inner - 5, BLACK);
+  Rad1 = rad * 0.83;  //200
+  Rad2 = rad * 0.86;  //208
+  Rad3 = rad * 0.91;  //220
+  Rad4 = rad * 0.94;
+             
+  inner = (rad * 28) / 100;  //28% USe same settings as pointer
+  gfx->fillRect(x - rad, y - rad, rad * 2, rad * 2, button.backcol);
+  gfx->fillCircle(x, y, rad, button.textcol);   //white
+  gfx->fillCircle(x, y, Rad1, button.backcol);  //bluse
+  gfx->fillCircle(x, y, inner - 1, button.textcol);
+  gfx->fillCircle(x, y, inner - 5, button.backcol);
 
-  //rad =240 example dot is 200 to 208   bar is 200 to 239 wind colours 200 to 220
+  //rad =240 example Rad2 is 200 to 208   bar is 200 to 239 wind colours 200 to 220
   // colour segments
-  gfx->fillArc(x, y, colorbar, Start, 270 - 45, 270, RED);
-  gfx->fillArc(x, y, colorbar, Start, 270, 270 + 45, GREEN);
+  gfx->fillArc(x, y, Rad3, Rad1, 270 - 45, 270, RED);
+  gfx->fillArc(x, y, Rad3, Rad1, 270, 270 + 45, GREEN);
   //Mark 12 linesarks at 30 degrees
-  for (int i = 0; i < (360 / 30); i++) { gfx->fillArc(x, y, bigtick, Start, i * 30, (i * 30) + 1, BLACK); }  //239 to 200
-  for (int i = 0; i < (360 / 10); i++) { gfx->fillArc(x, y, dot, Start, i * 10, (i * 10) + 1, BLACK); }      // dots at 10 degrees
+  for (int i = 0; i < (360 / 30); i++) { gfx->fillArc(x, y, rad, Rad1, i * 30, (i * 30) + 1, BLACK); }  //239 to 200
+  for (int i = 0; i < (360 / 10); i++) { gfx->fillArc(x, y, rad, Rad4, i * 10, (i * 10) + 1, BLACK); }  // dots at 10 degrees
 }
 
-void drawCompassPointer(int x, int y, int rad, int angle, uint16_t COLOUR, bool to) {
-  int x_offset, y_offset, x_arrow, y_arrow, tail1x, tail1y, tail2x, tail2y;  // The resulting offsets from the center point
-  float inner, outer;
-  while (angle < 0) angle += 360;  // Normalize the angle to the range 0 to 359
-  while (angle > 359) angle -= 360;
-  // rose radius is default at 100 and returns 100*sine.. so may need to make offsets 2x bigger for 200 size triangel ?
-  //if (rad=240){inner=0.6;outer=2;}else{inner=0.3;outer=1;}
-  inner = (rad * 98) / 420;  // just a tiny bit smaller!
-  outer = (rad * 98) / 120;
-  // these print a big triangle
-  if (to) {  //Point to boat from wind
-    x_offset = x + ((outer * getSine(angle)) / 100);
-    y_offset = y + ((outer * getCosine(angle)) / 100);
-    x_arrow = x + ((outer * getSine(angle)) / 90);
-    y_arrow = y + ((outer * getCosine(angle)) / 90);
-    tail1x = x + ((inner * getSine(angle + 20)) / 100);
-    tail1y = y + ((inner * getCosine(angle + 20)) / 100);
-    tail2x = x + ((inner * getSine(angle - 20)) / 100);
-    tail2y = y + ((inner * getCosine(angle - 20)) / 100);
-  } else {
-    x_offset = x + ((inner * getSine(angle)) / 100);
-    y_offset = y + ((inner * getCosine(angle)) / 100);
-    x_arrow = x + ((inner * getSine(angle)) / 90);
-    y_arrow = y + ((inner * getCosine(angle)) / 90);
-    tail1x = x + ((outer * getSine(angle + 7)) / 100);
-    tail1y = y + ((outer * getCosine(angle + 7)) / 100);
-    tail2x = x + ((outer * getSine(angle - 7)) / 100);
-    tail2y = y + ((outer * getCosine(angle - 7)) / 100);
-  }
-
-  gfx->fillTriangle(x_offset, y_offset, tail1x, tail1y, tail2x, tail2y, COLOUR);
-  if (COLOUR != BLACK) {
-    gfx->drawLine(x_arrow, y_arrow, (tail1x + tail2x) / 2, (tail1y + tail2y) / 2, WHITE);
-  } else {
-    gfx->drawLine(x_arrow, y_arrow, (tail1x + tail2x) / 2, (tail1y + tail2y) / 2, COLOUR);
-  }
-}
-
-void WindArrow(int x, int y, int rad, int wind, bool to) {
-  static int lastwind;
-  drawCompassPointer(x, y, rad, lastwind, BLACK, to);
-  drawCompassPointer(x, y, rad, wind, RED, to);
-  lastwind = wind;
-}
 
 void ShowToplinesettings(MySettings A, String Text) {
   int local;
   local = MasterFont;
-  setFont(0);  // SETS MasterFont, so cannot use MasterFont directly in last line!
+  setFont(0);  // SETS MasterFont, so cannot use MasterFont directly in last line and have to save it!
   long rssiValue = WiFi.RSSI();
   gfx->setTextSize(1);
-  GFXBoxPrintf(0, 0, 1, "%s: Serial<%s> UDP<%s> ESP<%s>", Text, A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off);
-  GFXBoxPrintf(0, text_height, 1, " SSID<%s> PWD<%s> UDPPORT<%s>", A.ssid, A.password, A.UDP_PORT);
-  gfx->fillRect(0, text_height * 2, 480, text_height, WHITE);  // manual equivalent of my function so I can print IP address!
-  gfx->setTextColor(BLACK);
-  gfx->setCursor(0, (text_height * 2) + (text_offset));
-  // gfx->print("this is Page:<");
-  // gfx->print(Display_Page);
-  gfx->print("   IP:");
+  gfx->setTextColor(Fontdescriber.textcol);
+  Fontdescriber.PrintLine = 0;
+  UpdateLinef(Fontdescriber, "%s: Serial<%s> UDP<%s> ESP<%s>", Text, A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off);
+  //GFXBoxPrintf(0, 0, 1, "%s: Serial<%s> UDP<%s> ESP<%s>", Text, A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off);
+  UpdateLinef(Fontdescriber, " SSID<%s> PWD<%s> UDPPORT<%s>", A.ssid, A.password, A.UDP_PORT);
   sta_ip = WiFi.localIP();
-  udp_st = Get_UDP_IP(sta_ip, subnet);
-  gfx->print(WiFi.localIP());
-  // Serial2.print("   UDP broadcasting: ");  // for if we wish to send UDP data (later! if I add autopilot controls)
-  //Serial2.println(udp_st);
-  gfx->print(" RSSI: ");
-  gfx->print(rssiValue);
-
+  UpdateLinef(Fontdescriber, " IP: %i.%i.%i.%i   RSSI %i", sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3], rssiValue);
   setFont(local);
 }
 void ShowToplinesettings(String Text) {
@@ -284,44 +310,48 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
   // Now specific stuff for each page
 
-  switch (page) {  // just show the top page
+  switch (page) {  // just show the logos on the sd card top page
     case -200:
-      if (RunSetup) { jpegDraw("/logo.jpg", jpegDrawCallback, true /* useBigEndian */,
-                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
+      if (RunSetup) {
+        jpegDraw("/logo.jpg", jpegDrawCallback, true /* useBigEndian */,
+                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+        GFXBorderBoxPrintf(Full0Center, "Jpg tests -Return to Menu-");
+        GFXBorderBoxPrintf(Full1Center, "logo.jpg");
+        GFXBorderBoxPrintf(Full2Center, "logo1.jpg");
+        GFXBorderBoxPrintf(Full3Center, "logo2.jpg");
+        GFXBorderBoxPrintf(Full4Center, "logo3.jpg");
+        GFXBorderBoxPrintf(Full5Center, "logo4.jpg");
+      }
 
       if (CheckButton(Full0Center)) { Display_Page = 0; }
-      if (CheckButton(Full1Center)) { jpegDraw("/logo.jpg", jpegDrawCallback, true /* useBigEndian */,
-                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
-      if (CheckButton(Full1Center)) { jpegDraw("/logo1.jpg", jpegDrawCallback, true /* useBigEndian */,
-                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
-      if (CheckButton(Full2Center)) { jpegDraw("/logo4.jpg", jpegDrawCallback, false /* useBigEndian */,
-                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
-      if (CheckButton(Full3Center)) { jpegDraw("/logo2.jpg", jpegDrawCallback, true /* useBigEndian */,
-                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
-      if (CheckButton(Full4Center)) { jpegDraw("/logo4.jpg", jpegDrawCallback, true /* useBigEndian */,
-                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
-      if (CheckButton(Full4Center)) { jpegDraw("/logo4.jpg", jpegDrawCallback, true /* useBigEndian */,
-                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
-      if (CheckButton(Full4Center)) { jpegDraw("/logo4.jpg", jpegDrawCallback, true /* useBigEndian */,
-                                               0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); }
-      break;
-    case -101:  //a test for Swipes
-      if (RunSetup) {
-        gfx->fillScreen(BLACK);
-        gfx->setTextColor(WHITE);
-        SwipeTestLR = 0;
-        SwipeTestUD = 0;
-        setFont(0);
-        GFXBoxPrintf(0, 250, 3, "-swipe test- ");
+      if (CheckButton(Full1Center)) {
+        jpegDraw("/logo.jpg", jpegDrawCallback, true /* useBigEndian */,
+                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+        GFXBorderBoxPrintf(Full0Center, "logo");
       }
-
-      if (millis() >= slowdown + 10000) {
-        slowdown = millis();
-        gfx->fillScreen(BLACK);
-        GFXBoxPrintf(0, 50, 2, "Periodic blank ");
+      if (CheckButton(Full2Center)) {
+        jpegDraw("/logo1.jpg", jpegDrawCallback, true /* useBigEndian */,
+                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+        GFXBorderBoxPrintf(Full0Center, "logo1");
+      }
+      if (CheckButton(Full3Center)) {
+        jpegDraw("/logo2.jpg", jpegDrawCallback, false /* useBigEndian */,
+                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+        GFXBorderBoxPrintf(Full0Center, "logo2");
+      }
+      if (CheckButton(Full4Center)) {
+        jpegDraw("/logo3.jpg", jpegDrawCallback, true /* useBigEndian */,
+                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+        GFXBorderBoxPrintf(Full0Center, "logo3");
+      }
+      if (CheckButton(Full5Center)) {
+        jpegDraw("/logo4.jpg", jpegDrawCallback, true /* useBigEndian */,
+                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+        GFXBorderBoxPrintf(Full0Center, "logo4");
       }
 
       break;
+
     case -99:  //a test for Screen Colours / fonts
       if (RunSetup) {
         gfx->fillScreen(BLACK);
@@ -330,7 +360,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         SwipeTestLR = 0;
         SwipeTestUD = 0;
         setFont(fontlocal);
-        GFXBoxPrintf(0, 250, 3, "-TEST Colours- ");
+        GFXBorderBoxPrintf(Fontdescriber, "-TEST Colours- ");
       }
 
       if (millis() >= slowdown + 10000) {
@@ -338,8 +368,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         gfx->fillScreen(BLACK);
         fontlocal = fontlocal + 1;
         if (fontlocal > 10) { fontlocal = 0; }
-        GFXBoxPrintf(0, 50, 2, "Colours check");
-        GFXBoxPrintf(0, 100, FS, "Font size %i", fontlocal);
+        GFXBorderBoxPrintf(Fontdescriber, "Font size %i", fontlocal);
         //DisplayCheck(true);
       }
 
@@ -347,40 +376,17 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
       break;
 
-    case -102:
-      if (RunSetup) {
-        GFXBoxPrintf(0, 140, 2, WHITE, BLUE, " Testing new buttons\n");
-        //gfx->println(" use three finger touch to renew dir listing");
-      }
-      if (millis() >= slowdown + 10000) {
-        slowdown = millis();
-        gfx->fillScreen(BLUE);  // clean up redraw buttons
-      }
-      if (ts.isTouched) {
-        TouchCrosshair(20);
-      }
-
-      if (CheckButton(Full0Center)) { Display_Page = 0; }
-
-      break;
     case -10:  // a test page for fonts
       if (RunSetup) {
         GFXBorderBoxPrintf(Full0Center, "-Font test -");
       }
-      if (millis() > slowdown + 3500) {
+      if (millis() > slowdown + 5000) {
         slowdown = millis();
         gfx->fillScreen(BLUE);
-        //wind=wind+9; if (wind>360) {wind=0;gfx->fillScreen(BLUE);}
-        fontlocal = fontlocal + 1;
-        if (fontlocal > 15) { fontlocal = 0; }
-        //setFont(0);
-        // ShowToplinesettings("Current");
+       // fontlocal = fontlocal + 1;
+       // if (fontlocal > 15) { fontlocal = 0; } // just use the buttons to change!
         temp = 12.3;
-        Serial.print("about to set");
-        Serial.print(fontlocal);
         setFont(fontlocal);
-        Serial.print(" setting fontname");
-        Serial.println(Fontname);
       }
       if (millis() > timer2 + 500) {
         timer2 = millis();
@@ -389,7 +395,6 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         setFont(fontlocal);
         Fontname.toCharArray(Tempchar, 30, 0);
         setFont(3);
-
         GFXBorderBoxPrintf(Fontdescriber, "FONT:%i name%s", fontlocal, Tempchar);
         setFont(fontlocal);
         GFXBorderBoxPrintf(FontBox, "Test %4.2f height<%i>", temp, text_height);
@@ -467,8 +472,6 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         audio.setVolume(volume);
         DataChanged = true;
       }
-
-
       break;
 
     case -5:  ///Wifiscan
@@ -484,10 +487,6 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         GFXBorderBoxPrintf(SecondRowButton, "SCANNING...");
         gfx->setCursor(0, 140);  //(location of terminal. make better later!)
         Serial.println(" starting WiFi.Scan");
-        //(bool async, bool show_hidden, bool passive, uint32_t max_ms_per_chan, uint8_t channel, const char * ssid, const uint8_t * bssid)
-
-        // gfx->println(" Starting WiFi SCAN");
-        // NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
         GFXBorderBoxPrintf(SecondRowButton, "scan done");
         if (NetworksFound <= 0) {  // note scan error can give negative number
           NetworksFound = 0;
@@ -528,7 +527,6 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         Serial.printf("  result str_len%i   sizeof settings.ssid%i \n", str_len, sizeof(Current_Settings.ssid));
         if (str_len <= sizeof(Current_Settings.ssid)) {                                       // check small enough for our ssid register array!
           WiFi.SSID(wifissidpointer).toCharArray(result, sizeof(Current_Settings.ssid) - 1);  // I like to keep a spare space!
-          //  WiFi.SSID(wifissidpointer).toCharArray(Current_Settings.ssid,str_len);
           if (str_len == 1) {
             GFXBorderBoxPrintf(SecondRowButton, "Set via Keyboard?");
           } else {
@@ -584,14 +582,12 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
     case -2:
       if (RunSetup) {
-
         GFXBorderBoxPrintf(Full0Center, "Set SSID");
         GFXBorderBoxPrintf(TopRightbutton, "Scan");
         AddTitleBorderBox(TopRightbutton, "WiFi");
         keyboard(-1);  //reset
         Use_Keyboard(Current_Settings.ssid, sizeof(Current_Settings.ssid));
         keyboard(0);
-        //Terminal for show ssids?
       }
 
       Use_Keyboard(Current_Settings.ssid, sizeof(Current_Settings.ssid));
@@ -626,8 +622,6 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();
-
-        //print recieved data in terminal here? - or in UpdateLinef()
       }
 
       if (CheckButton(Terminal)) {
@@ -681,10 +675,8 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
-        // ShowToplinesettings("Current");
-        //ShowToplinesettings("Current");
       }
-      if (CheckButton(Full0Center)) { Display_Page = 0; }
+      if (CheckButton(Full0Center)) { Display_Page = -200; }
       if (CheckButton(Full1Center)) { Display_Page = -9; }
       if (CheckButton(Full2Center)) { Display_Page = -1; }
       if (CheckButton(Full3Center)) { Display_Page = 4; }
@@ -704,84 +696,63 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
     case 4:  // Quad display
       if (RunSetup) {
         setFont(5);
-        //GFXBoxPrintf(0,480-(text_height*2),  1,BLACK,BLUE, "quad display");
         gfx->fillScreen(BLACK);
-        DrawCompass(360, 120, 120);
+        // DrawCompass(360, 120, 120);
+        DrawCompass(topRightquarter);
+        AddTitleBorderBox(topRightquarter, "WIND");
         GFXBorderBoxPrintf(topLeftquarter, "STW");
         AddTitleBorderBox(topLeftquarter, "STW");
-        // AddTitleBorderBox(topLeftquarter, "SPEED");
         GFXBorderBoxPrintf(bottomLeftquarter, "DEPTH");
         AddTitleBorderBox(bottomLeftquarter, "DEPTH");
-        // AddTitleBorderBox(bottomLeftquarter, "DEPTH");
-        //GFXBorderBoxPrintf(topRightquarter  "c%3.2F",wind*1.1);
         GFXBorderBoxPrintf(bottomRightquarter, "SOG");
         AddTitleBorderBox(bottomRightquarter, "SOG");
-        //AddTitleBorderBox(bottomRightquarter, "SOG");
-
         delay(500);
       }
       if (millis() > slowdown + 300) {
         slowdown = millis();
-        WindArrow(360, 120, 120, BoatData.WindDirectionT, false);
-        UpdateCentered(topLeftquarter, "%3.0fkts", BoatData.STW);
-        UpdateCentered(bottomLeftquarter, "%4.1fm", BoatData.WaterDepth);  // add units?
-                                                                           //UpdateCentered(topRightquarter  "c%3.2F",wind*1.1);
-        UpdateCentered(bottomRightquarter, "%3.0FKts", BoatData.SOG);
+        setFont(5);  // note: all the 'updates' now check for new data else return immediately
       }
-      // if (CheckButton(Full0Center)) { Display_Page = 0; }  // first so it has priority!
-      // if (CheckButton(Full1Center)) { Display_Page = 0; }  //easier to hit two
-      //        TouchCrosshair(20); quarters select big screens
+        WindArrow2(topRightquarter,BoatData.WindSpeedK, BoatData.WindAngle); 
+        UpdateData(topLeftquarter, BoatData.STW, "%4.1f kts");
+        UpdateData(bottomLeftquarter, BoatData.WaterDepth, "%4.1f m");
+        UpdateData(bottomRightquarter, BoatData.SOG, "%4.1f kts");
+     // }
       if (CheckButton(topLeftquarter)) { Display_Page = 6; }
       if (CheckButton(bottomLeftquarter)) { Display_Page = 7; }
       if (CheckButton(topRightquarter)) { Display_Page = 5; }
       if (CheckButton(bottomRightquarter)) { Display_Page = 8; }
-
-
-      // if (CheckButton(TopLeftbutton)) { Display_Page = Display_Page - 1; }
-      // if (CheckButton(TopRightbutton)) { Display_Page = 1; }  //loop to page 1
-
-
       break;
 
     case 5:  // wind instrument
       if (RunSetup) {
         setFont(8);
-        DrawCompass(240, 240, 240);
+         GFXBorderBoxPrintf(BigSingleDisplay, "");
+         GFXBorderBoxPrintf(BigSingleTopRight, "");
+        DrawCompass(BigSingleDisplay);
       }
       if (millis() > slowdown + 500) {
-        slowdown = millis();
-        GFXBorderBoxPrintf(WindSpeedBox, "%2.0fkts", BoatData.WindSpeedK);
-        WindArrow(240, 240, 240, BoatData.WindDirectionT, false);
-        //Box in middle for wind dir / speed
-        //int h, int v, int width, int height, int textsize, int bordersize, uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
-      }
+        slowdown = millis();}
+        
+        WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngle); 
+        UpdateData(BigSingleTopRight,BoatData.WindAngleA,"%3.0f deg"); //Duplicate wind angle so it can be shown in second box
+        // WindArrow2(WindDisplay, BoatData.WindSpeedK, BoatData.WindAngle); // full screen 
 
-      //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }
       if (CheckButton(topRightquarter)) { Display_Page = 0; }
       if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
-
-      // if (CheckButton(TopLeftbutton)) { Display_Page = Display_Page - 1; }
-      // if (CheckButton(TopRightbutton)) { Display_Page = 4; }  //loop to page 1
-
-
       break;
     case 6:
       if (RunSetup) {
         setFont(10);
-        //GFXBoxPrintf(0,480-(text_height*2),  2, "PAGE 2 -SPEED");
-
         GFXBorderBoxPrintf(BigSingleDisplay, "STW");
         AddTitleBorderBox(20, 100, BLACK, "STW");
       }
-      if (millis() > slowdown + 200) {
-        //gfx->fillScreen(BLUE);
+      if (millis() > slowdown + 500) {
         slowdown = millis();
-        // ShowToplinesettings("Current");
-
-        UpdateCentered(BigSingleDisplay, "%4.2fkts", BoatData.STW);
       }
+        UpdateData(BigSingleDisplay, BoatData.STW, "%4.2f kts");
+      
       //  if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 9; }
@@ -793,15 +764,14 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
     case 7:
       if (RunSetup) {
         setFont(10);
-        //GFXBoxPrintf(0,480-(text_height*2),  2, "PAGE 2 -SPEED");
-        GFXBorderBoxPrintf(BigSingleDisplay, "DEPTH");
+        GFXBorderBoxPrintf(BigSingleDisplay, "m");
         AddTitleBorderBox(20, 100, BLACK, "DEPTH");
       }
-      if (millis() > slowdown + 200) {
-        //gfx->fillScreen(BLUE);
-        slowdown = millis();
-        UpdateCentered(BigSingleDisplay, "%4.1fm", BoatData.WaterDepth);
-      }
+      if (millis() > slowdown + 500) {
+        slowdown = millis();}
+
+        UpdateData(BigSingleDisplay, BoatData.WaterDepth, "%4.1f m");
+      
       if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
@@ -817,11 +787,11 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         GFXBorderBoxPrintf(BigSingleDisplay, "SOG");
         AddTitleBorderBox(20, 100, BLACK, "SOG");
       }
-      if (millis() > slowdown + 200) {
-        //gfx->fillScreen(BLUE);
+      if (millis() > slowdown + 500) {
         slowdown = millis();
-        UpdateCentered(BigSingleDisplay, "%3.1Fkts", BoatData.SOG);
       }
+        UpdateData(BigSingleDisplay, BoatData.SOG, "%4.1fkts");
+      
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }
@@ -834,20 +804,25 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (RunSetup) {
         setFont(8);
         //GFXBorderBoxPrintf(BigSingleDisplay, "");
-
-        AddTitleBorderBox(20, 130, BLACK, "GPS Time");
-        AddTitleBorderBox(20, 230, BLACK, "LATITUDE DD.ddd");
-        AddTitleBorderBox(20, 330, BLACK, "LONGITUDE DD.ddd");
       }
-      if (millis() > slowdown + 200) {
+      if (millis() > slowdown + 1000) {
         slowdown = millis();
-        UpdateCentered(Threelines0, "%.0f Satellites in view", BoatData.SatsInView);
-        if (BoatData.GPSTime != NMEA0183DoubleNA) { UpdateCentered(Threelines1, "%02i:%02i:%02i",
-                                                                   int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60); }
-        if (BoatData.Latitude != NMEA0183DoubleNA) { UpdateCentered(Threelines2, "%f", BoatData.Latitude); }
-        if (BoatData.Longitude != NMEA0183DoubleNA) { UpdateCentered(Threelines3, "%f", BoatData.Longitude); }
+        // do this one once a second.. I have not yet got simplified functions testing if previously displayed and greyed yet  
+        gfx->setTextColor(BigSingleDisplay.textcol);
+        BigSingleDisplay.PrintLine = 0;
+        UpdateLinef(BigSingleDisplay, "%.0f Satellites in view",BoatData.SatsInView);
+        if (BoatData.GPSTime != NMEA0183DoubleNA) {
+          UpdateLinef(BigSingleDisplay, "");
+          UpdateLinef(BigSingleDisplay, " TIME: %02i:%02i:%02i",
+                      int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
+        }
+        if (BoatData.Latitude != NMEA0183DoubleNA) {
+          UpdateLinef(BigSingleDisplay, "");
+          UpdateLinef(BigSingleDisplay, "  LAT: %f", BoatData.Latitude);
+          UpdateLinef(BigSingleDisplay, "");
+          UpdateLinef(BigSingleDisplay, "  LON: %f", BoatData.Longitude);
+        }
       }
-      //if (CheckButton(Full0Center)) { Display_Page = 4; }
       if (CheckButton(topLeftquarter)) { Display_Page = 10; }
       if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }  //Loop to the main settings page
       if (CheckButton(topRightquarter)) { Display_Page = 4; }
@@ -856,23 +831,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       break;
 
     default:
-      if (RunSetup) {
-        setFont(3);  //GFXBorderBoxPrintf(int h, int v, int width, int height, int textsize, int bordersize,
-        //uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,textcol,BorderColor, const char* fmt, ...)
-        GFXBorderBoxPrintf(Full0Center, "-Top page-");
-        GFXBorderBoxPrintf(TopLeftbutton, "Page-");
-        GFXBorderBoxPrintf(TopRightbutton, "Page+");
-
-        GFXBorderBoxPrintf(Full1Center, "Check SD");
-        GFXBorderBoxPrintf(Full2Center, "Set WIFI");
-        GFXBorderBoxPrintf(Full3Center, "See NMEA");
-        GFXBorderBoxPrintf(Full4Center, "Check Fonts");
-      }
-      if (millis() > slowdown + 1000) {
-        slowdown = millis();
-      }
       Display_Page = 0;
-
       break;
   }
   LastPageselected = page;
@@ -983,7 +942,8 @@ void setup() {
   _temp = 0;
   Serial.begin(115200);
   Serial.println("Test for NMEA Display ");
-  Serial.println(" IDF will throw errors here as one pin is -1!");
+  Serial.println(soft_version);
+  //Serial.println(" IDF will throw errors here as one pin is -1!");
   ts.begin();
   ts.setRotation(ROTATION_INVERTED);
 #ifdef GFX_BL
@@ -1036,7 +996,7 @@ void loop() {
   // //.... (audio.isRunning()){   delay(100);gfx->println("Playing Ships bells"); Serial.println("Waiting for bells to finish!");}
 }
 
-
+// useful when debugging to see where touch is
 void TouchCrosshair(int size) {
   for (int i = 0; i < (ts.touches); i++) {
     TouchCrosshair(i, size, WHITE);
@@ -1062,10 +1022,6 @@ void DisplayCheck(bool invertcheck) {  //used to test colours are as expected wh
     //***** Timed updates *******
     timedInterval = millis() + 300;
     //Serial.printf("Loop Timing %ims",LoopTime);
-    setFont(3);
-    ScreenShow(Current_Settings, "Current");
-
-
     if (invertcheck) {
       //Serial.println(" Timed display check");
       Color = Color + 1;
@@ -1136,17 +1092,40 @@ bool CheckButton(Button& button) {  // trigger on release. ?needs index (s) to r
   }
   return false;
 }
+void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
+  if (Current_Settings.ESP_NOW_ON) {
+    if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
+    // line_EXT = false;
+  }
 
-
-void TouchValueShow(int offset, bool debug) {  // offset display down in pixels
-  //ts.read();
-  if (ts.isTouched) {
-    for (int i = 0; i < (ts.touches); i++) {
-      if (debug) {
-        Serial.printf("Touch [%i] X:%i Y:%i size:%i \n", i + 1, ts.points[i].x, ts.points[i].y, ts.points[i].size);
-        GFXBoxPrintf(0, ((i * 10) + offset), "Touch [%i] X:%i Y:%i size:%i ", i + 1, ts.points[i].x, ts.points[i].y, ts.points[i].size);
+  if (Current_Settings.Serial_on) {
+    if (Test_Serial_1()) { UseNMEA(nmea_1, 1); }
+    //line_1=false;
+  }
+  if (Current_Settings.UDP_ON) {
+    if (Test_U()) { UseNMEA(nmea_U, 2); }
+  }
+}
+void UseNMEA(char* buf, int type) {
+  if (buf[0] != 0) {
+    // print serial version if on the wifi page terminal window page.
+    if ((Display_Page == -1)) {  //debugpause in UpdateLinef
+      if (type == 2) {
+        gfx->setTextColor(BLUE);
+        UpdateLinef(Terminal, "UDP:%s", buf);
       }
+      if (type == 3) {
+        gfx->setTextColor(RED);
+        UpdateLinef(Terminal, "ESP:%s", buf);
+      }
+      gfx->setTextColor(BLACK);  // reset to black now!
+      if (type == 1) { UpdateLinef(Terminal, "Ser:%s", buf); }
     }
+    // now decode it for the displays to use
+    pTOKEN = buf;                                               // pToken is used in processPacket to separate out the Data Fields
+    if (processPacket(buf, BoatData)) { dataUpdated = true; };  // NOTE processPacket will search for CR! so do not remove it and then do page updates if true ?
+    buf[0] = 0;                                                 //clear buf  when finished!
+    return;
   }
 }
 
@@ -1179,22 +1158,7 @@ void EEPROM_READ() {
   }
 }
 
-//************** display housekeeping ************
-void ScreenShow(MySettings A, String Text) {
-  long rssiValue = WiFi.RSSI();
-  GFXBoxPrintf(0, 0, 1, "%s: Seron<%s>UDPon<%s> ESPon<%s>", Text, A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off);
-  GFXBoxPrintf(0, text_height, 1, "Wifi:  SSID<%s> PWD<%s> UDPPORT<%s>  rssi<%i> ", A.ssid, A.password, A.UDP_PORT, rssiValue);
-}
 
-void dataline(MySettings A, String Text) {
-  ScreenShow(A, Text);
-  Serial.printf("%d Dataline display %s: Ser<%d> UDPPORT<%d> UDP<%d>  ESP<%d> \n ", A.EpromKEY, Text, A.Serial_on, A.UDP_PORT, A.UDP_ON, A.ESP_NOW_ON);
-  Serial.print("SSID <");
-  Serial.print(A.ssid);
-  Serial.print(">  Password <");
-  Serial.print(A.password);
-  Serial.println("> ");
-}
 boolean CompStruct(MySettings A, MySettings B) {  // Does NOT compare the display page!
   bool same = false;
   // have to check each variable individually
@@ -1213,69 +1177,6 @@ void Writeat(int h, int v, const char* text) {  //Write text at h,v (using fonto
   gfx->setCursor(h, v + (text_offset));         // offset up/down for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
   gfx->print(text);
   gfx->setCursor(h, v + (text_offset));
-}
-// void Writeat(int h, int v, const char* text) {
-//   Writeat(h, v, text);
-// }
-// try out void getTextBounds(const char *string, int16_t x, int16_t y, int16_t *x1, int16_t *y1, uint16_t *w, uint16_t *h);
-void WriteinBox(int h, int v, int size, const char* TEXT, uint16_t TextColor, uint16_t BackColor) {  //Write text in filled box of text height at h,v (using fontoffset to use TOP LEFT of text convention)
-  int width, height;
-
-  gfx->fillRect(h, v, 480, text_height * size, BackColor);
-  gfx->setTextColor(TextColor);
-  gfx->setTextSize(size);
-  Writeat(h, v, TEXT);  // text offset is dealt with in write at
-  gfx->setCursor(h, v + (text_offset));
-}
-void WriteinBox(int h, int v, int size, const char* TEXT) {  //Write text in filled box of text height at h,v (using fontoffset to use TOP LEFT of text convention)
-  gfx->fillRect(h, v, 480, text_height * size, WHITE);
-  gfx->setTextColor(BLACK);
-  gfx->setTextSize(size);
-  Writeat(h, v, TEXT);  // text offset is dealt with in write at
-  gfx->setCursor(h, v + (text_offset));
-}
-
-
-void GFXBoxPrintf(int h, int v, int size, uint16_t TextColor, uint16_t BackColor, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
-  char msg[300] = { '\0' };                                                                                // used in message buildup
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(msg, 128, fmt, args);
-  va_end(args);
-  int len = strlen(msg);
-  WriteinBox(h, v, size, msg, TextColor, BackColor);
-  gfx->setCursor(h, v + (text_offset));
-}
-
-
-void GFXBoxPrintf(int h, int v, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
-  char msg[300] = { '\0' };                              // used in message buildup
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(msg, 128, fmt, args);
-  va_end(args);
-  int len = strlen(msg);
-  WriteinBox(h, v, 1, msg);
-}
-void GFXBoxPrintf(int h, int v, int size, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
-  static char msg[300] = { '\0' };                                 // used in message buildup
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(msg, 128, fmt, args);
-  va_end(args);
-  int len = strlen(msg);
-  WriteinBox(h, v, size, msg);  // includes font size
-}
-
-
-void GFXPrintf(int h, int v, const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
-  char msg[300] = { '\0' };                           // used in message buildup
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(msg, 128, fmt, args);
-  va_end(args);
-  int len = strlen(msg);
-  Writeat(h, v, msg);
 }
 
 
@@ -1300,54 +1201,8 @@ void GetGPSPos(char* str, char* NMEAgpspos, uint8_t sign) {
   gfx->printf(str, "%d.%04d", (sign ? -1 : 1) * u, minutes);
 }
 
-int yforLine(Button button, int printline) {
-  int y = button.v + button.bordersize;
-  y = y + printline * (text_height + 2);
-  return y;
-}
 
-void UpdateLinef(Button& button, const char* fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
-  //static int button.PrintLine; // place in button so its static for each button!
-  int LinesOfType, characters;
-  static bool screenfull;
-  char limitedWidth[80];
-  int16_t x, y, TBx1, TBy1;
-  uint16_t TBw, TBh;
-  int typingspaceH, typingspaceW;
-  if (screenfull && debugpause) { return; }
-  typingspaceH = button.height - (2 * button.bordersize);
-  typingspaceW = button.width - (2 * button.bordersize);
-  LinesOfType = typingspaceH / (text_height + 2);  //assumes textsize 1?
-  static char msg[300] = { '\0' };
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(msg, 128, fmt, args);
-  va_end(args);
-  int len = strlen(msg);
-  x = button.h + button.bordersize;  // shift inwards for border
-  gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
-  gfx->setTextWrap(true);
-  y=yforLine(button, button.PrintLine); //Needed for the text bounds?
-  gfx->getTextBounds(msg, x, y, &TBx1, &TBy1, &TBw, &TBh);
- // if (TBh/text_height) {  // calculate how many lines?? 
- //   Serial.printf(" x %i y%i &TBx1 %i, &TBy1 %i, &TBw %i, &TBh %i \n",x,y, TBx1, TBy1, TBw, TBh);
-    //tbh is always the full height of the box! 
- // not needed as clear on full screen is simpler  gfx->fillRect(x, yforLine(button, button.PrintLine), typingspaceW, TBh+2, LIGHTGREY);
-  
-  gfx->setCursor(x, yforLine(button, button.PrintLine) + text_offset + 1);  // puts cursor on a specific line with 2 pixels of V spacing
-  gfx->print(msg);   
-  //Serial.printf(" lines  tbh %i textheight %i  >lines are %i  \n",TBh,text_height,TBh/text_height);                                                       // lines should be blanked by previous filRect
-  button.PrintLine = button.PrintLine + (TBh/(text_height+2))+1;
-  if (button.PrintLine >= (LinesOfType)) {
-    screenfull = true;
-    if (!debugpause) {
-      button.PrintLine = 0;
-      gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH, WHITE);
-      screenfull = false;
-    }
-  }
-  gfx->setTextBound(0, 0, 480, 480);
-}
+
 
 
 
@@ -1368,61 +1223,7 @@ void sendAdvicef(const char* fmt, ...) {  //complete object type suitable for ho
   delay(10);  // let it send!
 }
 
-//************ TIMING FUNCTIONS FOR TESTING PURPOSES ONLY ******************
-//Note this is also an example of how useful Function overloading can be!!
-void EventTiming(String input) {
-  EventTiming(input, 1);  // 1 should be ignored as this is start or stop! but will also give immediate print!
-}
 
-void EventTiming(String input, int number) {  // Event timing, Usage START, STOP , 'Descrption text'   Number waits for the Nth call before serial.printing results (Description text + results).
-  static unsigned long Start_time;
-  static unsigned long timedInterval;
-  static unsigned long _MaxInterval;
-  static unsigned long SUMTotal;
-  static int calls = 0;
-  static int reads = 0;
-  long NOW = micros();
-  if (input == "START") {
-    Start_time = NOW;
-    return;
-  }
-  if (input == "STOP") {
-    timedInterval = NOW - Start_time;
-    SUMTotal = SUMTotal + timedInterval;
-    if (timedInterval >= _MaxInterval) { _MaxInterval = timedInterval; }
-    reads++;
-    return;
-  }
-  calls++;
-  if (calls < number) { return; }
-  if (reads >= 2) {
-
-    if (calls >= 2) {
-      Serial.print("\r\n TIMING ");
-      Serial.print(input);
-      Serial.print(" Using (");
-      Serial.print(reads);
-      Serial.print(") Samples");
-      Serial.print(" last: ");
-      Serial.print(timedInterval);
-      Serial.print("us Average : ");
-      Serial.print(SUMTotal / reads);
-      Serial.print("us  Max : ");
-      Serial.print(_MaxInterval);
-      Serial.println("uS");
-    } else {
-      Serial.print("\r\n TIMED ");
-      Serial.print(input);
-      Serial.print(" was :");
-      Serial.print(timedInterval);
-      Serial.println("uS");
-    }
-    _MaxInterval = 0;
-    SUMTotal = 0;
-    reads = 0;
-    calls = 0;
-  }
-}
 
 
 //SD and image functions  include #include "JpegFunc.h"
@@ -1469,7 +1270,6 @@ void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
 }
 
 void SD_Setup() {
-
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI);
   if (!SD.begin(SD_CS)) {
     Serial.println("Card Mount Failed");
@@ -1514,52 +1314,6 @@ void SD_Setup() {
   //listDir(SD, "/", 3);
 }
 
-//*****   AUDIO ....
-
-
-void Audio_setup() {
-  Serial.println("Audio setup ");
-  delay(200);
-  audio.setPinout(I2S_BCLK, I2S_LRCK, I2S_DOUT);
-  audio.setVolume(15);  // 0...21
-  if (audio.connecttoFS(SD, "/StartSound.mp3")) {
-    delay(10);
-    if (audio.isRunning()) { gfx->println("Playing Ships bells"); }
-    while (audio.isRunning()) {
-      audio.loop();
-      vTaskDelay(1);
-    }
-  } else {
-    gfx->print(" Failed  audio setup ");
-    Serial.println("Audio setup FAILED");
-  };
-  // gfx->println("Exiting Setup");
-  // audio.connecttoFS(SD, AUDIO_FILENAME_02); // would start some music -- not needed but fun !
-}
-
-void UseNMEA(char* buf, int type) {  //&sets pointer aso I can modify Line_Ready in this function
-                                     //if (Line_Ready){
-  if (buf[0] != 0) {
-    // print serial version if on the wifi page terminal window page.
-    if ((Display_Page == -1)) {  //debugpause in UpdateLinef
-      if (type == 2) {
-        gfx->setTextColor(BLUE);
-        UpdateLinef(Terminal, "UDP:%s", buf);
-      }
-      if (type == 3) {
-        gfx->setTextColor(RED);
-        UpdateLinef(Terminal, "ESP:%s", buf);
-      }
-      gfx->setTextColor(BLACK);  // reset to black now!
-      if (type == 1) { UpdateLinef(Terminal, "Ser:%s", buf); }
-    }
-    // now decode it for the displays to use
-    pTOKEN = buf;                                               // pToken is used in processPacket to separate out the Data Fields
-    if (processPacket(buf, BoatData)) { dataUpdated = true; };  // NOTE processPacket will search for CR! so do not remove it and then do page updates if true ?
-    buf[0] = 0;                                                 //clear buf  when finished!
-    return;
-  }
-}
 void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
@@ -1590,12 +1344,6 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
   }
 }
 
-
-
-
-
-
-
 void ConnectWiFiusingCurrentSettings() {
   uint32_t StartTime = millis();
   gfx->println("Setting up WiFi");
@@ -1624,20 +1372,6 @@ void ConnectWiFiusingCurrentSettings() {
   }
 }
 
-void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
-  if (Current_Settings.ESP_NOW_ON) {
-    if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
-    // line_EXT = false;
-  }
-
-  if (Current_Settings.Serial_on) {
-    if (Test_Serial_1()) { UseNMEA(nmea_1, 1); }
-    //line_1=false;
-  }
-  if (Current_Settings.UDP_ON) {
-    if (Test_U()) { UseNMEA(nmea_U, 2); }
-  }
-}
 bool Test_Serial_1() {  // UART0 port P1
   static bool LineReading_1 = false;
   static int Skip_1 = 1;
@@ -1723,30 +1457,32 @@ void UDPSEND(const char* buf) {                              // this is the one 
   // Udp.endPacket();
 }
 
-// void ScannetworkstoGFX(int x) {
-//   gfx->setCursor(0, x);  //(location of terminal. make better later!)
-//   int n = WiFi.scanNetworks(false, false, false, 50, 0, nullptr, nullptr);
-//   gfx->println("scan done");
-//   if (n <= 0) {
-//     gfx->println("no networks found");
-//   } else {
-//     gfx->print(n);
-//     gfx->println(" networks found");
-//     for (int i = 0; i < n; ++i) {
-//       // Print SSID and RSSI for each network found
-//       gfx->print(i + 1);
-//       gfx->print(": ");
-//       gfx->print(WiFi.SSID(i));
-//       gfx->print(" (");
-//       gfx->print(WiFi.RSSI(i));
-//       gfx->println(")");
-//       //    gfx->println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*");
-//       delay(10);
-//     }
-//   }
-// }
 //************ Music stuff  Purely to explore if the ESP32 has any spare capacity while doing display etc!
 //***
+
+//*****   AUDIO ....
+
+
+void Audio_setup() {
+  Serial.println("Audio setup ");
+  delay(200);
+  audio.setPinout(I2S_BCLK, I2S_LRCK, I2S_DOUT);
+  audio.setVolume(15);  // 0...21
+  if (audio.connecttoFS(SD, "/StartSound.mp3")) {
+    delay(10);
+    if (audio.isRunning()) { gfx->println("Playing Ships bells"); }
+    while (audio.isRunning()) {
+      audio.loop();
+      vTaskDelay(1);
+    }
+  } else {
+    gfx->print(" Failed  audio setup ");
+    Serial.println("Audio setup FAILED");
+  };
+  // gfx->println("Exiting Setup");
+  // audio.connecttoFS(SD, AUDIO_FILENAME_02); // would start some music -- not needed but fun !
+}
+
 struct Music_info {
   String name;
   int length;
@@ -1807,4 +1543,60 @@ void open_new_song(String filename) {
   music_info.status = 1;
   music_info.m = music_info.length / 60;
   music_info.s = music_info.length % 60;
+}
+
+//************ TIMING FUNCTIONS FOR TESTING PURPOSES ONLY ******************
+//Note this is also an example of how useful Function overloading can be!!
+void EventTiming(String input) {
+  EventTiming(input, 1);  // 1 should be ignored as this is start or stop! but will also give immediate print!
+}
+
+void EventTiming(String input, int number) {  // Event timing, Usage START, STOP , 'Descrption text'   Number waits for the Nth call before serial.printing results (Description text + results).
+  static unsigned long Start_time;
+  static unsigned long timedInterval;
+  static unsigned long _MaxInterval;
+  static unsigned long SUMTotal;
+  static int calls = 0;
+  static int reads = 0;
+  long NOW = micros();
+  if (input == "START") {
+    Start_time = NOW;
+    return;
+  }
+  if (input == "STOP") {
+    timedInterval = NOW - Start_time;
+    SUMTotal = SUMTotal + timedInterval;
+    if (timedInterval >= _MaxInterval) { _MaxInterval = timedInterval; }
+    reads++;
+    return;
+  }
+  calls++;
+  if (calls < number) { return; }
+  if (reads >= 2) {
+
+    if (calls >= 2) {
+      Serial.print("\r\n TIMING ");
+      Serial.print(input);
+      Serial.print(" Using (");
+      Serial.print(reads);
+      Serial.print(") Samples");
+      Serial.print(" last: ");
+      Serial.print(timedInterval);
+      Serial.print("us Average : ");
+      Serial.print(SUMTotal / reads);
+      Serial.print("us  Max : ");
+      Serial.print(_MaxInterval);
+      Serial.println("uS");
+    } else {
+      Serial.print("\r\n TIMED ");
+      Serial.print(input);
+      Serial.print(" was :");
+      Serial.print(timedInterval);
+      Serial.println("uS");
+    }
+    _MaxInterval = 0;
+    SUMTotal = 0;
+    reads = 0;
+    calls = 0;
+  }
 }

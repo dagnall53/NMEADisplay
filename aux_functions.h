@@ -9,6 +9,11 @@ extern Arduino_RGB_Display  *gfx ; //  change if alternate displays !
 bool processPacket(const char* buf,  tBoatData &stringBD );
 
 //** Graphics display functions ***
+void UpdateData(Button button, instData &data , const char* fmt);
+
+void UpdateLinef(Button& button, const char* fmt, ...) ; // (sequentially) types lines into the button space 
+
+// is always called via  UpdateData void NEWUpdate(Button button,unsigned long updated, const char* fmt, ...);
 
 void UpdateCentered(int h, int v, int width, int height, int bordersize,
                     uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...) ;

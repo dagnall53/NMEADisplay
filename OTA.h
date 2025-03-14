@@ -10,7 +10,7 @@
 // if v131 extern Arduino_ST7701_RGBPanel *gfx ;  // declare the gfx structure so I can use GFX commands in Keyboard.cpp
 extern Arduino_RGB_Display* gfx;  //  change if alternate displays !
 extern void setFont(int);
-
+extern const char soft_version [];
 const char* host = "NMEADisplay";
 //const char* ssid = "GUESTBOAT";
 //const char* password = "12345678";
@@ -48,6 +48,7 @@ String serverIndex =
   "<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
   "<input type='file' name='update' id='file' onchange='sub(this)' style=display:none>"
   "<h1>OTA Interface for NMEA DISPLAY</h1>"
+  "<br><center>" + String(soft_version) + "</center> <br>"
   "<label id='file-input' for='file'>   Choose file...</label>"
   "<input type='submit' class=btn value='Update'>"
   "<br><br>"
