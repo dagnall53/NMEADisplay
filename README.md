@@ -22,8 +22,6 @@ I have tried to avoid use of "Strings" as used in the original Keyboard and Andr
 My "Cheap_ESP32" tests included tests of alternate fonts and demonstrated how to access Jpeg and Audio mp3 files from the SD card. - Mainly just to see what was possible. 
 This NMEA display will start with these elements retained, but I will probably aim to make them compile defines.
 
-From Andreas Szep I have appopriated the idea of having a String  boatdata (sBoatData) structure using character arrays. 
-This is sensible here, as the NMEA data is read and stored as Char Arrays, and I am (mostly) not planning on doing any arithmetic with the data. 
 I will use atoi() and atof() to convert to double where needed.
 I have used some of the Timo Lappinen NMEA01983 conversion functions. 
 
@@ -42,4 +40,8 @@ The same goes for fonts. I have lots included while trying to get a good looking
 
 'User' Settings for the display are kept in an Single structure that starts with a "KEY". Changing this key in the compiler will force the code to load the "Default" 
 Also, should the EEPROM value of this 'KEY' be misread, then the 'default' will be set. _ this is intended to allow the first time run to set defaults.
- 
+
+Use of SD card:
+Apparently, File Names longer than 8 charecters will be truncated by the SD library, so keep filenames shorter 
+Ver 1.2 I have moved the music to a subdirectory in anticipation of adding SD logging
+

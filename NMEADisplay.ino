@@ -1,5 +1,14 @@
 //*******************************************************************************
+/*
+Compiled and tested with ESp32 V2.0.11  V3has deprecated some functions and this code will not work with V3!
+GFX library for Arduino 1.5.5
+Select "ESP32-S3 DEV Module"
+Select PSRAM "OPI PSRAM"
 
+
+
+
+*/
 #include <NMEA0183.h>
 #include <NMEA0183Msg.h>
 #include <NMEA0183Messages.h>
@@ -47,7 +56,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[ ] = " Version 1.0 " ; 
+const char soft_version[ ] = " Version 1.2 " ; 
 
 
 //set up Audio
@@ -417,8 +426,14 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         GFXBorderBoxPrintf(BottomRightbutton, "vol+");
         //gfx->setCursor(0, 80);
 
-        int file_num;                                                                                           // = get_music_list(SD, "/", 0, file_list);  // see https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
-        file_num = get_music_list(SD, "/", 0);                                                                  // Char array  based version of  https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
+        int file_num;
+        //Ver 1.2 I have moved the music to a subdirectory in anticipation of adding SD logging
+      //   if (fs.chdir("/music")) {
+      //   Serial.println("Changed directory to /music");
+      // } else {
+      //   Serial.println("Failed to change directory");
+      // }                                                                                           // = get_music_list(SD, "/", 0, file_list);  // see https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
+        file_num = get_music_list(SD, "/music", 0);                                                                  // Char array  based version of  https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
         V_offset = text_height + (ThirdRowButton.v + ThirdRowButton.height + (3 * ThirdRowButton.bordersize));  // start below the third button
         //  listDir(SD, "/", 0);
         int localy = 0;
@@ -453,7 +468,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(SecondRowButton)) {
         Playing = FileIndex;
         volume = 8;
-        open_new_song(File_List[Playing]);
+        open_new_song("/music/",File_List[Playing]);
         GFXBorderBoxPrintf(SecondRowButton, "Playing:%s", File_List[Playing]);
       }
 
@@ -1268,15 +1283,14 @@ void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
     file = root.openNextFile();
   }
 }
-
+extern bool hasSD;
 void SD_Setup() {
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI);
   if (!SD.begin(SD_CS)) {
     Serial.println("Card Mount Failed");
     return;
-  } else {
-    // avoid the flash screen for now...
-    // unsigned long start = millis();
+  } else {hasSD = true;
+    // flash logo 
     jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
              0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
     // Serial.printf("Time used: %lums\n", millis() - start);
@@ -1292,7 +1306,7 @@ void SD_Setup() {
 
   Serial.print("SD Card Type: ");
   gfx->println("");  // or it starts outside text bound??
-  gfx->print("SD Card Type: ");
+  gfx->print("  SD Card Type: ");
   if (cardType == CARD_MMC) {
     Serial.println("MMC");
     gfx->println("MMC");
@@ -1530,19 +1544,22 @@ int get_music_list(fs::FS& fs, const char* dirname, uint8_t levels) {  // uses c
 }
 
 
-void open_new_song(String filename) {
+void open_new_song(String dir,String filename) {
   Serial.print(" Open _NEW song..");
   Serial.println(filename);
-  music_info.name = filename.substring(1, filename.indexOf("."));
-  Serial.print(" audio input..");
-  Serial.println(music_info.name);
-  audio.connecttoFS(SD, filename.c_str());
-  music_info.runtime = audio.getAudioCurrentTime();
-  music_info.length = audio.getAudioFileDuration();
-  music_info.volume = audio.getVolume();
-  music_info.status = 1;
-  music_info.m = music_info.length / 60;
-  music_info.s = music_info.length % 60;
+  //music_info.name = filename.substring(1, filename.indexOf("."));
+  //Serial.print(" audio input..");
+  //Serial.println(music_info.name);
+  String FullName;
+  FullName=dir+filename;
+  //Serial.print("** Audio selected<");Serial.print(FullName);Serial.println(">");
+  audio.connecttoFS(SD, FullName.c_str());
+  //music_info.runtime = audio.getAudioCurrentTime();
+  //music_info.length = audio.getAudioFileDuration();
+  //music_info.volume = audio.getVolume();
+  //music_info.status = 1;
+  //music_info.m = music_info.length / 60;
+  //music_info.s = music_info.length % 60;
 }
 
 //************ TIMING FUNCTIONS FOR TESTING PURPOSES ONLY ******************
