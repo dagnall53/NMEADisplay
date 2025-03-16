@@ -1,7 +1,8 @@
 # NMEADisplay
 ![Sdisplay](https://github.com/user-attachments/assets/e3a0ba0e-b552-46d3-bceb-dcc11c7a620e)
 
-Project to use a CHEAP 4" square ESP32 Lcd module to display wirelessly available NMEA data. 
+=======
+A Wireless NMEA display
 Short video demo : https://youtube.com/shorts/24qs9CJK5vo?si=zCDUuTbXkYfHtEDB
 
 Compiled and tested with ESp32 V2.0.11 
@@ -9,11 +10,16 @@ GFX library for Arduino 1.5.5
 Select "ESP32-S3 DEV Module"
 Select PSRAM "OPI PSRAM"
 
+<<<<<<< HEAD
 Includes a Webserver to access the SD, where a LOG file (/logs/data.txt) can be checked.
 The data Logging is switched on/off in the WIFI settings.  
 OTA is now selected from the webserver start screen. 
 
 
+=======
+V1.0 includes OTA via the super simple interface- UserId and password admin
+Check the IP address via the wifi screen and connect to that IP to get the OTA started. 
+>>>>>>> d5d711641aaa5bd0b948e107a03684502c427b3c
 
 
 Using some concepts from AndreasSzep WiFi, https://github.com/AndrasSzep/NMEA0183-WiFi
