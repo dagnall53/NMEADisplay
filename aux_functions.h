@@ -28,6 +28,18 @@ void AddTitleBorderBox(Button button, const char* fmt, ...);
 
 void AddTitleBorderBox(int h, int v, uint16_t BorderColor, const char* fmt, ...) ;
 
+// help functions for graphics using Phv structure  ?
+
+void PTriangleFill(Phv P1, Phv P2, Phv P3, uint16_t COLOUR);
+void Pdrawline(Phv P1, Phv P2, uint16_t COLOUR) ;
+void PfillCircle(Phv P1, int rad, uint16_t COLOUR);
+
+
+void DrawGraph (bool reset,Button button, double data, double dmin, double dmax);
+
+int Circular(int x, int min,int max);
+int GraphRange( double data, int low, int high, double dmin ,double dmax );
+
 
 
 #endif

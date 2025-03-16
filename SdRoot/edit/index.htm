@@ -173,6 +173,7 @@
         path.name = "path";
         path.defaultValue = "/";
         document.getElementById(element).appendChild(path);
+ 
         var button = document.createElement("button");
         button.innerHTML = 'Upload';
         document.getElementById(element).appendChild(button);
@@ -620,6 +621,14 @@
         editor.getSession().setTabSize(2);
         editor.setHighlightActiveLine(true);
         editor.setShowPrintMargin(false);
+        <!-- Save Button -->		
+      var saveButton = document.createElement("button");
+      saveButton.innerHTML = 'Save';
+      document.getElementById("uploader").appendChild(saveButton);
+      saveButton.onclick = function(e){
+    	httpPost(file, editor.getValue()+"", type);
+      };
+       <!-- /Save Button-->
         editor.commands.addCommand({
             name: 'saveCommand',
             bindKey: {win: 'Ctrl-S',  mac: 'Command-S'},

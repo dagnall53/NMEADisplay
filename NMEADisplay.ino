@@ -56,7 +56,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[ ] = " Version 1.2 " ; 
+const char soft_version[ ] = " Version 2.0 " ; 
 
 
 //set up Audio
@@ -103,7 +103,7 @@ MySettings Default_Settings = { 11, "GUESTBOAT", "12345678", "2002", true, true,
 int Display_Page = 4;  //set last in setup(), but here for clarity?
 MySettings Saved_Settings;
 MySettings Current_Settings;
-
+bool Log_ON;
 
 int MasterFont;  //global for font! Idea is to use to reset font after 'temporary' seletion of another fone
                  // to be developed ....
@@ -153,10 +153,11 @@ Button ThirdRowButton = { 20, 90, 430, 35, 5, WHITE, BLACK, BLUE };
 Button FourthRowButton = { 20, 130, 430, 35, 5, WHITE, BLACK, BLUE };
 Button FifthRowButton = { 20, 170, 430, 35, 5, WHITE, BLACK, BLUE };
 
-#define sw_width 70
+#define sw_width 65
 Button Switch1 = { 20, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
-Button Switch2 = { 105, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
-Button Switch3 = { 190, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
+Button Switch2 = { 100, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
+Button Switch3 = { 180, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
+Button Switch5 = { 260, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
 Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };
 
 Button Terminal = { 0, 240, 470, 240, 5, WHITE, BLACK, BLUE };  // inset to try and get printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
@@ -228,13 +229,6 @@ Phv translate(Phv center, int angle, int rad) {
   moved.v = center.v + ((rad * getCosine(angle)) / 100);
   return moved;
 }
-void PTriangleFill(Phv P1, Phv P2, Phv P3, uint16_t COLOUR) {
-  gfx->fillTriangle(P1.h, P1.v, P2.h, P2.v, P3.h, P3.v, COLOUR);
-}
-void Pdrawline(Phv P1, Phv P2, uint16_t COLOUR) {
-  gfx->drawLine(P1.h, P1.v, P2.h, P2.v, COLOUR);
-}
-
 
 
 
@@ -627,6 +621,8 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         AddTitleBorderBox(Switch2, "UDP");
         GFXBorderBoxPrintf(Switch3, Current_Settings.ESP_NOW_ON On_Off);
         AddTitleBorderBox(Switch3, "ESP-Now");
+        GFXBorderBoxPrintf(Switch5, Log_ON On_Off);
+        AddTitleBorderBox(Switch5, "Log");
         GFXBorderBoxPrintf(Switch4, "UPDATE");
         AddTitleBorderBox(Switch4, "EEPROM");
         GFXBorderBoxPrintf(Terminal, "- NMEA DATA -");
@@ -658,6 +654,11 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       };
       if (CheckButton(Switch3)) {
         Current_Settings.ESP_NOW_ON = !Current_Settings.ESP_NOW_ON;
+        DataChanged = true;
+      };
+      if (CheckButton(Switch5)) {
+        Log_ON = !Log_ON;
+        if (Log_ON) {Startlogfile();}
         DataChanged = true;
       };
       if (CheckButton(Switch4)) {
@@ -757,7 +758,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(topRightquarter)) { Display_Page = 0; }
       if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
       break;
-    case 6:
+    case 6: //Speed Through WATER
       if (RunSetup) {
         setFont(10);
         GFXBorderBoxPrintf(BigSingleDisplay, "STW");
@@ -776,16 +777,22 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
 
       break;
-    case 7:
+    case 7: // DEPTH
       if (RunSetup) {
         setFont(10);
-        GFXBorderBoxPrintf(BigSingleDisplay, "m");
-        AddTitleBorderBox(20, 100, BLACK, "DEPTH");
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        GFXBorderBoxPrintf(BigSingleTopRight,"");
+        AddTitleBorderBox(20, 100, BLACK, "Fathmometer");
+        DrawGraph (true,BigSingleDisplay, BoatData.WaterDepth.data, 11.0, 24.0);
       }
-      if (millis() > slowdown + 500) {
-        slowdown = millis();}
 
-        UpdateData(BigSingleDisplay, BoatData.WaterDepth, "%4.1f m");
+      //UpdateData(BigSingleTopRight, BoatData.WaterDepth, "%4.1f m");
+      if (millis() > slowdown + 1000) {
+        slowdown = millis();
+        DrawGraph (false,BigSingleDisplay, BoatData.WaterDepth.data, 11.0, 24.0);
+        }
+
+        
       
       if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
@@ -827,6 +834,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         BigSingleDisplay.PrintLine = 0;
         UpdateLinef(BigSingleDisplay, "%.0f Satellites in view",BoatData.SatsInView);
         if (BoatData.GPSTime != NMEA0183DoubleNA) {
+          UpdateLinef(BigSingleDisplay, "");UpdateLinef(BigSingleDisplay, " Date: %06i ",int(BoatData.GPSDate));
           UpdateLinef(BigSingleDisplay, "");
           UpdateLinef(BigSingleDisplay, " TIME: %02i:%02i:%02i",
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
@@ -971,11 +979,14 @@ void setup() {
   gfx->invertDisplay(false);
   gfx->fillScreen(BLUE);
   gfx->setCursor(0, 110);
-
-#ifdef GFX_BL
+  gfx->setTextColor(WHITE);
+  gfx->setTextBound(40,40,440,380);
+#ifdef GFX_BL   // I have no idea why this digital write seems to be done twice- perhaps to reset some screens?
   pinMode(GFX_BL, OUTPUT);
   digitalWrite(GFX_BL, HIGH);
-#endif
+#endif   
+
+
   setFont(4);
   SD_Setup();
   Audio_setup();
@@ -989,8 +1000,10 @@ void setup() {
   Udp.begin(atoi(Current_Settings.UDP_PORT));
   delay(1500);       // 1.5 seconds
   Display_Page = 4;  // select first page to show or use non defined page to start with default
+  gfx->setTextBound(0,0,480,480);
   gfx->setTextColor(WHITE);
   // gfx->setTextBound(0, 0, 480, 480); //reset or it wil cause issues later in other prints?
+  //Startlogfile();
   Display(Display_Page);
 }
 
@@ -1006,10 +1019,12 @@ void loop() {
   Display(Display_Page);  //EventTiming("STOP");
   EXTHeartbeat();
   audio.loop();
+  if (Log_ON) {LOG();};
   //EventTiming(" loop time touch sample display");
   //vTaskDelay(1);  // Audio is distorted without this?? used in https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/plays%20all%20files%20in%20a%20directory/plays_all_files_in_a_directory.ino
   // //.... (audio.isRunning()){   delay(100);gfx->println("Playing Ships bells"); Serial.println("Waiting for bells to finish!");}
 }
+
 
 // useful when debugging to see where touch is
 void TouchCrosshair(int size) {
@@ -1294,7 +1309,7 @@ void SD_Setup() {
     jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
              0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
     // Serial.printf("Time used: %lums\n", millis() - start);
-    gfx->setTextColor(BLUE);  //if displaying the logo, write in Blue in a box!
+    //gfx->setTextColor(BLUE);  //if displaying the logo, write in Blue in a box!
     //  gfx->setTextBound(80, 80, 400, 400); // a test
   }
   uint8_t cardType = SD.cardType();
