@@ -10,6 +10,7 @@ bool processPacket(const char* buf,  tBoatData &stringBD );
 
 //** Graphics display functions ***
 void UpdateData(Button button, instData &data , const char* fmt);
+void UpdateDataTwoSize(int bigfont, int smallfont,Button button, instData &data, const char *fmt);
 
 void UpdateLinef(Button& button, const char* fmt, ...) ; // (sequentially) types lines into the button space 
 
@@ -35,7 +36,7 @@ void Pdrawline(Phv P1, Phv P2, uint16_t COLOUR) ;
 void PfillCircle(Phv P1, int rad, uint16_t COLOUR);
 
 
-void DrawGraph (bool reset,Button button, double data, double dmin, double dmax);
+void DrawGraph (bool reset,Button button, instData &DATA, double dmin, double dmax);
 
 int Circular(int x, int min,int max);
 int GraphRange( double data, int low, int high, double dmin ,double dmax );

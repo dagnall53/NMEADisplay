@@ -38,6 +38,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 #include <EEPROM.h>
 #include "fonts.h"
+#include "CondensedFonts.h"
 #include "FreeMonoBold8pt7b.h"
 #include "FreeMonoBold27pt7b.h"
 #include "FreeSansBold30pt7b.h"
@@ -129,7 +130,7 @@ Button WindDisplay = { 0, 0, 480, 480, 0, BLUE, WHITE, BLACK }; // full screen n
 //used for single data display
 Button BigSingleDisplay = { 10, 110, 460, 360, 5, BLUE, WHITE, BLACK };
 Button BigSingleTopRight ={240,0,230,110,5, BLUE, WHITE, BLACK };
-Button BigSingleTopLeft ={0,0,235,110,5,BLUE, WHITE, BLACK };
+Button BigSingleTopLeft ={10,0,230,110,5,BLUE, WHITE, BLACK };
 //used for nmea RMC /GPS display // was only three lines to start!
 Button Threelines0 = { 20, 30, 440, 80, 5, BLUE, WHITE, BLACK };
 Button Threelines1 = { 20, 130, 440, 80, 5, BLUE, WHITE, BLACK };
@@ -294,6 +295,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
   static unsigned int slowdown, timer2;
   static float wind, SOG, Depth;
   float temp, oldtemp;
+  static instData LocalCopy;
 
   static int fontlocal;
   static int FileIndex, Playing;  // static to hold after selection and before pressing play!
@@ -711,32 +713,32 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
     case 4:  // Quad display
       if (RunSetup) {
-        setFont(5);
+        setFont(8);
         gfx->fillScreen(BLACK);
         // DrawCompass(360, 120, 120);
         DrawCompass(topRightquarter);
         AddTitleBorderBox(topRightquarter, "WIND");
-        GFXBorderBoxPrintf(topLeftquarter, "STW");
+        GFXBorderBoxPrintf(topLeftquarter, "");
         AddTitleBorderBox(topLeftquarter, "STW");
-        GFXBorderBoxPrintf(bottomLeftquarter, "DEPTH");
+        GFXBorderBoxPrintf(bottomLeftquarter, "");
         AddTitleBorderBox(bottomLeftquarter, "DEPTH");
-        GFXBorderBoxPrintf(bottomRightquarter, "SOG");
+        GFXBorderBoxPrintf(bottomRightquarter, "");
         AddTitleBorderBox(bottomRightquarter, "SOG");
         delay(500);
       }
       if (millis() > slowdown + 300) {
         slowdown = millis();
-        setFont(5);  // note: all the 'updates' now check for new data else return immediately
+        setFont(8);  // note: all the 'updates' now check for new data else return immediately
       }
         WindArrow2(topRightquarter,BoatData.WindSpeedK, BoatData.WindAngle); 
         UpdateData(topLeftquarter, BoatData.STW, "%4.1f kts");
         UpdateData(bottomLeftquarter, BoatData.WaterDepth, "%4.1f m");
         UpdateData(bottomRightquarter, BoatData.SOG, "%4.1f kts");
      // }
-      if (CheckButton(topLeftquarter)) { Display_Page = 6; }
-      if (CheckButton(bottomLeftquarter)) { Display_Page = 7; }
-      if (CheckButton(topRightquarter)) { Display_Page = 5; }
-      if (CheckButton(bottomRightquarter)) { Display_Page = 8; }
+      if (CheckButton(topLeftquarter)) { Display_Page = 6; } //stw
+      if (CheckButton(bottomLeftquarter)) { Display_Page = 7; } //depth
+      if (CheckButton(topRightquarter)) { Display_Page = 5; } // Wind
+      if (CheckButton(bottomRightquarter)) { Display_Page = 8; } //SOG
       break;
 
     case 5:  // wind instrument
@@ -748,9 +750,9 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();}
-        
+        LocalCopy = BoatData.WindAngle;//Duplicate wind angle so it can be shown again in a second box
         WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngle); 
-        UpdateData(BigSingleTopRight,BoatData.WindAngleA,"%3.0f deg"); //Duplicate wind angle so it can be shown in second box
+        UpdateData(BigSingleTopRight,LocalCopy,"%3.0f deg"); 
         // WindArrow2(WindDisplay, BoatData.WindSpeedK, BoatData.WindAngle); // full screen 
 
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
@@ -758,16 +760,24 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(topRightquarter)) { Display_Page = 0; }
       if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
       break;
-    case 6: //Speed Through WATER
+    case 6: //Speed Through WATER GRAPH
       if (RunSetup) {
-        setFont(10);
-        GFXBorderBoxPrintf(BigSingleDisplay, "STW");
-        AddTitleBorderBox(20, 100, BLACK, "STW");
+        setFont(8);
+        GFXBorderBoxPrintf(BigSingleTopRight,"");
+        GFXBorderBoxPrintf(BigSingleTopLeft,"");
+        AddTitleBorderBox(BigSingleTopLeft, "SOG");
+        AddTitleBorderBox(BigSingleTopRight, "STW");
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        AddTitleBorderBox(BigSingleDisplay, "STW Graph");
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-        UpdateData(BigSingleDisplay, BoatData.STW, "%4.2f kts");
+        LocalCopy = BoatData.STW;
+        DrawGraph (false,BigSingleDisplay, LocalCopy, 0, 10);
+        UpdateDataTwoSize(9,8,BigSingleTopLeft, BoatData.SOG, "%2.1fkt");
+        UpdateDataTwoSize(9,8,BigSingleTopRight, BoatData.STW, "%2.1fkt");
+        
       
       //  if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
@@ -777,23 +787,21 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
 
       break;
-    case 7: // DEPTH
+    case 7: // Depth
       if (RunSetup) {
-        setFont(10);
-        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        setFont(8);
         GFXBorderBoxPrintf(BigSingleTopRight,"");
-        AddTitleBorderBox(20, 100, BLACK, "Fathmometer");
-        DrawGraph (true,BigSingleDisplay, BoatData.WaterDepth.data, 11.0, 24.0);
+        AddTitleBorderBox(BigSingleTopRight, "Depth");
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        AddTitleBorderBox(BigSingleDisplay, "Fathmometer");
       }
-
-      //UpdateData(BigSingleTopRight, BoatData.WaterDepth, "%4.1f m");
-      if (millis() > slowdown + 1000) {
+      if (millis() > slowdown + 500) {
         slowdown = millis();
-        DrawGraph (false,BigSingleDisplay, BoatData.WaterDepth.data, 11.0, 24.0);
-        }
-
-        
-      
+      }
+        LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
+        DrawGraph (false,BigSingleDisplay, LocalCopy, 0, 10);
+        UpdateDataTwoSize(9,8,BigSingleTopRight, BoatData.WaterDepth, "%4.1fm");
+         
       if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
@@ -802,30 +810,38 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
 
       break;
-    case 8:
-      if (RunSetup) {
-        setFont(10);
-
-        GFXBorderBoxPrintf(BigSingleDisplay, "SOG");
-        AddTitleBorderBox(20, 100, BLACK, "SOG");
+    case 8: //SOG  graph
+     if (RunSetup) {
+        setFont(8);
+        GFXBorderBoxPrintf(BigSingleTopRight,"");
+        GFXBorderBoxPrintf(BigSingleTopLeft,"");
+        AddTitleBorderBox(BigSingleTopLeft, "SOG");
+        AddTitleBorderBox(BigSingleTopRight, "STW");
+        GFXBorderBoxPrintf(BigSingleDisplay, "font8");
+        AddTitleBorderBox(BigSingleDisplay, "SOG Graph");
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-        UpdateData(BigSingleDisplay, BoatData.SOG, "%4.1fkts");
+        LocalCopy = BoatData.SOG;
+        DrawGraph (false,BigSingleDisplay, LocalCopy, 0, 10);
+        UpdateData(BigSingleTopRight, BoatData.STW, "%2.1fkt");
+        UpdateData(BigSingleTopLeft, BoatData.SOG, "%2.1fkt");
       
+      if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
-      if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }
+      if (CheckButton(bottomLeftquarter)) { Display_Page = 11; }
       if (CheckButton(topRightquarter)) { Display_Page = 4; }
-      if (CheckButton(bottomRightquarter)) { Display_Page = 12; }
+      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
 
+   
       break;
 
     case 9:  // GPS page
       if (RunSetup) {
         setFont(8);
-        //GFXBorderBoxPrintf(BigSingleDisplay, "");
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();
@@ -947,6 +963,30 @@ void setFont(int fontinput) {
       text_offset = -(FreeSansBold50pt7bGlyphs[0x38].yOffset);
       text_char_width = 12;
       break;
+    case 11:  //condensed Condensed18pt7b
+      Fontname = "Condensed18pt7b";
+      gfx->setFont(&Condensed18pt7b);
+      text_height = (Condensed18pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(Condensed18pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
+    case 12:  //condensed Condensed30pt7b
+      Fontname = "Condensed30pt7b";
+      gfx->setFont(&Condensed30pt7b);
+      text_height = (Condensed30pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(Condensed30pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
+    case 13:  //condensed Condensed50pt7b
+      Fontname = "Condensed50pt7b";
+      gfx->setFont(&Condensed50pt7b);
+      text_height = (Condensed50pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(Condensed50pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
+
+
+
 
     default:
       Fontname = "FreeMono8pt7b";
@@ -1008,6 +1048,7 @@ void setup() {
 }
 
 void loop() {
+  static unsigned long LogInterval;
   yield();
   server.handleClient();  // for OTA;
   //
@@ -1019,7 +1060,13 @@ void loop() {
   Display(Display_Page);  //EventTiming("STOP");
   EXTHeartbeat();
   audio.loop();
-  if (Log_ON) {LOG();};
+  if ((Log_ON) && (millis()>=LogInterval)){
+    LogInterval=millis()+5000;
+    LOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f ,%4.0f \r\n",
+        int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, 
+         BoatData.STW.data,BoatData.SOG.data,BoatData.WaterDepth.data,BoatData.WindSpeedK.data,
+         BoatData.WindAngle.data);
+   }     
   //EventTiming(" loop time touch sample display");
   //vTaskDelay(1);  // Audio is distorted without this?? used in https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/plays%20all%20files%20in%20a%20directory/plays_all_files_in_a_directory.ino
   // //.... (audio.isRunning()){   delay(100);gfx->println("Playing Ships bells"); Serial.println("Waiting for bells to finish!");}

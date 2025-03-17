@@ -46,11 +46,11 @@
 #include <SD.h>
 
 // extern Arduino_ST7701_RGBPanel *gfx ;  // declare the gfx structure so I can use GFX commands in Keyboard.cpp and here...
-extern Arduino_RGB_Display* gfx;  //  change if alternate (not 'Arduino_RGB_Display' ) display !
+extern Arduino_RGB_Display *gfx;  //  change if alternate (not 'Arduino_RGB_Display' ) display !
 extern void setFont(int);
-extern const char soft_version [];
-const char* host = "NMEADisplay";
-extern tBoatData BoatData;  
+extern const char soft_version[];
+const char *host = "NMEADisplay";
+extern tBoatData BoatData;
 
 WebServer server(80);
 
@@ -70,46 +70,47 @@ String serverIndex =
   "<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
   "<input type='file' name='update' id='file' onchange='sub(this)' style=display:none>"
   "<h1>OTA Interface for NMEA DISPLAY</h1>"
-  "<br><center>" + String(soft_version) + "</center> <br>"
-  "<label id='file-input' for='file'>   Choose file...</label>"
-  "<input type='submit' class=btn value='Update'>"
-  "<br><br>"
-  "<div id='prg'></div>"
-  "<br><div id='prgbar'><div id='bar'></div></div><br></form>"
-  "<script>"
-  "function sub(obj){"
-  "var fileName = obj.value.split('\\\\');"
-  "document.getElementById('file-input').innerHTML = '   '+ fileName[fileName.length-1];"
-  "};"
-  "$('form').submit(function(e){"
-  "e.preventDefault();"
-  "var form = $('#upload_form')[0];"
-  "var data = new FormData(form);"
-  "$.ajax({"
-  "url: '/update',"
-  "type: 'POST',"
-  "data: data,"
-  "contentType: false,"
-  "processData:false,"
-  "xhr: function() {"
-  "var xhr = new window.XMLHttpRequest();"
-  "xhr.upload.addEventListener('progress', function(evt) {"
-  "if (evt.lengthComputable) {"
-  "var per = evt.loaded / evt.total;"
-  "$('#prg').html('progress: ' + Math.round(per*100) + '%');"
-  "$('#bar').css('width',Math.round(per*100) + '%');"
-  "}"
-  "}, false);"
-  "return xhr;"
-  "},"
-  "success:function(d, s) {"
-  "console.log('success!') "
-  "},"
-  "error: function (a, b, c) {"
-  "}"
-  "});"
-  "});"
-  "</script>"
+  "<br><center>"
+  + String(soft_version) + "</center> <br>"
+                           "<label id='file-input' for='file'>   Choose file...</label>"
+                           "<input type='submit' class=btn value='Update'>"
+                           "<br><br>"
+                           "<div id='prg'></div>"
+                           "<br><div id='prgbar'><div id='bar'></div></div><br></form>"
+                           "<script>"
+                           "function sub(obj){"
+                           "var fileName = obj.value.split('\\\\');"
+                           "document.getElementById('file-input').innerHTML = '   '+ fileName[fileName.length-1];"
+                           "};"
+                           "$('form').submit(function(e){"
+                           "e.preventDefault();"
+                           "var form = $('#upload_form')[0];"
+                           "var data = new FormData(form);"
+                           "$.ajax({"
+                           "url: '/update',"
+                           "type: 'POST',"
+                           "data: data,"
+                           "contentType: false,"
+                           "processData:false,"
+                           "xhr: function() {"
+                           "var xhr = new window.XMLHttpRequest();"
+                           "xhr.upload.addEventListener('progress', function(evt) {"
+                           "if (evt.lengthComputable) {"
+                           "var per = evt.loaded / evt.total;"
+                           "$('#prg').html('progress: ' + Math.round(per*100) + '%');"
+                           "$('#bar').css('width',Math.round(per*100) + '%');"
+                           "}"
+                           "}, false);"
+                           "return xhr;"
+                           "},"
+                           "success:function(d, s) {"
+                           "console.log('success!') "
+                           "},"
+                           "error: function (a, b, c) {"
+                           "}"
+                           "});"
+                           "});"
+                           "</script>"
   + style;
 
 
@@ -119,7 +120,7 @@ String serverIndex =
 
 
 static bool hasSD = false;
-static bool logFileStarted =false;
+static bool logFileStarted = false;
 File uploadFile;
 
 
@@ -134,7 +135,7 @@ void returnFail(String msg) {
 bool loadFromSdCard(String path) {
   String dataType = "text/plain";
   if (path.endsWith("/")) {
-    path += "startws.htm";   // a file on the SD !
+    path += "startws.htm";  // a file on the SD !
   }
 
   if (path.endsWith(".src")) {
@@ -188,23 +189,26 @@ void handleFileUpload() {
   if (server.uri() != "/edit") {
     return;
   }
-  HTTPUpload& upload = server.upload();
+  HTTPUpload &upload = server.upload();
   if (upload.status == UPLOAD_FILE_START) {
     if (SD.exists((char *)upload.filename.c_str())) {
       SD.remove((char *)upload.filename.c_str());
     }
     uploadFile = SD.open(upload.filename.c_str(), FILE_WRITE);
-    Serial.print("Upload: START, filename: "); Serial.println(upload.filename);
+    Serial.print("Upload: START, filename: ");
+    Serial.println(upload.filename);
   } else if (upload.status == UPLOAD_FILE_WRITE) {
     if (uploadFile) {
       uploadFile.write(upload.buf, upload.currentSize);
     }
-    Serial.print("Upload: WRITE, Bytes: "); Serial.println(upload.currentSize);
+    Serial.print("Upload: WRITE, Bytes: ");
+    Serial.println(upload.currentSize);
   } else if (upload.status == UPLOAD_FILE_END) {
     if (uploadFile) {
       uploadFile.close();
     }
-    Serial.print("Upload: END, Size: "); Serial.println(upload.totalSize);
+    Serial.print("Upload: END, Size: ");
+    Serial.println(upload.totalSize);
   }
 }
 
@@ -343,8 +347,8 @@ void SetupOTA() {
     Serial.print(host);
     Serial.println(".local");
   }
-//**************
- server.on("/OTA", HTTP_GET, []() {
+  //**************
+  server.on("/OTA", HTTP_GET, []() {
     server.sendHeader("Connection", "close");
     server.send(200, "text/html", serverIndex);
   });
@@ -354,19 +358,20 @@ void SetupOTA() {
   });
 
   /*handling uploading firmware file */
-  server.on("/update", HTTP_POST, []() {
+  server.on(
+    "/update", HTTP_POST, []() {
       server.sendHeader("Connection", "close");
       server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
       ESP.restart();
     },
     []() {
-      HTTPUpload& upload = server.upload();
+      HTTPUpload &upload = server.upload();
       if (upload.status == UPLOAD_FILE_START) {
-       setFont(5);
-       gfx->setTextColor(WHITE);
-       gfx->fillScreen(BLUE);
-       gfx->setCursor(0, 40);
-       gfx->printf("Update: %s\n", upload.filename.c_str());
+        setFont(8);
+        gfx->setTextColor(WHITE);
+        gfx->fillScreen(BLUE);
+        gfx->setCursor(0, 40);
+        gfx->printf("Update: %s\n", upload.filename.c_str());
         Serial.printf("Update: %s\n", upload.filename.c_str());
         Serial.printf("   current size: %u   total size %u\n", upload.currentSize, upload.totalSize);
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {  //start with max available size
@@ -377,11 +382,11 @@ void SetupOTA() {
         if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
           Update.printError(Serial);
         }
-        //monitor upload milestones (100k 200k 300k)?  
+        //monitor upload milestones (100k 200k 300k)?
         uint16_t chunk_size = 51200;
         static uint32_t next = 51200;
         if (upload.totalSize >= next) {
-        
+
           gfx->printf("%dk ", next / 1024);
           Serial.printf("%dk ", next / 1024);
           next += chunk_size;
@@ -395,18 +400,19 @@ void SetupOTA() {
           Update.printError(Serial);
         }
       }
-    })
-    ;
+    });
 
 
-//*********** END of OTA stuff *****************
+  //*********** END of OTA stuff *****************
 
   server.on("/list", HTTP_GET, printDirectory);
   server.on("/edit", HTTP_DELETE, handleDelete);
   server.on("/edit", HTTP_PUT, handleCreate);
-  server.on("/edit", HTTP_POST, []() {
-    returnOK();
-  }, handleFileUpload);
+  server.on(
+    "/edit", HTTP_POST, []() {
+      returnOK();
+    },
+    handleFileUpload);
   server.onNotFound(handleNotFound);
 
   server.begin();
@@ -419,16 +425,16 @@ void SetupOTA() {
 }
 
 // from https://randomnerdtutorials.com/esp32-data-logging-temperature-to-microsd-card/
-void writeFile(fs::FS &fs, const char * path, const char * message) {
+void writeFile(fs::FS &fs, const char *path, const char *message) {
   Serial.printf("Writing file: %s\n", path);
 
   File file = fs.open(path, FILE_WRITE);
-  if(!file) {
+  if (!file) {
     Serial.println("Failed to open file for writing");
     return;
   }
-  if(file.print(message)) {
-    Serial.println("File written");
+  if (file.print(message)) {
+  //  Serial.println("File written");
   } else {
     Serial.println("Write failed");
   }
@@ -436,62 +442,109 @@ void writeFile(fs::FS &fs, const char * path, const char * message) {
 }
 
 // Append data to the SD card (DON'T MODIFY THIS FUNCTION)
-void appendFile(fs::FS &fs, const char * path, const char * message) {
-  Serial.printf("Appending to file: %s\n", path);
+void appendFile(fs::FS &fs, const char *path, const char *message) {
+ // Serial.printf("Appending to file: %s\n", path);
 
   File file = fs.open(path, FILE_APPEND);
-  if(!file) {
-    Serial.println("Failed to open file for appending");
+  if (!file) {
+   // Serial.println("Failed to open file for appending");
     return;
   }
-  if(file.print(message)) {
-    Serial.println("Message appended");
+  if (file.print(message)) {
+  //  Serial.println("Message appended");
   } else {
-    Serial.println("Append failed");
+  //  Serial.println("Append failed");
   }
   file.close();
 }
 
-void Startlogfile(){
-  if (!hasSD){return;}
-   // If the data.txt file doesn't exist
+// void Startlogfile(){
+//   if (!hasSD){return;}
+//    // If the data.txt file doesn't exist
+//   // Create a file on the SD card and write the data labels
+//   File file = SD.open("/logs/data.txt");
+//   if(!file) {
+//     //Serial.println("File doens't exist");
+//     logFileStarted=true;
+//     Serial.println("Creating file. and header..");
+//     writeFile(SD, "/logs/data.txt", "LOG data headings\r\n Time, SOG, STW, DEPTH ,windspeed,windangle \r\n");
+
+//   }
+//   else {
+//    // Serial.println("File already exists");
+//   }
+//   file.close();
+// }
+
+// String dataMessage;
+
+// /*
+// https://randomnerdtutorials.com/esp32-data-logging-temperature-to-microsd-card/
+//         other support  files added in OTA.h
+// */
+// void LOG(){
+//     if (!hasSD){return;}
+//     if (!logFileStarted) {Startlogfile();}
+//  static unsigned long my_time;
+//  if (millis() <= my_time ){return;}
+//  if(int(BoatData.GPSDate) == 0) {return;} // only record if we have a GPS date!
+//  my_time=millis()+60000; // once a minute
+//   dataMessage = String(BoatData.GPSDate) + ","+ String(BoatData.GPSTime) + "," + String(BoatData.STW.data) + "," + String(BoatData.SOG.data) + "," +
+//                 String(BoatData.WaterDepth.data) + "," +
+//                 String(BoatData.WindSpeedK.data) + "," +
+//                 String(BoatData.WindAngle.data) +
+//                 "\r\n";
+//   Serial.print("Save data: ");
+//   Serial.println(dataMessage);
+//   appendFile(SD, "/logs/data.txt", dataMessage.c_str());
+// }
+
+char LogFileName[25];
+void Startlogfile() {
+  if (!hasSD) { return; }
+  // If the data.txt file doesn't exist
   // Create a file on the SD card and write the data labels
-  File file = SD.open("/logs/data.txt");
-  if(!file) {
+  if (BoatData.GPSDate == 0) { return; }
+ // Serial.printf("  ***** LOG FILE DEBUG ***  trying to use: <%6i> <%8f> to make name..  ",int(BoatData.GPSDate),BoatData.GPSDate);
+  //dtostrf(BoatData.GPSDate, 8, 0, GPSdate);  //dtostrf(FLOAT,WIDTH,PRECSISION,BUFFER);
+  snprintf(LogFileName,25,"/logs/%6i.log",int(BoatData.GPSDate));
+ //  Serial.printf("  <%s> \n",LogFileName);
+  File file = SD.open(LogFileName);
+  if (!file) {
     //Serial.println("File doens't exist");
-    logFileStarted=true;
-    Serial.println("Creating file. and header..");
-    writeFile(SD, "/logs/data.txt", "LOG data headings\r\n Time, SOG, STW, DEPTH ,windspeed,windangle \r\n");
-     
-  }
-  else {
-   // Serial.println("File already exists");  
+    logFileStarted = true;
+    Serial.printf("Creating <%s>LOG file. and header..\n",LogFileName);
+   
+    writeFile(SD, LogFileName, "NEW LOG data headings\r\nTime           ,SOG  ,STW  ,DEPTH ,windspeed,windangle \r\n");
+    file.close();
+    return;
+  } else {
+    // Serial.println("File already exists");
   }
   file.close();
 }
 
-String dataMessage;
 
-/*
-https://randomnerdtutorials.com/esp32-data-logging-temperature-to-microsd-card/
-        other support  files added in OTA.h
-*/
-void LOG(){
-    if (!hasSD){return;}
-    if (!logFileStarted) {Startlogfile();}
- static unsigned long my_time;
- if (millis() <= my_time ){return;}
- if(int(BoatData.GPSDate) == 0) {return;} // only record if we have a GPS date!
- my_time=millis()+60000; // once a minute
-  dataMessage = String(BoatData.GPSDate) + ","+ String(BoatData.GPSTime) + "," + String(BoatData.STW.data) + "," + String(BoatData.SOG.data) + "," + 
-                String(BoatData.WaterDepth.data) + "," + 
-                String(BoatData.WindSpeedK.data) + "," + 
-                String(BoatData.WindAngle.data) + 
-                "\r\n";
-  Serial.print("Save data: ");
-  Serial.println(dataMessage);
-  appendFile(SD, "/logs/data.txt", dataMessage.c_str());
+
+void LOG(const char *fmt, ...) {
+  if (!logFileStarted) {
+    Startlogfile();
+    return;
+  }
+  static char msg[300] = { '\0' };  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+ // Serial.printf("  Logging to:<%s>", LogFileName);
+ // Serial.print("  Log  data: ");
+ // Serial.println(msg);
+  appendFile(SD, LogFileName, msg);
 }
+
+
+
 
 // void ShowFreeSpace() {
 //   // Calculate free space (volume free clusters * blocks per clusters / 2)
