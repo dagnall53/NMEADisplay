@@ -450,6 +450,8 @@
           var ext = /(?:\.([^.]+))?$/.exec(path)[1];
           if(typeof ext !== undefined){
             switch(ext){
+              case "csv":
+              case "log":
               case "txt":
               case "htm":
               case "html":

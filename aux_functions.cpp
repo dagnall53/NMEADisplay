@@ -111,14 +111,41 @@ bool NeedleinHaystack(char ch1, char ch2, char ch3, char *haystack, int &compare
 //   Serial.print(",");
 // }
 // Serial.println("> ");
-
+/* ref  from TL functions..
+double NMEA0183GetDouble(const char *data) {
+  double val = NMEA0183DoubleNA;
+  if (data == 0) return val;         // null data sets a (detectable but should have no effect) 1e-9 
+  for (; *data == ' '; data++);      // Pass spaces
+  if (*data != 0 && *data != ',') {  // not empty field
+    val = atof(data);
+  }
+  return val;
+}
+*/
+//revised 18/03 all NULL data should be set "grey"
 void toNewStruct(char *field, instData &data) {
-  data.data = atof(field);
+  data.greyed = true;
   data.updated = millis();
+  data.data = NMEA0183GetDouble(field); // if we have included the TL library we do not need the function copy above
+  if (data.data != NMEA0183DoubleNA) {
+    data.greyed = false;
+  }
   data.displayed = false;
-  data.greyed = false;
   data.graphed = false;
 }
+
+// void toNewStruct(char *field, instData &data) {
+//   if (field == 0) { // check for null data
+//     data.data = NMEA0183DoubleNA;
+//     data.greyed = true;
+//   } else {
+//     data.data = atof(field);
+//     data.updated = millis();
+//     data.greyed = false;
+//   }
+//   data.displayed = false;
+//   data.graphed = false;
+// }
 
 
 bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array buf and places (updates) data if found in stringND
@@ -468,18 +495,20 @@ void NEWUpdate(Button button, instData &data, const char *fmt, ...) {  // Center
   data.displayed = true;              //reset to false inside toNewStruct
 }
 
-void NEWUpdateTwoSize(int bigfont, int smallfont,Button button, instData &data, const char *fmt, ...) {  // TWO font print. separates at decimal point Centers text in space GREYS if data is OLD
+void NEWUpdateTwoSize(int bigfont, int smallfont, Button button, instData &data, const char *fmt, ...) {  // TWO font print. separates at decimal point Centers text in space GREYS if data is OLD
   static char msg[300] = { '\0' };
   char digits[30];
-  char decimal[30];  
-  static char* token; 
-  static const char delimiter = '.'; // Or space, etc.
+  char decimal[30];
+  static char *token;
+  static const char delimiter = '.';  // Or space, etc.
   //Serial.printf("h %i v %i TEXT %i  Background %i \n",button.h,button.v, button.textcol,button.backcol);
   // calculate new offsets to just center on original box - minimum redraw of blank
   int16_t x, y, TBx1, TBy1;
-  uint16_t TBw1, TBh1,TBw2, TBh2;;
+  uint16_t TBw1, TBh1, TBw2, TBh2;
+  
   int typingspaceH, typingspaceW;
   bool recent = (data.updated >= millis() - 6000);
+  //Serial.printf(" ** DEBUG 1 in NEW Update Data %f \n",data.data);
 
   typingspaceH = button.height - (2 * button.bordersize);
   typingspaceW = button.width - (2 * button.bordersize);
@@ -489,35 +518,40 @@ void NEWUpdateTwoSize(int bigfont, int smallfont,Button button, instData &data, 
   vsnprintf(msg, 128, fmt, args);
   va_end(args);
   int len = strlen(msg);
-  // split msg at the decimal point .. must have decimal point! 
-  token=strtok(msg,&delimiter);
-  strcpy(digits,token);strncat(digits,&delimiter,1);
+  // split msg at the decimal point .. must have decimal point!
+ // Serial.printf(" ** DEBUG 2 in NEW Update msg    '.' at%i len is%i  msg is ",strcspn(msg,&delimiter),strlen(msg) );Serial.println(msg);
+  if (strcspn(msg,&delimiter)!=strlen(msg)){
+  token = strtok(msg, &delimiter);
+  strcpy(digits, token);
+  strncat(digits, &delimiter, 1);
   token = strtok(NULL, &delimiter);
-  strcpy(decimal,token);
+  strcpy(decimal, token);}
+  else {strcpy(digits,msg);decimal[0]=0;}
 
-  //Serial.print(" check:");Serial.print(digits);Serial.print(".");Serial.println(decimal);
-  setFont(bigfont); // bigger font for front half
+ // Serial.print(" ** DEBUG 3 in NEW Update check:");Serial.print(digits);Serial.println(decimal);
+  setFont(bigfont);                                                            // bigger font for front half
   gfx->getTextBounds(digits, button.h, button.v, &TBx1, &TBy1, &TBw1, &TBh1);  // do not forget '& ! Pointer not value!!!
 
-  setFont(smallfont); // smaller for second part after decimal point 
+  setFont(smallfont);                                                           // smaller for second part after decimal point
   gfx->getTextBounds(decimal, button.h, button.v, &TBx1, &TBy1, &TBw2, &TBh2);  // width of smaller stuff
-//safety to prevent crashes I have seen that were possibly caused by too large printing?
+                                                                                //safety to prevent crashes I have seen that were possibly caused by too large printing?
   gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
-  //check for font too big - causes crashes?
-  if (((TBw1+TBw2) >= typingspaceW) || (TBh1 >= typingspaceH)) {
-    Serial.print("***DEBUG <");Serial.print(msg);Serial.print("> became <");Serial.print(digits);Serial.print(decimal);Serial.println("> and was too big to print in box");
+  //Serial.printf("  *** DEBUG space %i %i and expected size %i %i",typingspaceW, typingspaceH,(17+ TBw1 + TBw2),(TBh1+11)); //Serial.print(digits);Serial.print(decimal);Serial.println(">");  //debugcheck for font too big - causes crashes?
+  if (((17+ TBw1 + TBw2) >= typingspaceW) || ((TBh1+11) >= typingspaceH)) {
+    Serial.print("***DEBUG <");Serial.print(msg);Serial.print("> became <");Serial.print(digits);Serial.print(decimal);
+    Serial.println("> and was too big to print in box");
     gfx->setTextBound(0, 0, 480, 480);
     data.displayed = true;
     return;
   }
- //Serial.print("will print <");Serial.print(digits);Serial.print(decimal);Serial.println(">");  //debug 
+  //Serial.print("will print <");Serial.print(digits);Serial.print(decimal);Serial.println(">");  //debug
 
-  setFont(bigfont); // here so the text_offset is correct for bigger font
+  setFont(bigfont);  // here so the text_offset is correct for bigger font
   x = button.h + button.bordersize;
   y = button.v + button.bordersize + (text_offset);
-  x = x + ((button.width - (TBw1+TBw2) - (2 * button.bordersize)) / 2) ;       //try horizontal centering
-  y = y + ((button.height - TBh1 - (2 * button.bordersize)) / 2) ;             //try vertical centering
-  gfx->fillRect(x - 8, y - (text_offset) - 4, (TBw1+TBw2) + 16, TBh1 + 10,button.backcol);  //RED); visualise in debug by changing colour ! where the text will be plus a bit
+  x = x + ((button.width - (TBw1 + TBw2) - (2 * button.bordersize)) / 2);                    //try horizontal centering
+  y = y + ((button.height - TBh1 - (2 * button.bordersize)) / 2);                            //try vertical centering
+  gfx->fillRect(x - 8, y - (text_offset)-4, (TBw1 + TBw2) + 16, TBh1 + 10, button.backcol);  //RED); visualise in debug by changing colour ! where the text will be plus a bit
   gfx->setTextColor(button.textcol);
   gfx->setCursor(x, y);
   if (!recent) {
@@ -546,15 +580,17 @@ void UpdateData(Button button, instData &data, const char *fmt) {
   if (!recent && !data.greyed) { NEWUpdate(button, data, fmt, data.data); }
 }
 
-void UpdateDataTwoSize(int bigfont, int smallfont,Button button, instData &data, const char *fmt) {
-
+void UpdateDataTwoSize(int bigfont, int smallfont, Button button, instData &data, const char *fmt) {
+  if (data.data ==NMEA0183DoubleNA){return;}
+  
   bool recent = (data.updated >= millis() - 6000);
   if (data.greyed) { return; }
   if (!data.displayed) {
-    NEWUpdateTwoSize(bigfont,smallfont,button, data, fmt, data.data);
+  //  Serial.printf(" in UpdateDataTwoSize bigfont %i  smallfont %i    data %f  format %s",bigfont,smallfont,               data.data,fmt);
+    NEWUpdateTwoSize(bigfont, smallfont, button, data, fmt, data.data);
     return;
   }
-  if (!recent && !data.greyed) { NEWUpdateTwoSize(bigfont,smallfont,button, data, fmt, data.data); }
+  if (!recent && !data.greyed) { NEWUpdateTwoSize(bigfont, smallfont, button, data, fmt, data.data); }
 }
 
 
@@ -662,11 +698,11 @@ void GFXBorderBoxPrintf(Button button, const char *fmt, ...) {
   WriteinBorderBox(button.h, button.v, button.width, button.height, button.bordersize, button.backcol, button.textcol, button.BorderColor, msg);
 }
 
-void AddTitleBorderBox(Button button, const char *fmt, ...) {  // add a top left title to the box
+void AddTitleBorderBox(int font,Button button, const char *fmt, ...) {  // add a top left title to the box
   int Font_Before;
   //Serial.println("Font at start is %i",MasterFont);
   Font_Before = MasterFont;
-  setFont(0);
+  setFont(font);
   static char Title[300] = { '\0' };
   int16_t x, y, TBx1, TBy1;
   uint16_t TBw, TBh;  // used in message buildup
@@ -734,29 +770,29 @@ void AddTitleInsideBox(int pos, Button button, const char *fmt, ...) {  // Pos 1
 
 
 
-void AddTitleBorderBox(int h, int v, uint16_t BorderColor, const char *fmt, ...) {  // add a title to the position
-  int Font_Before;
-  //Serial.println("Font at start is %i",MasterFont);
-  Font_Before = MasterFont;
-  setFont(0);
-  static char Title[300] = { '\0' };
-  int16_t x, y, TBx1, TBy1;
-  uint16_t TBw, TBh;  // used in message buildup
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(Title, 128, fmt, args);
-  va_end(args);
-  int len = strlen(Title);
-  gfx->getTextBounds(Title, h, v, &TBx1, &TBy1, &TBw, &TBh);
-  gfx->setTextColor(WHITE, BorderColor);
-  if ((v - TBh) >= 0) {
-    gfx->setCursor(h, v);
-  } else {
-    gfx->setCursor(h, v + TBh);
-  }
-  gfx->print(Title);
-  setFont(Font_Before);  //Serial.println("Font selected is %i",MasterFont);
-}
+// void AddTitleBorderBox(int h, int v, uint16_t BorderColor, const char *fmt, ...) {  // add a title to the position
+//   int Font_Before;
+//   //Serial.println("Font at start is %i",MasterFont);
+//   Font_Before = MasterFont;
+//   setFont(0);
+//   static char Title[300] = { '\0' };
+//   int16_t x, y, TBx1, TBy1;
+//   uint16_t TBw, TBh;  // used in message buildup
+//   va_list args;
+//   va_start(args, fmt);
+//   vsnprintf(Title, 128, fmt, args);
+//   va_end(args);
+//   int len = strlen(Title);
+//   gfx->getTextBounds(Title, h, v, &TBx1, &TBy1, &TBw, &TBh);
+//   gfx->setTextColor(WHITE, BorderColor);
+//   if ((v - TBh) >= 0) {
+//     gfx->setCursor(h, v);
+//   } else {
+//     gfx->setCursor(h, v + TBh);
+//   }
+//   gfx->print(Title);
+//   setFont(Font_Before);  //Serial.println("Font selected is %i",MasterFont);
+// }
 
 int Circular(int x, int min, int max) {  // returns circulated data in range min to max
   // based on compass idea in sincos: Normalize the input  to the range min (0) to max (359)
@@ -795,6 +831,7 @@ void PfillCircle(Phv P1, int rad, uint16_t COLOUR) {
 
 void DrawGraph(bool reset, Button button, instData &DATA, double dmin, double dmax) {
   if (DATA.displayed) { return; }
+  if (DATA.data==NMEA0183DoubleNA){return;}
   static Phv graph[102];
   static int index, lastindex;
   int dotsize;
@@ -812,6 +849,9 @@ void DrawGraph(bool reset, Button button, instData &DATA, double dmin, double dm
     gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.backcol);
     index = 0;
+    AddTitleInsideBox(1, button, "%4.0f", dmax);
+    AddTitleInsideBox(2, button, "%4.0f", dmin);
+
     return;
   }
   PfillCircle(graph[lastindex], dotsize, button.backcol);

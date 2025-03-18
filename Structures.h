@@ -16,6 +16,8 @@ struct MySettings {  //key,ssid,PW,udpport, UDP,serial,Espnow
   bool UDP_ON;
   bool Serial_on;
   bool ESP_NOW_ON;
+  bool Log_ON;
+  bool NMEA_log_ON;
 };
 struct MyColors {  // for later Day/Night settings
   uint16_t TextColor;

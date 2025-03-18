@@ -367,7 +367,7 @@ void SetupOTA() {
     []() {
       HTTPUpload &upload = server.upload();
       if (upload.status == UPLOAD_FILE_START) {
-        setFont(8);
+        setFont(10);
         gfx->setTextColor(WHITE);
         gfx->fillScreen(BLUE);
         gfx->setCursor(0, 40);
@@ -504,7 +504,8 @@ void Startlogfile() {
   if (!hasSD) { return; }
   // If the data.txt file doesn't exist
   // Create a file on the SD card and write the data labels
-  if (BoatData.GPSDate == 0) { return; }
+  if (BoatData.GPSDate == 0) { return; }  // and check for NMEA0183DoubleNA?
+  if (BoatData.GPSDate == NMEA0183DoubleNA) { return; } 
  // Serial.printf("  ***** LOG FILE DEBUG ***  trying to use: <%6i> <%8f> to make name..  ",int(BoatData.GPSDate),BoatData.GPSDate);
   //dtostrf(BoatData.GPSDate, 8, 0, GPSdate);  //dtostrf(FLOAT,WIDTH,PRECSISION,BUFFER);
   snprintf(LogFileName,25,"/logs/%6i.log",int(BoatData.GPSDate));

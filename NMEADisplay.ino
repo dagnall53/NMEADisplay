@@ -37,12 +37,13 @@ Select PSRAM "OPI PSRAM"
 TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WIDTH, TOUCH_HEIGHT);
 
 #include <EEPROM.h>
-#include "fonts.h"
-#include "CondensedFonts.h"
-#include "FreeMonoBold8pt7b.h"
-#include "FreeMonoBold27pt7b.h"
-#include "FreeSansBold30pt7b.h"
-#include "FreeSansBold50pt7b.h"
+#include "FONTS/fonts.h"  // have to use reserved directory name src/ for arduino?
+#include "FONTS/FreeSansBold6pt7b.h"
+#include "FONTS/FreeSansBold8pt7b.h"
+#include "FONTS/FreeSansBold12pt7b.h"
+#include "FONTS/FreeSansBold18pt7b.h"
+#include "FONTS/FreeSansBold27pt7b.h"
+#include "FONTS/FreeSansBold40pt7b.h"
 
 
 //For SD card (see display page -98 for test)
@@ -57,7 +58,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[ ] = " Version 2.0" ; 
+const char soft_version[] = " Version 2.0";
 
 
 //set up Audio
@@ -100,11 +101,12 @@ int file_num = 0;
 
 // MySettings (see structures.h) are the settings for the Display:
 // If the structure is changed, be sure to change the Key (first figure) so that new defaults and struct can be set.
-MySettings Default_Settings = { 11, "GUESTBOAT", "12345678", "2002", true, true, true };
+//                                                                                    LOG off NMEAlog Off
+MySettings Default_Settings = { 12, "GUESTBOAT", "12345678", "2002", false, true, true,false,false };
 int Display_Page = 4;  //set last in setup(), but here for clarity?
 MySettings Saved_Settings;
 MySettings Current_Settings;
-bool Log_ON;
+
 
 int MasterFont;  //global for font! Idea is to use to reset font after 'temporary' seletion of another fone
                  // to be developed ....
@@ -125,12 +127,12 @@ int text_char_width = 12;  // useful for monotype? only NOT USED YET! Try gfx->g
 Button Fontdescriber = { 0, 0, 480, 75, 5, BLUE, WHITE, BLACK };  //also used for showing the current settings
 Button FontBox = { 0, 150, 480, 330, 5, BLUE, WHITE, BLUE };
 
-Button WindDisplay = { 0, 0, 480, 480, 0, BLUE, WHITE, BLACK }; // full screen no border
+Button WindDisplay = { 0, 0, 480, 480, 0, BLUE, WHITE, BLACK };  // full screen no border
 
 //used for single data display
 Button BigSingleDisplay = { 10, 110, 460, 360, 5, BLUE, WHITE, BLACK };
-Button BigSingleTopRight ={240,0,230,110,5, BLUE, WHITE, BLACK };
-Button BigSingleTopLeft ={10,0,230,110,5,BLUE, WHITE, BLACK };
+Button BigSingleTopRight = { 240, 0, 230, 110, 5, BLUE, WHITE, BLACK };
+Button BigSingleTopLeft = { 10, 0, 230, 110, 5, BLUE, WHITE, BLACK };
 //used for nmea RMC /GPS display // was only three lines to start!
 Button Threelines0 = { 20, 30, 440, 80, 5, BLUE, WHITE, BLACK };
 Button Threelines1 = { 20, 130, 440, 80, 5, BLUE, WHITE, BLACK };
@@ -142,12 +144,13 @@ Button bottomLeftquarter = { 0, 240, 235, 235, 5, BLUE, WHITE, BLACK };
 Button topRightquarter = { 240, 0, 235, 235, 5, BLUE, WHITE, BLACK };
 Button bottomRightquarter = { 240, 240, 235, 235, 5, BLUE, WHITE, BLACK };
 
+Button LogIndicator =  {225,465,30,15,1,BLUE,WHITE,BLUE};
 Button TopLeftbutton = { 0, 0, 75, 75, 5, BLUE, WHITE, BLACK };
 Button TopRightbutton = { 405, 0, 75, 75, 5, BLUE, WHITE, BLACK };
 Button BottomRightbutton = { 405, 405, 75, 75, 5, BLUE, WHITE, BLACK };
 Button BottomLeftbutton = { 0, 405, 75, 75, 5, BLUE, WHITE, BLACK };
 
-// buttons for the wifi/settings pages 
+// buttons for the wifi/settings pages
 Button TOPButton = { 20, 10, 430, 35, 5, WHITE, BLACK, BLUE };
 Button SecondRowButton = { 20, 50, 430, 35, 5, WHITE, BLACK, BLUE };
 Button ThirdRowButton = { 20, 90, 430, 35, 5, WHITE, BLACK, BLUE };
@@ -175,16 +178,18 @@ Button Full5Center = { 80, 405, 320, 55, 5, BLUE, WHITE, BLACK };
 // Draw the compass pointer at an angle in degrees
 
 
-void WindArrow2(Button button,instData Speed, instData &Wind){
-    bool recent = (Wind.updated >= millis()-3000);
-  if (!Wind.displayed){WindArrowSub(button,Speed,Wind);} 
-  if (Wind.greyed){return;}
-  if (!recent && !Wind.greyed){WindArrowSub(button,Speed,Wind);}
+void WindArrow2(Button button, instData Speed, instData& Wind) {
+ // Serial.printf(" ** DEBUG  speed %f    wind %f ",Speed.data,Wind.data);
+  bool recent = (Wind.updated >= millis() - 3000);
+  if (!Wind.displayed) { WindArrowSub(button, Speed, Wind); }
+  if (Wind.greyed) { return; }
+  if (!recent && !Wind.greyed) { WindArrowSub(button, Speed, Wind); }
 }
 
 
-void WindArrowSub(Button button,instData Speed, instData &wind) {
- bool recent = (wind.updated >= millis()-3000);
+void WindArrowSub(Button button, instData Speed, instData& wind) {
+  //Serial.printf(" ** DEBUG WindArrowSub speed %f    wind %f \n",Speed.data,wind.data);
+  bool recent = (wind.updated >= millis() - 3000);
   Phv center;
   int rad, outer, inner;
   static int lastwind, lastfont;
@@ -193,25 +198,31 @@ void WindArrowSub(Button button,instData Speed, instData &wind) {
   rad = (button.height - (2 * button.bordersize)) / 2;  // height used as more likely to be squashed in height
   outer = (rad * 82) / 100;                             //% of full radius (at full height) (COMPASS has .83 as inner circle)
   inner = (rad * 28) / 100;                             //25% USe same settings as pointer
-  DrawMeterPointer(center, lastwind, inner, outer, 2, button.backcol,button.backcol);
-  if ( wind.updated >= millis() - 3000) {
-    DrawMeterPointer(center, wind.data, inner, outer, 2, button.textcol,BLACK);
-  } else { wind.greyed =true;
-    DrawMeterPointer(center, wind.data, inner, outer, 2, LIGHTGREY,LIGHTGREY);
+  DrawMeterPointer(center, lastwind, inner, outer, 2, button.backcol, button.backcol);
+  if (wind.data != NMEA0183DoubleNA) {
+    if (wind.updated >= millis() - 3000) {
+      DrawMeterPointer(center, wind.data, inner, outer, 2, button.textcol, BLACK);
+    } else {
+      wind.greyed = true;
+      DrawMeterPointer(center, wind.data, inner, outer, 2, LIGHTGREY, LIGHTGREY);
+    }
   }
   lastwind = wind.data;
-  wind.displayed= true; 
+  wind.displayed = true;
   lastfont = MasterFont;
-  if (rad <= 130) { setFont(3); }
-
-  UpdateData(button, Speed, "%2.0fkt");
+  if (Speed.data != NMEA0183DoubleNA) {
+    if (rad <= 130) {
+      UpdateDataTwoSize(8, 7, button, Speed, "%2.0fkt");
+    } else {
+      UpdateDataTwoSize(10, 9, button, Speed, "%2.0fkt");
+    }
+  }
 
   setFont(lastfont);
-  
 }
 
 
-void DrawMeterPointer(Phv center, int wind, int inner, int outer, int linewidth, uint16_t FILLCOLOUR,uint16_t LINECOLOUR) {  // WIP
+void DrawMeterPointer(Phv center, int wind, int inner, int outer, int linewidth, uint16_t FILLCOLOUR, uint16_t LINECOLOUR) {  // WIP
   Phv P1, P2, P3, P4, P5, P6;
   P1 = translate(center, wind - linewidth, outer);
   P2 = translate(center, wind + linewidth, outer);
@@ -247,7 +258,7 @@ void DrawCompass(Button button) {
   Rad2 = rad * 0.86;  //208
   Rad3 = rad * 0.91;  //220
   Rad4 = rad * 0.94;
-             
+
   inner = (rad * 28) / 100;  //28% USe same settings as pointer
   gfx->fillRect(x - rad, y - rad, rad * 2, rad * 2, button.backcol);
   gfx->fillCircle(x, y, rad, button.textcol);   //white
@@ -285,6 +296,13 @@ void ShowToplinesettings(String Text) {
 }
 
 void Display(int page) {  // setups for alternate pages to be selected by page.
+
+        static double startposlat,startposlon;
+        double LatD,LongD; //deltas
+        int magnification,h,v;
+
+
+
   static int LastPageselected;
   static bool DataChanged;
   static int wifissidpointer;
@@ -295,7 +313,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
   static unsigned int slowdown, timer2;
   static float wind, SOG, Depth;
   float temp, oldtemp;
-  static instData LocalCopy;
+  static instData LocalCopy,LocalCopy2;
 
   static int fontlocal;
   static int FileIndex, Playing;  // static to hold after selection and before pressing play!
@@ -381,6 +399,34 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
       break;
 
+    case -20:  // Secondary "extra settings"
+      if (RunSetup) {
+
+        ShowToplinesettings("Now");
+        setFont(3);
+        // GFXBorderBoxPrintf(TopLeftbutton, "Page-");
+        // GFXBorderBoxPrintf(TopRightbutton, "Page+");
+        setFont(3);
+        GFXBorderBoxPrintf(Full0Center, "-Test JPegs-");
+        GFXBorderBoxPrintf(Full1Center, "Check SD /Audio");
+        GFXBorderBoxPrintf(Full2Center, "Check Fonts");
+        // GFXBorderBoxPrintf(Full2Center, "Settings  WIFI etc");
+        // GFXBorderBoxPrintf(Full3Center, "See NMEA");
+
+        GFXBorderBoxPrintf(Full5Center, "Main Menu");
+      }
+      if (millis() > slowdown + 500) {
+        slowdown = millis();
+      }
+      if (CheckButton(Full0Center)) { Display_Page = -200; }
+      if (CheckButton(Full1Center)) { Display_Page = -9; }
+      if (CheckButton(Full2Center)) { Display_Page = -10; }
+      //  if (CheckButton(Full3Center)) { Display_Page = 4; }
+      //   if (CheckButton(Full4Center)) { Display_Page = -10; }
+      if (CheckButton(Full5Center)) { Display_Page = 0; }
+
+      break;
+
     case -10:  // a test page for fonts
       if (RunSetup) {
         GFXBorderBoxPrintf(Full0Center, "-Font test -");
@@ -388,8 +434,8 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (millis() > slowdown + 5000) {
         slowdown = millis();
         gfx->fillScreen(BLUE);
-       // fontlocal = fontlocal + 1;
-       // if (fontlocal > 15) { fontlocal = 0; } // just use the buttons to change!
+        // fontlocal = fontlocal + 1;
+        // if (fontlocal > 15) { fontlocal = 0; } // just use the buttons to change!
         temp = 12.3;
         setFont(fontlocal);
       }
@@ -424,12 +470,12 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
         int file_num;
         //Ver 1.2 I have moved the music to a subdirectory in anticipation of adding SD logging
-      //   if (fs.chdir("/music")) {
-      //   Serial.println("Changed directory to /music");
-      // } else {
-      //   Serial.println("Failed to change directory");
-      // }                                                                                           // = get_music_list(SD, "/", 0, file_list);  // see https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
-        file_num = get_music_list(SD, "/music", 0);                                                                  // Char array  based version of  https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
+        //   if (fs.chdir("/music")) {
+        //   Serial.println("Changed directory to /music");
+        // } else {
+        //   Serial.println("Failed to change directory");
+        // }                                                                                           // = get_music_list(SD, "/", 0, file_list);  // see https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
+        file_num = get_music_list(SD, "/music", 0);                                                             // Char array  based version of  https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
         V_offset = text_height + (ThirdRowButton.v + ThirdRowButton.height + (3 * ThirdRowButton.bordersize));  // start below the third button
         //  listDir(SD, "/", 0);
         int localy = 0;
@@ -464,7 +510,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(SecondRowButton)) {
         Playing = FileIndex;
         volume = 8;
-        open_new_song("/music/",File_List[Playing]);
+        open_new_song("/music/", File_List[Playing]);
         GFXBorderBoxPrintf(SecondRowButton, "Playing:%s", File_List[Playing]);
       }
 
@@ -576,7 +622,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         Use_Keyboard(Current_Settings.UDP_PORT, sizeof(Current_Settings.UDP_PORT));
       }
       Use_Keyboard(Current_Settings.UDP_PORT, sizeof(Current_Settings.UDP_PORT));
-      if (CheckButton(Full0Center)) { Display_Page = -1; }
+      if (CheckButton(TOPButton)) { Display_Page = -1; }
       break;
 
     case -3:
@@ -588,14 +634,16 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         keyboard(0);
       }
       Use_Keyboard(Current_Settings.password, sizeof(Current_Settings.password));
-      if (CheckButton(Full0Center)) { Display_Page = -1; }
+      //if (CheckButton(Full0Center)) { Display_Page = -1; }
+      if (CheckButton(TOPButton)) { Display_Page = -1; }
+
       break;
 
     case -2:
       if (RunSetup) {
         GFXBorderBoxPrintf(Full0Center, "Set SSID");
         GFXBorderBoxPrintf(TopRightbutton, "Scan");
-        AddTitleBorderBox(TopRightbutton, "WiFi");
+        AddTitleBorderBox(0,TopRightbutton, "WiFi");
         keyboard(-1);  //reset
         Use_Keyboard(Current_Settings.ssid, sizeof(Current_Settings.ssid));
         keyboard(0);
@@ -618,17 +666,17 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         GFXBorderBoxPrintf(ThirdRowButton, "Set Password <%s>", Current_Settings.password);
         GFXBorderBoxPrintf(FourthRowButton, "Set UDP Port <%s>", Current_Settings.UDP_PORT);
         GFXBorderBoxPrintf(Switch1, Current_Settings.Serial_on On_Off);  //A.Serial_on On_Off,  A.UDP_ON On_Off, A.ESP_NOW_ON On_Off
-        AddTitleBorderBox(Switch1, "Serial");
+        AddTitleBorderBox(0,Switch1, "Serial");
         GFXBorderBoxPrintf(Switch2, Current_Settings.UDP_ON On_Off);
-        AddTitleBorderBox(Switch2, "UDP");
+        AddTitleBorderBox(0,Switch2, "UDP");
         GFXBorderBoxPrintf(Switch3, Current_Settings.ESP_NOW_ON On_Off);
-        AddTitleBorderBox(Switch3, "ESP-Now");
-        GFXBorderBoxPrintf(Switch5, Log_ON On_Off);
-        AddTitleBorderBox(Switch5, "Log");
+        AddTitleBorderBox(0,Switch3, "ESP-Now");
+        GFXBorderBoxPrintf(Switch5, Current_Settings.Log_ON On_Off);
+        AddTitleBorderBox(0,Switch5, "Log");
         GFXBorderBoxPrintf(Switch4, "UPDATE");
-        AddTitleBorderBox(Switch4, "EEPROM");
+        AddTitleBorderBox(0,Switch4, "EEPROM");
         GFXBorderBoxPrintf(Terminal, "- NMEA DATA -");
-        AddTitleBorderBox(Terminal, "TERMINAL");
+        AddTitleBorderBox(0,Terminal, "TERMINAL");
         setFont(0);
         DataChanged = false;
         //while (ts.sTouched{yield(); Serial.println("yeilding -1");}
@@ -640,9 +688,9 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(Terminal)) {
         debugpause = !debugpause;
         if (!debugpause) {
-          AddTitleBorderBox(Terminal, "TERMINAL");
+          AddTitleBorderBox(0,Terminal, "TERMINAL");
         } else {
-          AddTitleBorderBox(Terminal, "-Paused-");
+          AddTitleBorderBox(0,Terminal, "-Paused-");
         }
       }
       //runsetup to repopulate the text in the boxes!
@@ -659,8 +707,8 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         DataChanged = true;
       };
       if (CheckButton(Switch5)) {
-        Log_ON = !Log_ON;
-        if (Log_ON) {Startlogfile();}
+        Current_Settings.Log_ON = !Current_Settings.Log_ON;
+        if (Current_Settings.Log_ON) { Startlogfile(); }
         DataChanged = true;
       };
       if (CheckButton(Switch4)) {
@@ -681,24 +729,19 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
         ShowToplinesettings("Now");
         setFont(3);
-        // GFXBorderBoxPrintf(TopLeftbutton, "Page-");
-        // GFXBorderBoxPrintf(TopRightbutton, "Page+");
-        setFont(3);
-        GFXBorderBoxPrintf(Full0Center, "-Top page-");
-        GFXBorderBoxPrintf(Full1Center, "Check SD /Audio");
-        GFXBorderBoxPrintf(Full2Center, "Settings  WIFI etc");
-        GFXBorderBoxPrintf(Full3Center, "See NMEA");
-        GFXBorderBoxPrintf(Full4Center, "Check Fonts");
+        GFXBorderBoxPrintf(Full0Center, "-Extra settings-");
+        GFXBorderBoxPrintf(Full1Center, "Settings  WIFI etc");
+        GFXBorderBoxPrintf(Full2Center, "See NMEA");
+      //  GFXBorderBoxPrintf(Full4Center, "Check Fonts");
         GFXBorderBoxPrintf(Full5Center, "Save / Reset to Quad NMEA");
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-      if (CheckButton(Full0Center)) { Display_Page = -200; }
-      if (CheckButton(Full1Center)) { Display_Page = -9; }
-      if (CheckButton(Full2Center)) { Display_Page = -1; }
-      if (CheckButton(Full3Center)) { Display_Page = 4; }
-      if (CheckButton(Full4Center)) { Display_Page = -10; }
+      if (CheckButton(Full0Center)) { Display_Page = -20; }
+      if (CheckButton(Full1Center)) { Display_Page = -1; }
+      if (CheckButton(Full2Center)) { Display_Page = 4; }
+     
       if (CheckButton(Full5Center)) {
         Display_Page = 4;
         EEPROM_WRITE(Current_Settings);
@@ -713,159 +756,249 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
     case 4:  // Quad display
       if (RunSetup) {
-        setFont(8);
+        setFont(10);
         gfx->fillScreen(BLACK);
         // DrawCompass(360, 120, 120);
         DrawCompass(topRightquarter);
-        AddTitleBorderBox(topRightquarter, "WIND");
+        AddTitleBorderBox(0,topRightquarter, "WIND");
         GFXBorderBoxPrintf(topLeftquarter, "");
-        AddTitleBorderBox(topLeftquarter, "STW");
+        AddTitleBorderBox(0,topLeftquarter, "STW");
         GFXBorderBoxPrintf(bottomLeftquarter, "");
-        AddTitleBorderBox(bottomLeftquarter, "DEPTH");
+        AddTitleBorderBox(0,bottomLeftquarter, "DEPTH");
         GFXBorderBoxPrintf(bottomRightquarter, "");
-        AddTitleBorderBox(bottomRightquarter, "SOG");
+        AddTitleBorderBox(0,bottomRightquarter, "SOG");
         delay(500);
       }
       if (millis() > slowdown + 300) {
         slowdown = millis();
-        setFont(8);  // note: all the 'updates' now check for new data else return immediately
+        setFont(10);  // note: all the 'updates' now check for new data else return immediately
       }
-        WindArrow2(topRightquarter,BoatData.WindSpeedK, BoatData.WindAngle); 
-        UpdateData(topLeftquarter, BoatData.STW, "%4.1f kts");
-        UpdateData(bottomLeftquarter, BoatData.WaterDepth, "%4.1f m");
-        UpdateData(bottomRightquarter, BoatData.SOG, "%4.1f kts");
-     // }
-      if (CheckButton(topLeftquarter)) { Display_Page = 6; } //stw
-      if (CheckButton(bottomLeftquarter)) { Display_Page = 7; } //depth
-      if (CheckButton(topRightquarter)) { Display_Page = 5; } // Wind
-      if (CheckButton(bottomRightquarter)) { Display_Page = 8; } //SOG
+      WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngle);
+      UpdateDataTwoSize(12, 11, topLeftquarter, BoatData.STW, "%4.1fkts");
+      UpdateDataTwoSize(12, 11, bottomLeftquarter, BoatData.WaterDepth, "%4.1fm");
+      UpdateDataTwoSize(12, 11, bottomRightquarter, BoatData.SOG, "%4.1fkts");
+      // }
+      if (CheckButton(topLeftquarter)) { Display_Page = 6; }      //stw
+      if (CheckButton(bottomLeftquarter)) { Display_Page = 7; }   //depth
+      if (CheckButton(topRightquarter)) { Display_Page = 5; }     // Wind
+      if (CheckButton(bottomRightquarter)) { Display_Page = 8; }  //SOG
       break;
 
     case 5:  // wind instrument
       if (RunSetup) {
-        setFont(8);
-         GFXBorderBoxPrintf(BigSingleDisplay, "");
-         GFXBorderBoxPrintf(BigSingleTopRight, "");
+        setFont(10);
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        GFXBorderBoxPrintf(BigSingleTopRight, "");
         DrawCompass(BigSingleDisplay);
       }
       if (millis() > slowdown + 500) {
-        slowdown = millis();}
-        LocalCopy = BoatData.WindAngle;//Duplicate wind angle so it can be shown again in a second box
-        WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngle); 
-        UpdateData(BigSingleTopRight,LocalCopy,"%3.0f deg"); 
-        // WindArrow2(WindDisplay, BoatData.WindSpeedK, BoatData.WindAngle); // full screen 
-
+        slowdown = millis();
+      }
+      LocalCopy = BoatData.WindAngle;  //Duplicate wind angle so it can be shown again in a second box
+      WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngle);
+      UpdateDataTwoSize(10, 9, BigSingleTopRight, LocalCopy, "%3.0f deg");
+   
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }
       if (CheckButton(topRightquarter)) { Display_Page = 0; }
       if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
       break;
-    case 6: //Speed Through WATER GRAPH
+    case 6:  //Speed Through WATER GRAPH
       if (RunSetup) {
-        setFont(8);
-        GFXBorderBoxPrintf(BigSingleTopRight,"");
-        GFXBorderBoxPrintf(BigSingleTopLeft,"");
-        AddTitleBorderBox(BigSingleTopLeft, "SOG");
-        AddTitleBorderBox(BigSingleTopRight, "STW");
+        setFont(10);
+        GFXBorderBoxPrintf(BigSingleTopRight, "");
+        GFXBorderBoxPrintf(BigSingleTopLeft, "");
+        AddTitleBorderBox(0,BigSingleTopLeft, "SOG");
+        AddTitleBorderBox(0,BigSingleTopRight, "STW");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        AddTitleBorderBox(BigSingleDisplay, "STW Graph");
+        AddTitleBorderBox(0,BigSingleDisplay, "STW Graph");
+        LocalCopy = BoatData.STW;
+        DrawGraph(true, BigSingleDisplay, LocalCopy, 0, 10);
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-        LocalCopy = BoatData.STW;
-        DrawGraph (false,BigSingleDisplay, LocalCopy, 0, 10);
-        UpdateDataTwoSize(9,8,BigSingleTopLeft, BoatData.SOG, "%2.1fkt");
-        UpdateDataTwoSize(9,8,BigSingleTopRight, BoatData.STW, "%2.1fkt");
-        
-      
+      LocalCopy = BoatData.STW;
+      DrawGraph(false, BigSingleDisplay, LocalCopy, 0, 10);
+      UpdateDataTwoSize(11, 10, BigSingleTopLeft, BoatData.SOG, "%2.1fkt");
+      UpdateDataTwoSize(11, 10, BigSingleTopRight, BoatData.STW, "%2.1fkt");
+
+
       //  if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
-      if (CheckButton(topLeftquarter)) { Display_Page = 9; }
-      if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }
-      if (CheckButton(topRightquarter)) { Display_Page = 4; }
+      if (CheckButton(BigSingleTopLeft)) { Display_Page = 8; }
+      if (CheckButton(bottomLeftquarter)) { Display_Page = 9; }
       if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
 
       break;
-    case 7: // Depth
+    case 7:  // Depth
       if (RunSetup) {
-        setFont(8);
-        GFXBorderBoxPrintf(BigSingleTopRight,"");
-        AddTitleBorderBox(BigSingleTopRight, "Depth");
+        setFont(10);
+        GFXBorderBoxPrintf(BigSingleTopRight, "");
+        AddTitleBorderBox(0,BigSingleTopRight, "Depth");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        AddTitleBorderBox(BigSingleDisplay, "Fathmometer");
+        AddTitleBorderBox(0,BigSingleDisplay, "Fathmometer 30m");
+        LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
+        DrawGraph(true, BigSingleDisplay, LocalCopy, 30, 0);
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-        LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-        DrawGraph (false,BigSingleDisplay, LocalCopy, 0, 10);
-        UpdateDataTwoSize(9,8,BigSingleTopRight, BoatData.WaterDepth, "%4.1fm");
-         
-      if (CheckButton(Full0Center)) { Display_Page = 4; }
+      LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
+      DrawGraph(false, BigSingleDisplay, LocalCopy, 30, 0);
+      UpdateDataTwoSize(11, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1fm");
+
+      if (CheckButton(BigSingleTopRight)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
-      if (CheckButton(bottomLeftquarter)) { Display_Page = 11; }
-      if (CheckButton(topRightquarter)) { Display_Page = 4; }
-      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 11; }
+
 
       break;
-    case 8: //SOG  graph
-     if (RunSetup) {
-        setFont(8);
-        GFXBorderBoxPrintf(BigSingleTopRight,"");
-        GFXBorderBoxPrintf(BigSingleTopLeft,"");
-        AddTitleBorderBox(BigSingleTopLeft, "SOG");
-        AddTitleBorderBox(BigSingleTopRight, "STW");
-        GFXBorderBoxPrintf(BigSingleDisplay, "font8");
-        AddTitleBorderBox(BigSingleDisplay, "SOG Graph");
+    case 8:  //SOG  graph
+      if (RunSetup) {
+        setFont(10);
+        GFXBorderBoxPrintf(BigSingleTopRight, "");
+        GFXBorderBoxPrintf(BigSingleTopLeft, "");
+        AddTitleBorderBox(0,BigSingleTopLeft, "SOG");
+        AddTitleBorderBox(0,BigSingleTopRight, "STW");
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        AddTitleBorderBox(0,BigSingleDisplay, "SOG Graph");
+        LocalCopy = BoatData.SOG;
+        DrawGraph(true, BigSingleDisplay, LocalCopy, 0, 10);
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-        LocalCopy = BoatData.SOG;
-        DrawGraph (false,BigSingleDisplay, LocalCopy, 0, 10);
-        UpdateData(BigSingleTopRight, BoatData.STW, "%2.1fkt");
-        UpdateData(BigSingleTopLeft, BoatData.SOG, "%2.1fkt");
-      
-      if (CheckButton(Full0Center)) { Display_Page = 4; }
-      //        TouchCrosshair(20); quarters select big screens
-      if (CheckButton(topLeftquarter)) { Display_Page = 4; }
-      if (CheckButton(bottomLeftquarter)) { Display_Page = 11; }
-      if (CheckButton(topRightquarter)) { Display_Page = 4; }
-      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
+      LocalCopy = BoatData.SOG;
+      DrawGraph(false, BigSingleDisplay, LocalCopy, 0, 10);
+      UpdateDataTwoSize(11, 10, BigSingleTopRight, BoatData.STW, "%2.1fkt");
+      UpdateDataTwoSize(11, 10, BigSingleTopLeft, BoatData.SOG, "%2.1fkt");
 
+      //if (CheckButton(Full0Center)) { Display_Page = 4; }
+      //        TouchCrosshair(20); quarters select big screens
+      //if (CheckButton(topLeftquarter)) { Display_Page = 4; }   
+      if (CheckButton(bottomLeftquarter)) { Display_Page = 9; }
+      if (CheckButton(BigSingleTopRight)) { Display_Page = 6; }
+      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
    
+      
+
+
       break;
 
     case 9:  // GPS page
       if (RunSetup) {
-        setFont(8);
+        setFont(10);
         GFXBorderBoxPrintf(BigSingleDisplay, "");
+        GFXBorderBoxPrintf(BigSingleTopLeft," Click for graphic");
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();
-        // do this one once a second.. I have not yet got simplified functions testing if previously displayed and greyed yet  
+        // do this one once a second.. I have not yet got simplified functions testing if previously displayed and greyed yet
         gfx->setTextColor(BigSingleDisplay.textcol);
         BigSingleDisplay.PrintLine = 0;
-        UpdateLinef(BigSingleDisplay, "%.0f Satellites in view",BoatData.SatsInView);
+        UpdateLinef(BigSingleDisplay, "%.0f Satellites in view", BoatData.SatsInView);
         if (BoatData.GPSTime != NMEA0183DoubleNA) {
-          UpdateLinef(BigSingleDisplay, "");UpdateLinef(BigSingleDisplay, " Date: %06i ",int(BoatData.GPSDate));
           UpdateLinef(BigSingleDisplay, "");
-          UpdateLinef(BigSingleDisplay, " TIME: %02i:%02i:%02i",
+          UpdateLinef(BigSingleDisplay, "Date: %06i ", int(BoatData.GPSDate));
+          UpdateLinef(BigSingleDisplay, "");
+          UpdateLinef(BigSingleDisplay, "TIME: %02i:%02i:%02i",
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
         }
         if (BoatData.Latitude != NMEA0183DoubleNA) {
           UpdateLinef(BigSingleDisplay, "");
-          UpdateLinef(BigSingleDisplay, "  LAT: %f", BoatData.Latitude);
+          UpdateLinef(BigSingleDisplay, "LAT: %f", BoatData.Latitude);
           UpdateLinef(BigSingleDisplay, "");
-          UpdateLinef(BigSingleDisplay, "  LON: %f", BoatData.Longitude);
+          UpdateLinef(BigSingleDisplay, "LON: %f", BoatData.Longitude);
         }
       }
-      if (CheckButton(topLeftquarter)) { Display_Page = 10; }
+      if (CheckButton(BigSingleTopLeft)) { Display_Page = 10; }
       if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }  //Loop to the main settings page
       if (CheckButton(topRightquarter)) { Display_Page = 4; }
       if (CheckButton(bottomRightquarter)) { Display_Page = 4; }  // test! check default loops back to 0
+
+      break;
+case 10:  // GPS page 2
+      if (RunSetup) {
+        setFont(8);
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+         GFXBorderBoxPrintf(BigSingleTopLeft,"");
+         GFXBorderBoxPrintf(BigSingleTopRight," Main Menu ");
+      }
+      if (millis() > slowdown + 1000) {
+        slowdown = millis();
+        // do this one once a second.. I have not yet got simplified functions testing if previously displayed and greyed yet
+        gfx->setTextColor(BigSingleDisplay.textcol);
+        BigSingleTopLeft.PrintLine = 0;
+        UpdateLinef(BigSingleTopLeft, "%.0f Satellites in view", BoatData.SatsInView);
+        if (BoatData.GPSTime != NMEA0183DoubleNA) {
+          //UpdateLinef(BigSingleTopLeft, "");
+          UpdateLinef(BigSingleTopLeft, "Date: %06i ", int(BoatData.GPSDate));
+         // UpdateLinef(BigSingleTopLeft, "");
+          UpdateLinef(BigSingleTopLeft, "TIME: %02i:%02i:%02i",
+                      int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
+        }
+        if (BoatData.Latitude != NMEA0183DoubleNA) {
+
+          UpdateLinef(BigSingleTopLeft, "LAT: %f", BoatData.Latitude);
+          UpdateLinef(BigSingleTopLeft, "LON: %f", BoatData.Longitude);
+        
+        // would like to put equivalent of anchor watch / plot here/ change to a sensible function later! 
+        
+        static double startposlat,startposlon;
+        double LatD,LongD,magnification; //deltas
+        int h,v;
+        magnification = 111111;  //approx 1pixel per meter? 1 degree is roughly 111111 m
+        AddTitleBorderBox(0,BigSingleDisplay, "Magnification:%3.0f pixel/m",magnification/111111);
+        if (startposlon==0){startposlat=BoatData.Latitude;startposlon=BoatData.Longitude;}
+        h=BigSingleDisplay.h+((BigSingleDisplay.width)/2);
+        v=BigSingleDisplay.v+((BigSingleDisplay.height)/2);
+        LatD = h+ int((BoatData.Latitude-startposlat)* magnification);
+        LongD= v+ int((BoatData.Longitude-startposlon)* magnification); 
+       //set limits!! ?
+        gfx->fillCircle(LongD, LatD, 4, BigSingleDisplay.textcol);
+
+       } 
+      }
+      if (CheckButton(topLeftquarter)) { Display_Page = 9; }
+      if (CheckButton(BigSingleTopRight)) { Display_Page = 4; }
+    // TBD , reset position?  
+      if (CheckButton(BigSingleDisplay)) {
+        if (BoatData.Latitude != NMEA0183DoubleNA) {        
+          startposlat=BoatData.Latitude;
+          startposlon=BoatData.Longitude;
+          Serial.printf(" reset  %f   %f \n",startposlat,startposlon);
+        GFXBorderBoxPrintf(BigSingleDisplay, "");}
+      }  // test! check default loops back to 0
+
+      break;
+
+
+
+    case 11:  // Depth different range
+      if (RunSetup) {
+        setFont(10);
+        GFXBorderBoxPrintf(BigSingleTopRight, "");
+        AddTitleBorderBox(0,BigSingleTopRight, "Depth");
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        AddTitleBorderBox(0,BigSingleDisplay, "Fathmometer 10m");
+        LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
+      DrawGraph(true, BigSingleDisplay, LocalCopy, 10, 0);
+      }
+      if (millis() > slowdown + 500) {
+        slowdown = millis();
+      }
+      LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
+      DrawGraph(false, BigSingleDisplay, LocalCopy, 10, 0);
+      UpdateDataTwoSize(11, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1fm");
+
+      
+      //        TouchCrosshair(20); quarters select big screens
+      if (CheckButton(topLeftquarter)) { Display_Page = 4; }
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 7; }
+      if (CheckButton(topRightquarter)) { Display_Page = 4; }
+      
 
       break;
 
@@ -935,56 +1068,48 @@ void setFont(int fontinput) {
       text_offset = -(FreeMonoBold27pt7bGlyphs[0x3D].yOffset);
       text_char_width = 12;
       break;
-    case 7:  //SANS BOLD 10 pt
-      Fontname = "FreeSansBold10pt7b";
-      gfx->setFont(&FreeSansBold10pt7b);
-      text_height = (FreeSansBold10pt7bGlyphs[0x38].height) + 1;
-      text_offset = -(FreeSansBold10pt7bGlyphs[0x38].yOffset);
+    case 7:  //SANS BOLD 6 pt
+      Fontname = "FreeSansBold6pt7b";
+      gfx->setFont(&FreeSansBold6pt7b);
+      text_height = (FreeSansBold6pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeSansBold6pt7bGlyphs[0x38].yOffset);
       text_char_width = 12;
       break;
-    case 8:  //SANS BOLD 18 pt
+    case 8:  //SANS BOLD 8 pt
+      Fontname = "FreeSansBold8pt7b";
+      gfx->setFont(&FreeSansBold8pt7b);
+      text_height = (FreeSansBold8pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeSansBold8pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
+    case 9:  //SANS BOLD 12 pt
+      Fontname = "FreeSansBold12pt7b";
+      gfx->setFont(&FreeSansBold12pt7b);
+      text_height = (FreeSansBold12pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeSansBold12pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
+    case 10:  //SANS BOLD 18 pt
       Fontname = "FreeSansBold18pt7b";
       gfx->setFont(&FreeSansBold18pt7b);
       text_height = (FreeSansBold18pt7bGlyphs[0x38].height) + 1;
       text_offset = -(FreeSansBold18pt7bGlyphs[0x38].yOffset);
       text_char_width = 12;
       break;
-    case 9:  //sans BOLD 30 pt
-      Fontname = "FreeSansBold30pt7b";
-      gfx->setFont(&FreeSansBold30pt7b);
-      text_height = (FreeSansBold30pt7bGlyphs[0x38].height) + 1;
-      text_offset = -(FreeSansBold30pt7bGlyphs[0x38].yOffset);
+    case 11:  //sans BOLD 27 pt
+      Fontname = "FreeSansBold27pt7b";
+      gfx->setFont(&FreeSansBold27pt7b);
+      text_height = (FreeSansBold27pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeSansBold27pt7bGlyphs[0x38].yOffset);
       text_char_width = 12;
       break;
-    case 10:  //sans BOLD 50 pt
-      Fontname = "FreeSansBold50pt7b";
-      gfx->setFont(&FreeSansBold50pt7b);
-      text_height = (FreeSansBold50pt7bGlyphs[0x38].height) + 1;
-      text_offset = -(FreeSansBold50pt7bGlyphs[0x38].yOffset);
+    case 12:  //sans BOLD 40 pt
+      Fontname = "FreeSansBold40pt7b";
+      gfx->setFont(&FreeSansBold40pt7b);
+      text_height = (FreeSansBold40pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeSansBold40pt7bGlyphs[0x38].yOffset);
       text_char_width = 12;
       break;
-    case 11:  //condensed Condensed18pt7b
-      Fontname = "Condensed18pt7b";
-      gfx->setFont(&Condensed18pt7b);
-      text_height = (Condensed18pt7bGlyphs[0x38].height) + 1;
-      text_offset = -(Condensed18pt7bGlyphs[0x38].yOffset);
-      text_char_width = 12;
-      break;
-    case 12:  //condensed Condensed30pt7b
-      Fontname = "Condensed30pt7b";
-      gfx->setFont(&Condensed30pt7b);
-      text_height = (Condensed30pt7bGlyphs[0x38].height) + 1;
-      text_offset = -(Condensed30pt7bGlyphs[0x38].yOffset);
-      text_char_width = 12;
-      break;
-    case 13:  //condensed Condensed50pt7b
-      Fontname = "Condensed50pt7b";
-      gfx->setFont(&Condensed50pt7b);
-      text_height = (Condensed50pt7bGlyphs[0x38].height) + 1;
-      text_offset = -(Condensed50pt7bGlyphs[0x38].yOffset);
-      text_char_width = 12;
-      break;
-
 
 
 
@@ -1020,11 +1145,11 @@ void setup() {
   gfx->fillScreen(BLUE);
   gfx->setCursor(0, 110);
   gfx->setTextColor(WHITE);
-  gfx->setTextBound(40,40,440,380);
-#ifdef GFX_BL   // I have no idea why this digital write seems to be done twice- perhaps to reset some screens?
+  gfx->setTextBound(40, 40, 440, 380);
+#ifdef GFX_BL  // I have no idea why this digital write seems to be done twice- perhaps to reset some screens?
   pinMode(GFX_BL, OUTPUT);
   digitalWrite(GFX_BL, HIGH);
-#endif   
+#endif
 
 
   setFont(4);
@@ -1040,7 +1165,7 @@ void setup() {
   Udp.begin(atoi(Current_Settings.UDP_PORT));
   delay(1500);       // 1.5 seconds
   Display_Page = 4;  // select first page to show or use non defined page to start with default
-  gfx->setTextBound(0,0,480,480);
+  gfx->setTextBound(0, 0, 480, 480);
   gfx->setTextColor(WHITE);
   // gfx->setTextBound(0, 0, 480, 480); //reset or it wil cause issues later in other prints?
   //Startlogfile();
@@ -1049,6 +1174,8 @@ void setup() {
 
 void loop() {
   static unsigned long LogInterval;
+  static bool flash;
+  static unsigned long flashinterval;
   yield();
   server.handleClient();  // for OTA;
   //
@@ -1060,13 +1187,24 @@ void loop() {
   Display(Display_Page);  //EventTiming("STOP");
   EXTHeartbeat();
   audio.loop();
-  if ((Log_ON) && (millis()>=LogInterval)){
-    LogInterval=millis()+5000;
-    LOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f ,%4.0f \r\n",
-        int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, 
-         BoatData.STW.data,BoatData.SOG.data,BoatData.WaterDepth.data,BoatData.WindSpeedK.data,
-         BoatData.WindAngle.data);
-   }     
+  if ((millis() >= flashinterval)) {
+    flashinterval = millis() + 500;
+    if (!Current_Settings.Log_ON){AddTitleBorderBox(0,LogIndicator,"    ");}
+    else{   
+    flash=!flash;
+    if (flash) {AddTitleBorderBox(0,LogIndicator," LOG");}else{AddTitleBorderBox(0,LogIndicator," ON ");}
+    }
+  }
+
+  if (!Current_Settings.Log_ON){AddTitleBorderBox(0,LogIndicator,"   ");}
+  if ((Current_Settings.Log_ON) && (millis() >= LogInterval)) {
+    LogInterval = millis() + 5000;
+
+    LOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f ,%4.0f ,%f ,%f \r\n",
+        int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
+        BoatData.STW.data, BoatData.SOG.data, BoatData.WaterDepth.data, BoatData.WindSpeedK.data,
+        BoatData.WindAngle.data, BoatData.Latitude, BoatData.Longitude);
+  }
   //EventTiming(" loop time touch sample display");
   //vTaskDelay(1);  // Audio is distorted without this?? used in https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/plays%20all%20files%20in%20a%20directory/plays_all_files_in_a_directory.ino
   // //.... (audio.isRunning()){   delay(100);gfx->println("Playing Ships bells"); Serial.println("Waiting for bells to finish!");}
@@ -1351,8 +1489,9 @@ void SD_Setup() {
   if (!SD.begin(SD_CS)) {
     Serial.println("Card Mount Failed");
     return;
-  } else {hasSD = true;
-    // flash logo 
+  } else {
+    hasSD = true;
+    // flash logo
     jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
              0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
     // Serial.printf("Time used: %lums\n", millis() - start);
@@ -1383,8 +1522,9 @@ void SD_Setup() {
     gfx->println("Unknown");
   }
 
-  // uint64_t cardSize = SD.cardSize() / (1024 * 1024);
-  // Serial.printf("SD Card Size: %lluMB\n", cardSize);
+  uint64_t cardSize = SD.cardSize() / (1024 * 1024);
+  Serial.printf("SD Card Size: %lluMB\n", cardSize);
+  gfx->printf("SD Card Size: %lluMB\n", cardSize);
   // Serial.println("*** SD card contents  (to three levels) ***");
 
   //listDir(SD, "/", 3);
@@ -1606,14 +1746,14 @@ int get_music_list(fs::FS& fs, const char* dirname, uint8_t levels) {  // uses c
 }
 
 
-void open_new_song(String dir,String filename) {
+void open_new_song(String dir, String filename) {
   Serial.print(" Open _NEW song..");
   Serial.println(filename);
   //music_info.name = filename.substring(1, filename.indexOf("."));
   //Serial.print(" audio input..");
   //Serial.println(music_info.name);
   String FullName;
-  FullName=dir+filename;
+  FullName = dir + filename;
   //Serial.print("** Audio selected<");Serial.print(FullName);Serial.println(">");
   audio.connecttoFS(SD, FullName.c_str());
   //music_info.runtime = audio.getAudioCurrentTime();

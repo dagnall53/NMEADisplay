@@ -7,7 +7,7 @@
 #include "Keyboard.h"
 // Based on Felix Biego's keyboard   https://github.com/fbiego/esp32-touch-keyboard/tree/main
 // modified to use strings (char array) and not Strings.
-#include "fonts.h"
+#include "FONTS/fonts.h"
 //#include "Touch.h"
 #include <TAMC_GT911.h>
 
