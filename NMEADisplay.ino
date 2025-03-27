@@ -51,6 +51,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 #include <SD.h>  // pins set in GFX .h
 #include "SPI.h"
 #include "FS.h"
+
 //jpeg
 #include "JpegFunc.h"
 #define JPEG_FILENAME_LOGO "/logo.jpg"  // logo in jpg on sd card
@@ -124,7 +125,7 @@ int text_char_width = 12;  // useful for monotype? only NOT USED YET! Try gfx->g
 
 //****  My displays are based on 'Button' structures to define position, width height, borders and colours.
 // int h, v, width, height, bordersize;  uint16_t backcol, textcol, BorderColor;
-Button Fontdescriber = { 0, 0, 480, 75, 5, BLUE, WHITE, BLACK };  //also used for showing the current settings
+Button CurrentSettingsBox = { 0, 0, 480, 75, 5, BLUE, WHITE, BLACK };  //also used for showing the current settings
 Button FontBox = { 0, 150, 480, 330, 5, BLUE, WHITE, BLUE };
 
 Button WindDisplay = { 0, 0, 480, 480, 0, BLUE, WHITE, BLACK };  // full screen no border
@@ -166,6 +167,7 @@ Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };
 
 Button Terminal = { 0, 240, 470, 240, 5, WHITE, BLACK, BLUE };  // inset to try and get printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
 //for selections
+Button FullTopCenter = { 80, 0, 320, 55, 5, BLUE, WHITE, BLACK };
 Button Full0Center = { 80, 55, 320, 55, 5, BLUE, WHITE, BLACK };
 Button Full1Center = { 80, 125, 320, 55, 5, BLUE, WHITE, BLACK };
 Button Full2Center = { 80, 195, 320, 55, 5, BLUE, WHITE, BLACK };
@@ -282,13 +284,13 @@ void ShowToplinesettings(MySettings A, String Text) {
   setFont(0);  // SETS MasterFont, so cannot use MasterFont directly in last line and have to save it!
   long rssiValue = WiFi.RSSI();
   gfx->setTextSize(1);
-  gfx->setTextColor(Fontdescriber.textcol);
-  Fontdescriber.PrintLine = 0;
-  UpdateLinef(Fontdescriber, "%s: Serial<%s> UDP<%s> ESP<%s>", Text, A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off);
+  gfx->setTextColor(CurrentSettingsBox.textcol);
+  CurrentSettingsBox.PrintLine = 0;
+  UpdateLinef(CurrentSettingsBox, "%s: Serial<%s> UDP<%s> ESP<%s> Log<%s>", Text, A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off,A.Log_ON On_Off);
   //GFXBoxPrintf(0, 0, 1, "%s: Serial<%s> UDP<%s> ESP<%s>", Text, A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off);
-  UpdateLinef(Fontdescriber, " SSID<%s> PWD<%s> UDPPORT<%s>", A.ssid, A.password, A.UDP_PORT);
+  UpdateLinef(CurrentSettingsBox, " SSID<%s> PWD<%s> UDPPORT<%s>", A.ssid, A.password, A.UDP_PORT);
   sta_ip = WiFi.localIP();
-  UpdateLinef(Fontdescriber, " IP: %i.%i.%i.%i   RSSI %i", sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3], rssiValue);
+  UpdateLinef(CurrentSettingsBox, " IP: %i.%i.%i.%i   RSSI %i", sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3], rssiValue);
   setFont(local);
 }
 void ShowToplinesettings(String Text) {
@@ -383,7 +385,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         SwipeTestLR = 0;
         SwipeTestUD = 0;
         setFont(fontlocal);
-        GFXBorderBoxPrintf(Fontdescriber, "-TEST Colours- ");
+        GFXBorderBoxPrintf(CurrentSettingsBox, "-TEST Colours- ");
       }
 
       if (millis() >= slowdown + 10000) {
@@ -391,7 +393,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         gfx->fillScreen(BLACK);
         fontlocal = fontlocal + 1;
         if (fontlocal > 10) { fontlocal = 0; }
-        GFXBorderBoxPrintf(Fontdescriber, "Font size %i", fontlocal);
+        GFXBorderBoxPrintf(CurrentSettingsBox, "Font size %i", fontlocal);
         //DisplayCheck(true);
       }
 
@@ -399,8 +401,8 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
       break;
 
-    case -20:  // Secondary "extra settings"
-      if (RunSetup) {
+    case -20:  // Experimental / extra stuff
+      if (RunSetup || DataChanged) {
 
         ShowToplinesettings("Now");
         setFont(3);
@@ -426,6 +428,47 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(Full5Center)) { Display_Page = 0; }
 
       break;
+    case -21:  // Secondary "Log and debug "
+     if (RunSetup || DataChanged) {
+        setFont(3);
+        GFXBorderBoxPrintf(FourthRowButton, "Instrument Data / NMEA Logging");
+        GFXBorderBoxPrintf(Switch1, Current_Settings.Log_ON On_Off);
+        AddTitleBorderBox(0,Switch1, "Inst");
+        GFXBorderBoxPrintf(Switch2, Current_Settings.NMEA_log_ON On_Off);
+        AddTitleBorderBox(0,Switch2, "NMEA");
+        GFXBorderBoxPrintf(Terminal, "- NMEA DATA -");
+        AddTitleBorderBox(0,Terminal, "TERMINAL");
+
+        GFXBorderBoxPrintf(FullTopCenter, "Main Menu");
+        DataChanged = false;
+      }
+      if (millis() > slowdown + 500) {
+        slowdown = millis();
+      }
+       if (CheckButton(FullTopCenter)) { Display_Page = 0; }
+       if (CheckButton(Terminal)) {
+        debugpause = !debugpause;
+        if (!debugpause) {
+          AddTitleBorderBox(0,Terminal, "TERMINAL");
+        } else {
+          AddTitleBorderBox(0,Terminal, "-Paused-");
+        }
+      }
+      if (CheckButton(Switch1)) {
+        Current_Settings.Log_ON = !Current_Settings.Log_ON;
+        if (Current_Settings.Log_ON) { Startlogfile(); }
+        DataChanged = true;
+      };
+
+      if (CheckButton(Switch2)) {
+        Current_Settings.NMEA_log_ON = !Current_Settings.NMEA_log_ON;
+        if (Current_Settings.NMEA_log_ON) { StartNMEAlogfile(); }
+        DataChanged = true;
+      };
+
+      break;
+
+
 
     case -10:  // a test page for fonts
       if (RunSetup) {
@@ -446,7 +489,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         setFont(fontlocal);
         Fontname.toCharArray(Tempchar, 30, 0);
         setFont(3);
-        GFXBorderBoxPrintf(Fontdescriber, "FONT:%i name%s", fontlocal, Tempchar);
+        GFXBorderBoxPrintf(CurrentSettingsBox, "FONT:%i name%s", fontlocal, Tempchar);
         setFont(fontlocal);
         GFXBorderBoxPrintf(FontBox, "Test %4.2f height<%i>", temp, text_height);
       }
@@ -469,15 +512,9 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         //gfx->setCursor(0, 80);
 
         int file_num;
-        //Ver 1.2 I have moved the music to a subdirectory in anticipation of adding SD logging
-        //   if (fs.chdir("/music")) {
-        //   Serial.println("Changed directory to /music");
-        // } else {
-        //   Serial.println("Failed to change directory");
-        // }                                                                                           // = get_music_list(SD, "/", 0, file_list);  // see https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
+        // = get_music_list(SD, "/", 0, file_list);  // see https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
         file_num = get_music_list(SD, "/music", 0);                                                             // Char array  based version of  https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L101
         V_offset = text_height + (ThirdRowButton.v + ThirdRowButton.height + (3 * ThirdRowButton.bordersize));  // start below the third button
-        //  listDir(SD, "/", 0);
         int localy = 0;
         for (int i = 0; i < file_num; i++) {
           gfx->setCursor(0, V_offset + localy);
@@ -671,12 +708,13 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         AddTitleBorderBox(0,Switch2, "UDP");
         GFXBorderBoxPrintf(Switch3, Current_Settings.ESP_NOW_ON On_Off);
         AddTitleBorderBox(0,Switch3, "ESP-Now");
-        GFXBorderBoxPrintf(Switch5, Current_Settings.Log_ON On_Off);
-        AddTitleBorderBox(0,Switch5, "Log");
+       // GFXBorderBoxPrintf(Switch5, Current_Settings.Log_ON On_Off);
+       // AddTitleBorderBox(0,Switch5, "Log");
         GFXBorderBoxPrintf(Switch4, "UPDATE");
         AddTitleBorderBox(0,Switch4, "EEPROM");
-        GFXBorderBoxPrintf(Terminal, "- NMEA DATA -");
-        AddTitleBorderBox(0,Terminal, "TERMINAL");
+        GFXBorderBoxPrintf(Full5Center, "Logger and Debug");
+       // GFXBorderBoxPrintf(Terminal, "- NMEA DATA -");  // moved to page -21
+       // AddTitleBorderBox(0,Terminal, "TERMINAL");
         setFont(0);
         DataChanged = false;
         //while (ts.sTouched{yield(); Serial.println("yeilding -1");}
@@ -706,11 +744,11 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         Current_Settings.ESP_NOW_ON = !Current_Settings.ESP_NOW_ON;
         DataChanged = true;
       };
-      if (CheckButton(Switch5)) {
-        Current_Settings.Log_ON = !Current_Settings.Log_ON;
-        if (Current_Settings.Log_ON) { Startlogfile(); }
-        DataChanged = true;
-      };
+      // if (CheckButton(Switch5)) {
+      //   Current_Settings.Log_ON = !Current_Settings.Log_ON;
+      //   if (Current_Settings.Log_ON) { Startlogfile(); }
+      //   DataChanged = true;
+      // };
       if (CheckButton(Switch4)) {
         Display_Page = 0;
         ;
@@ -722,6 +760,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(SecondRowButton)) { Display_Page = -5; };
       if (CheckButton(ThirdRowButton)) { Display_Page = -3; };
       if (CheckButton(FourthRowButton)) { Display_Page = -4; };
+      if (CheckButton(Full5Center)) { Display_Page = -21; };
 
       break;
     case 0:  // main settings
@@ -729,9 +768,10 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
         ShowToplinesettings("Now");
         setFont(3);
-        GFXBorderBoxPrintf(Full0Center, "-Extra settings-");
-        GFXBorderBoxPrintf(Full1Center, "Settings  WIFI etc");
-        GFXBorderBoxPrintf(Full2Center, "See NMEA");
+        GFXBorderBoxPrintf(Full0Center, "-Experimental-");
+        GFXBorderBoxPrintf(Full1Center, "WIFI Settings");
+        GFXBorderBoxPrintf(Full2Center, "NMEA DISPLAY");
+        GFXBorderBoxPrintf(Full3Center, "Debug + LOG");
       //  GFXBorderBoxPrintf(Full4Center, "Check Fonts");
         GFXBorderBoxPrintf(Full5Center, "Save / Reset to Quad NMEA");
       }
@@ -741,7 +781,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(Full0Center)) { Display_Page = -20; }
       if (CheckButton(Full1Center)) { Display_Page = -1; }
       if (CheckButton(Full2Center)) { Display_Page = 4; }
-     
+      if (CheckButton(Full3Center)) { Display_Page = -21; } 
       if (CheckButton(Full5Center)) {
         Display_Page = 4;
         EEPROM_WRITE(Current_Settings);
@@ -889,9 +929,10 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
     case 9:  // GPS page
       if (RunSetup) {
-        setFont(10);
+        setFont(8);
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        GFXBorderBoxPrintf(BigSingleTopLeft," Click for graphic");
+        GFXBorderBoxPrintf(BigSingleTopLeft,"Click for graphic");
+        setFont(10);
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();
@@ -920,11 +961,15 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
       break;
 case 10:  // GPS page 2
+      static double magnification;
       if (RunSetup) {
         setFont(8);
         GFXBorderBoxPrintf(BigSingleDisplay, "");
          GFXBorderBoxPrintf(BigSingleTopLeft,"");
          GFXBorderBoxPrintf(BigSingleTopRight," Main Menu ");
+         GFXBorderBoxPrintf(BottomRightbutton,"zoom in");
+         GFXBorderBoxPrintf(BottomLeftbutton,"zoom out");
+         magnification =1111111;  //reset magnification
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();
@@ -933,9 +978,7 @@ case 10:  // GPS page 2
         BigSingleTopLeft.PrintLine = 0;
         UpdateLinef(BigSingleTopLeft, "%.0f Satellites in view", BoatData.SatsInView);
         if (BoatData.GPSTime != NMEA0183DoubleNA) {
-          //UpdateLinef(BigSingleTopLeft, "");
           UpdateLinef(BigSingleTopLeft, "Date: %06i ", int(BoatData.GPSDate));
-         // UpdateLinef(BigSingleTopLeft, "");
           UpdateLinef(BigSingleTopLeft, "TIME: %02i:%02i:%02i",
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
         }
@@ -944,18 +987,21 @@ case 10:  // GPS page 2
           UpdateLinef(BigSingleTopLeft, "LAT: %f", BoatData.Latitude);
           UpdateLinef(BigSingleTopLeft, "LON: %f", BoatData.Longitude);
         
-        // would like to put equivalent of anchor watch / plot here/ change to a sensible function later! 
+        // would like to put equivalent of anchor watch / plot here/ change to a separate graph function later! 
         
         static double startposlat,startposlon;
-        double LatD,LongD,magnification; //deltas
-        int h,v;
-        magnification = 111111;  //approx 1pixel per meter? 1 degree is roughly 111111 m
-        AddTitleBorderBox(0,BigSingleDisplay, "Magnification:%3.0f pixel/m",magnification/111111);
-        if (startposlon==0){startposlat=BoatData.Latitude;startposlon=BoatData.Longitude;}
+        double LatD,LongD; //deltas
+        int h,v;        
         h=BigSingleDisplay.h+((BigSingleDisplay.width)/2);
         v=BigSingleDisplay.v+((BigSingleDisplay.height)/2);
-        LatD = h+ int((BoatData.Latitude-startposlat)* magnification);
-        LongD= v+ int((BoatData.Longitude-startposlon)* magnification); 
+        // magnification 1 degree is roughly 111111 m
+        AddTitleInsideBox(1, BigSingleDisplay, "circle:%4.1fm", float((BigSingleDisplay.height)/(2*(magnification/111111))));
+        gfx->drawCircle(h,v,(BigSingleDisplay.height)/2,BigSingleDisplay.BorderColor);
+        AddTitleBorderBox(0,BigSingleDisplay, "Magnification:%4.1f pixel/m",float(magnification)/111111);
+        if (startposlon==0){startposlat=BoatData.Latitude;startposlon=BoatData.Longitude;}
+
+        LongD= h+ ((BoatData.Longitude-startposlon)* magnification);  
+        LatD = v- ((BoatData.Latitude-startposlat)* magnification); // negative because display is top left to bottom right!
        //set limits!! ?
         gfx->fillCircle(LongD, LatD, 4, BigSingleDisplay.textcol);
 
@@ -963,14 +1009,27 @@ case 10:  // GPS page 2
       }
       if (CheckButton(topLeftquarter)) { Display_Page = 9; }
       if (CheckButton(BigSingleTopRight)) { Display_Page = 4; }
-    // TBD , reset position?  
+    // press plot to, reset start position?       
+    if (CheckButton(BottomRightbutton)) {
+        magnification = magnification*1.5;
+         Serial.printf(" magification  %f \n",magnification);
+      }
+      if (CheckButton(BottomLeftbutton)) {
+       magnification = magnification/1.5;
+       Serial.printf(" magification  %f \n",magnification);
+      }
       if (CheckButton(BigSingleDisplay)) {
         if (BoatData.Latitude != NMEA0183DoubleNA) {        
           startposlat=BoatData.Latitude;
           startposlon=BoatData.Longitude;
           Serial.printf(" reset  %f   %f \n",startposlat,startposlon);
-        GFXBorderBoxPrintf(BigSingleDisplay, "");}
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        GFXBorderBoxPrintf(BottomRightbutton,"zoom in");
+        GFXBorderBoxPrintf(BottomLeftbutton,"zoom out");}
       }  // test! check default loops back to 0
+
+ 
+
 
       break;
 
@@ -1131,28 +1190,28 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Test for NMEA Display ");
   Serial.println(soft_version);
-  //Serial.println(" IDF will throw errors here as one pin is -1!");
+
   ts.begin();
   ts.setRotation(ROTATION_INVERTED);
 #ifdef GFX_BL
-  pinMode(GFX_BL, OUTPUT);
+  pinMode(GFX_BL, OUTPUT);  //Serial.println(" IDF will throw errors here as one pin is -1!");
   digitalWrite(GFX_BL, HIGH);
 #endif
+// #ifdef GFX_BL  // I have no idea why this digital write seemed to be done twice- perhaps to reset some screens?
+//   pinMode(GFX_BL, OUTPUT);
+//   digitalWrite(GFX_BL, HIGH);
+// #endif
   // Init Display
   gfx->begin();
   //if GFX> 1.3.1 try and do this as the invert colours write 21h or 20h to 0Dh has been lost from the structure!
   gfx->invertDisplay(false);
   gfx->fillScreen(BLUE);
-  gfx->setCursor(0, 110);
+  gfx->setCursor(40, 80);
   gfx->setTextColor(WHITE);
   gfx->setTextBound(40, 40, 440, 380);
-#ifdef GFX_BL  // I have no idea why this digital write seems to be done twice- perhaps to reset some screens?
-  pinMode(GFX_BL, OUTPUT);
-  digitalWrite(GFX_BL, HIGH);
-#endif
-
 
   setFont(4);
+  gfx->println(F("***SETUP***"));
   SD_Setup();
   Audio_setup();
   EEPROM_READ();  // setup and read Saved_Settings (saved variables)
@@ -1189,14 +1248,12 @@ void loop() {
   audio.loop();
   if ((millis() >= flashinterval)) {
     flashinterval = millis() + 500;
-    if (!Current_Settings.Log_ON){AddTitleBorderBox(0,LogIndicator,"    ");}
-    else{   
+    if (Current_Settings.Log_ON){
     flash=!flash;
-    if (flash) {AddTitleBorderBox(0,LogIndicator," LOG");}else{AddTitleBorderBox(0,LogIndicator," ON ");}
+    if (flash) {AddTitleBorderBox(0,LogIndicator," LOG ");}else{AddTitleBorderBox(0,LogIndicator,"logging");}
     }
   }
 
-  if (!Current_Settings.Log_ON){AddTitleBorderBox(0,LogIndicator,"   ");}
   if ((Current_Settings.Log_ON) && (millis() >= LogInterval)) {
     LogInterval = millis() + 5000;
 
@@ -1324,7 +1381,16 @@ void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
 void UseNMEA(char* buf, int type) {
   if (buf[0] != 0) {
     // print serial version if on the wifi page terminal window page.
-    if ((Display_Page == -1)) {  //debugpause in UpdateLinef
+    // data log raw NMEA and when and where it came from.
+    if (Current_Settings.NMEA_log_ON){
+      if (type == 1) {NMEALOG("%.3f SER:%s",float(millis())/1000, buf);}
+      if (type == 2) {NMEALOG("%.3f UDP:%s",float(millis())/1000, buf);}
+      if (type == 3) {NMEALOG("%.3f ESP:%s",float(millis())/1000, buf);}
+      }
+      
+
+
+    if ((Display_Page == -21)) {  //debugpause built into in UpdateLinef
       if (type == 2) {
         gfx->setTextColor(BLUE);
         UpdateLinef(Terminal, "UDP:%s", buf);
@@ -1484,10 +1550,13 @@ void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
   }
 }
 extern bool hasSD;
+
+
 void SD_Setup() {
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI);
   if (!SD.begin(SD_CS)) {
     Serial.println("Card Mount Failed");
+    gfx->println("NO SD Card");
     return;
   } else {
     hasSD = true;
@@ -1680,7 +1749,7 @@ void UDPSEND(const char* buf) {                              // this is the one 
 
 
 void Audio_setup() {
-  Serial.println("Audio setup ");
+  Serial.println("Audio setup");
   delay(200);
   audio.setPinout(I2S_BCLK, I2S_LRCK, I2S_DOUT);
   audio.setVolume(15);  // 0...21
@@ -1692,7 +1761,7 @@ void Audio_setup() {
       vTaskDelay(1);
     }
   } else {
-    gfx->print(" Failed  audio setup ");
+    gfx->println("No Audio");
     Serial.println("Audio setup FAILED");
   };
   // gfx->println("Exiting Setup");

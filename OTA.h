@@ -121,6 +121,7 @@ String serverIndex =
 
 static bool hasSD = false;
 static bool logFileStarted = false;
+static bool NMEAlogFileStarted = false;
 File uploadFile;
 
 
@@ -500,6 +501,7 @@ void appendFile(fs::FS &fs, const char *path, const char *message) {
 // }
 
 char LogFileName[25];
+char NMEALogFileName[25];
 void Startlogfile() {
   if (!hasSD) { return; }
   // If the data.txt file doesn't exist
@@ -525,7 +527,44 @@ void Startlogfile() {
   file.close();
 }
 
+void StartNMEAlogfile() {
+  if (!hasSD) { return; }
+  // If the data.txt file doesn't exist
+  // Create a file on the SD card and write the data labels
+  // Serial.printf("  ***** LOG FILE DEBUG ***  trying to use: <%6i> <%8f> to make name..  ",int(BoatData.GPSDate),BoatData.GPSDate);
+  //dtostrf(BoatData.GPSDate, 8, 0, GPSdate);  //dtostrf(FLOAT,WIDTH,PRECSISION,BUFFER);
+  // snprintf(NMEALogFileName,25,"/logs/%6i.log",int(BoatData.GPSDate));
+ //  Serial.printf("  <%s> \n",NMEALogFileName);
+  File file = SD.open("/logs/NMEA.log");
+  if (!file) {
+    //Serial.println("File doens't exist");
+    NMEAlogFileStarted = true;
+    Serial.printf("Creating NMEA LOG file. and header..\n");
+    writeFile(SD, "/logs/NMEA.log", "NMEA data headings\r\nTime(s): Source:NMEA......\r\n");
+    file.close();
+    return;
+  } else {
+    // Serial.println("File already exists");
+  }
+  file.close();
+}
 
+void NMEALOG(const char *fmt, ...) {
+  if (!NMEAlogFileStarted) {
+    StartNMEAlogfile();
+    return;
+  }
+  static char msg[300] = { '\0' };  // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+ // Serial.printf("  Logging to:<%s>", NMEALogFileName);
+ // Serial.print("  Log  data: ");
+ // Serial.println(msg);
+  appendFile(SD, "/logs/NMEA.log", msg);
+}
 
 void LOG(const char *fmt, ...) {
   if (!logFileStarted) {

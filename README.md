@@ -76,3 +76,12 @@ Use of SD card:
 Apparently, File Names longer than 8 charecters will be truncated by the SD library, so keep filenames shorter 
 Ver 1.2 I have moved the music to a subdirectory in anticipation of adding SD logging
 
+SPIFFS :
+I hope to add SPIFFS so that SD is not mandatory.
+SPIFFs with Arduino IDE2.x is problematic bu this seems to help: https://electronicstree.com/esp8266-spiffs-uploads-with-arduino-ide-2-x/
+
+Upload BINARY without Arduino!
+https://docs.espressif.com/projects/esp-test-tools/en/latest/esp32/production_stage/tools/flash_download_tool.html
+
+
+

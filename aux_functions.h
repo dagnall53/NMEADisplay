@@ -26,6 +26,7 @@ void GFXBorderBoxPrintf(int h, int v, int width, int height, int bordersize,
                         uint16_t backgroundcol, uint16_t textcol, uint16_t BorderColor, const char* fmt, ...);
 
 void AddTitleBorderBox(int font,Button button, const char* fmt, ...);
+void AddTitleInsideBox(int pos, Button button, const char *fmt, ...);
 
 //void AddTitleBorderBox(int h, int v, uint16_t BorderColor, const char* fmt, ...) ;
 
