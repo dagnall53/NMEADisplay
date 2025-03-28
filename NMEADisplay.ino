@@ -696,6 +696,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         gfx->fillScreen(BLACK);
         gfx->setTextColor(BLACK);
         gfx->setTextSize(1);
+        EEPROM_READ();
         ShowToplinesettings(Saved_Settings, "SAVED");
         setFont(4);
         gfx->setCursor(180, 180);
@@ -744,14 +745,12 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         Current_Settings.ESP_NOW_ON = !Current_Settings.ESP_NOW_ON;
         DataChanged = true;
       };
-      // if (CheckButton(Switch5)) {
-      //   Current_Settings.Log_ON = !Current_Settings.Log_ON;
-      //   if (Current_Settings.Log_ON) { Startlogfile(); }
-      //   DataChanged = true;
-      // };
+ 
       if (CheckButton(Switch4)) {
+        EEPROM_WRITE(Current_Settings);
+        delay(50);
         Display_Page = 0;
-        ;
+        
       };
 
 

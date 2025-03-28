@@ -63,17 +63,18 @@ The code should be compatible with other development boards that use the ST7701 
 
 # CODE FEATURES:
 
-The "DISPLAY" function in the main ino is a (huge) switch function that defines what happens on each page of the display and what will happen if buttons on that page are pressed. 
+The "DISPLAY" function in the main ino is a (huge) 'switch' function that defines what happens on each page of the display and what will happen if buttons on that page are pressed. 
 There is a 'button' structure that defines the size and shape and colours of all boxes on the screen. 
 
-A GFXBorderBoxPrintf(Button button, const char* fmt, ...)  will print any data in center of the defined 'button'.
+A GFXBorderBoxPrintf(Button button, const char* fmt, ...) function will print any data in center of the defined 'button'.
 
-:eg GFXBorderBoxPrintf(BigSingleTopLeft, BoatData.SOG, "%2.1fkt"); will print the Button box with borders and the SOG with one decimal place.
+eg: GFXBorderBoxPrintf(BigSingleTopLeft, BoatData.SOG, "%2.1fkt"); will print the Button box "BigSingleTopLeft" with borders and the SOG with one decimal place.
 
 To speed up screen updates I use a second function to just update the text and not redraw the box and borders:
 
 UpdateDataTwoSize(11, 10, BigSingleTopLeft, BoatData.SOG, "%2.1fkt"); 
-This displays the SOG using two font sizes (here 11 and 10) with the smaller font used after the decimal point.
+
+This displays the SOG (in BigSingleTopLeft), using two font sizes (here 11 and 10) with the smaller font used after the decimal point.
 
 Touch screen 'actions' are controlled by a boolean CheckButton(), and an example would be:  
 if (CheckButton(BigSingleTopLeft)) { Display_Page = 8; }
@@ -85,7 +86,7 @@ It can then store a 'log' file with instrument data.
 This log file has a filename of 'date" eg 180325.log where the date is as received from a GPS RMC message It only works if a RMC message has been seen. 
 
 # WEB INTERFACE
-There is a web interface, that can be connected to by pointing at http://nmeadisplay.local/
+There is a web interface that can be connected to by pointing a browser at http://nmeadisplay.local/
 ![wEBBROWSER](https://github.com/user-attachments/assets/d0582791-e483-49ed-8e1f-06d8a2bc3a83)
 
 This gives remote access to a SD File access page and also to a page to allow OTA of any binary updates to the code.
@@ -93,7 +94,7 @@ This gives remote access to a SD File access page and also to a page to allow OT
 ![wEBBROWSER INDEX](https://github.com/user-attachments/assets/686fd86d-3a69-4338-9ca3-57efec9dd92b)
 ThIS SD file access allows wireless viewing and modification of the log and other files on the SD.
 
-
+OTA allows update by downloading an updated NMEADisplay Binary. 
 
 In Version 1 and 2 an audio player has been added for experimental use, that plays MP3 from files stored on the SD card /music directory.
 It requires that three resistors are moved on the PCB to activate the audio circuit, and is not recommended unless you are comfortable with soldering and desoldering SMD resistors!
@@ -114,8 +115,8 @@ Note: I have tried to avoid use of "Strings" as used in the original Keyboard an
 
 I have used some of the Timo Lappinen NMEA01983 conversion functions. so null data returns as NMEA0183DoubleNA (==1e-9)
 
-The GFX is based on GFX Library for Arduino and I am using Version 1.5.5 : 
-Getting the ST7701 display to work correctly was part of the initial reaspon for the "cheap display" Github.
+The GFX is based on GFX Library for Arduino and I am using Version 1.5.5 :
+Getting the ST7701 display to work correctly was part of the initial reason for my "cheap display" Github.
 I may keep the relevant - functional - cpp and h in /documents with modified code in the in st7701_type9_init_operations section, but this may be updated in later versions?:
  st7701_type9_init_operations,  sizeof(st7701_type9_init_operations));
 WRITE_COMMAND_8, 0x20, // 0x20 normal, 0x21 IPS (INVERTS the COLOURS)
