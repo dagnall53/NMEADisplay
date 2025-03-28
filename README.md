@@ -43,7 +43,8 @@ The module will start with the "Quad" instrument display. Touching each quadrant
 
 
 
-Short video demo here : 
+Short video tour of Version 1 of the software here : 
+(Version 2 has better graphics and a modified menu, but is essentailly the same)
 
 https://youtube.com/shorts/24qs9CJK5vo?si=zCDUuTbXkYfHtEDB
 
