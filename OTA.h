@@ -459,66 +459,27 @@ void appendFile(fs::FS &fs, const char *path, const char *message) {
   file.close();
 }
 
-// void Startlogfile(){
-//   if (!hasSD){return;}
-//    // If the data.txt file doesn't exist
-//   // Create a file on the SD card and write the data labels
-//   File file = SD.open("/logs/data.txt");
-//   if(!file) {
-//     //Serial.println("File doens't exist");
-//     logFileStarted=true;
-//     Serial.println("Creating file. and header..");
-//     writeFile(SD, "/logs/data.txt", "LOG data headings\r\n Time, SOG, STW, DEPTH ,windspeed,windangle \r\n");
-
-//   }
-//   else {
-//    // Serial.println("File already exists");
-//   }
-//   file.close();
-// }
-
-// String dataMessage;
-
-// /*
-// https://randomnerdtutorials.com/esp32-data-logging-temperature-to-microsd-card/
-//         other support  files added in OTA.h
-// */
-// void LOG(){
-//     if (!hasSD){return;}
-//     if (!logFileStarted) {Startlogfile();}
-//  static unsigned long my_time;
-//  if (millis() <= my_time ){return;}
-//  if(int(BoatData.GPSDate) == 0) {return;} // only record if we have a GPS date!
-//  my_time=millis()+60000; // once a minute
-//   dataMessage = String(BoatData.GPSDate) + ","+ String(BoatData.GPSTime) + "," + String(BoatData.STW.data) + "," + String(BoatData.SOG.data) + "," +
-//                 String(BoatData.WaterDepth.data) + "," +
-//                 String(BoatData.WindSpeedK.data) + "," +
-//                 String(BoatData.WindAngle.data) +
-//                 "\r\n";
-//   Serial.print("Save data: ");
-//   Serial.println(dataMessage);
-//   appendFile(SD, "/logs/data.txt", dataMessage.c_str());
-// }
 
 char LogFileName[25];
 char NMEALogFileName[25];
+
 void Startlogfile() {
   if (!hasSD) { return; }
   // If the data.txt file doesn't exist
   // Create a file on the SD card and write the data labels
-  if (BoatData.GPSDate == 0) { return; }  // and check for NMEA0183DoubleNA?
-  if (BoatData.GPSDate == NMEA0183DoubleNA) { return; } 
- // Serial.printf("  ***** LOG FILE DEBUG ***  trying to use: <%6i> <%8f> to make name..  ",int(BoatData.GPSDate),BoatData.GPSDate);
-  //dtostrf(BoatData.GPSDate, 8, 0, GPSdate);  //dtostrf(FLOAT,WIDTH,PRECSISION,BUFFER);
+  if (BoatData.GPSDate == 0) { return; }  
+  if (BoatData.GPSDate == NMEA0183DoubleNA) { return; } // and check for NMEA0183DoubleNA?
+  //We have a date so we can use this for the file name!
+ // Serial.printf("  ***** LOG FILE DEBUG ***  use: <%6i>  to make name..  ",int(BoatData.GPSDate));
   snprintf(LogFileName,25,"/logs/%6i.log",int(BoatData.GPSDate));
  //  Serial.printf("  <%s> \n",LogFileName);
   File file = SD.open(LogFileName);
   if (!file) {
-    //Serial.println("File doens't exist");
+    //Serial.println("File doesn't exist");
     logFileStarted = true;
     Serial.printf("Creating <%s>LOG file. and header..\n",LogFileName);
-   
-    writeFile(SD, LogFileName, "NEW LOG data headings\r\nTime           ,SOG  ,STW  ,DEPTH ,windspeed,windangle \r\n");
+   // data will be added by a  LOG(...) in the main loop at 5 sec intervals
+    writeFile(SD, LogFileName, "NEW LOG data headings\r\nTime ,SOG,STW,Depth,Windspeed,Windangle,Lat,Long \r\n");
     file.close();
     return;
   } else {
@@ -530,11 +491,7 @@ void Startlogfile() {
 void StartNMEAlogfile() {
   if (!hasSD) { return; }
   // If the data.txt file doesn't exist
-  // Create a file on the SD card and write the data labels
-  // Serial.printf("  ***** LOG FILE DEBUG ***  trying to use: <%6i> <%8f> to make name..  ",int(BoatData.GPSDate),BoatData.GPSDate);
-  //dtostrf(BoatData.GPSDate, 8, 0, GPSdate);  //dtostrf(FLOAT,WIDTH,PRECSISION,BUFFER);
-  // snprintf(NMEALogFileName,25,"/logs/%6i.log",int(BoatData.GPSDate));
- //  Serial.printf("  <%s> \n",NMEALogFileName);
+  // Create a (FIXED NAME!) file on the SD card and write the data labels
   File file = SD.open("/logs/NMEA.log");
   if (!file) {
     //Serial.println("File doens't exist");

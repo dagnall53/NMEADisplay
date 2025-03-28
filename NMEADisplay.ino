@@ -153,10 +153,10 @@ Button BottomLeftbutton = { 0, 405, 75, 75, 5, BLUE, WHITE, BLACK };
 
 // buttons for the wifi/settings pages
 Button TOPButton = { 20, 10, 430, 35, 5, WHITE, BLACK, BLUE };
-Button SecondRowButton = { 20, 50, 430, 35, 5, WHITE, BLACK, BLUE };
-Button ThirdRowButton = { 20, 90, 430, 35, 5, WHITE, BLACK, BLUE };
-Button FourthRowButton = { 20, 130, 430, 35, 5, WHITE, BLACK, BLUE };
-Button FifthRowButton = { 20, 170, 430, 35, 5, WHITE, BLACK, BLUE };
+Button SecondRowButton = { 20, 60, 430, 35, 5, WHITE, BLACK, BLUE };
+Button ThirdRowButton = { 20, 100, 430, 35, 5, WHITE, BLACK, BLUE };
+Button FourthRowButton = { 20, 140, 430, 35, 5, WHITE, BLACK, BLUE };
+Button FifthRowButton = { 20, 180, 430, 35, 5, WHITE, BLACK, BLUE };
 
 #define sw_width 65
 Button Switch1 = { 20, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
@@ -165,7 +165,7 @@ Button Switch3 = { 180, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
 Button Switch5 = { 260, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
 Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };
 
-Button Terminal = { 0, 240, 470, 240, 5, WHITE, BLACK, BLUE };  // inset to try and get printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
+Button Terminal = { 0, 240, 475, 235, 5, WHITE, BLACK, BLUE };  // inset to try and get printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
 //for selections
 Button FullTopCenter = { 80, 0, 320, 55, 5, BLUE, WHITE, BLACK };
 Button Full0Center = { 80, 55, 320, 55, 5, BLUE, WHITE, BLACK };
@@ -636,12 +636,13 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         DataChanged = true;
       }  // do the scan again
       if (CheckButton(SecondRowButton)) {
-        if ((NetworksFound >= 1) && (wifissidpointer >= 1)) {
+        Serial.printf(" * Debug wifissidpointer=%i \n",wifissidpointer);
+        if ((NetworksFound >= 1) && (wifissidpointer <= NetworksFound)) {
           WiFi.SSID(wifissidpointer).toCharArray(Current_Settings.ssid, sizeof(Current_Settings.ssid) - 1);
-          Serial.printf(" Update ssid to <%s>", Current_Settings.ssid);
+          Serial.printf("Update ssid to <%s> \n", Current_Settings.ssid);
           Display_Page = -1;
         } else {
-          Serial.println(" Update ssid via keyboard");
+          Serial.println("Update ssid via keyboard");
           Display_Page = -2;
         }
       }
@@ -697,12 +698,15 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         gfx->setTextColor(BLACK);
         gfx->setTextSize(1);
         EEPROM_READ();
-        ShowToplinesettings(Saved_Settings, "SAVED");
+        ShowToplinesettings(Saved_Settings, "EEPROM:");
         setFont(4);
-        gfx->setCursor(180, 180);
-        GFXBorderBoxPrintf(SecondRowButton, "Set SSID <%s>", Current_Settings.ssid);
-        GFXBorderBoxPrintf(ThirdRowButton, "Set Password <%s>", Current_Settings.password);
-        GFXBorderBoxPrintf(FourthRowButton, "Set UDP Port <%s>", Current_Settings.UDP_PORT);
+        //gfx->setCursor(180, 180);
+        GFXBorderBoxPrintf(SecondRowButton, "SSID <%s>", Current_Settings.ssid);
+        AddTitleBorderBox(0,SecondRowButton, "Current Setting");
+        GFXBorderBoxPrintf(ThirdRowButton, "Password <%s>", Current_Settings.password);
+        AddTitleBorderBox(0,ThirdRowButton, "Current Setting");
+        GFXBorderBoxPrintf(FourthRowButton, "UDP Port <%s>", Current_Settings.UDP_PORT);
+        AddTitleBorderBox(0,FourthRowButton, "Current Setting");
         GFXBorderBoxPrintf(Switch1, Current_Settings.Serial_on On_Off);  //A.Serial_on On_Off,  A.UDP_ON On_Off, A.ESP_NOW_ON On_Off
         AddTitleBorderBox(0,Switch1, "Serial");
         GFXBorderBoxPrintf(Switch2, Current_Settings.UDP_ON On_Off);
@@ -711,7 +715,8 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         AddTitleBorderBox(0,Switch3, "ESP-Now");
        // GFXBorderBoxPrintf(Switch5, Current_Settings.Log_ON On_Off);
        // AddTitleBorderBox(0,Switch5, "Log");
-        GFXBorderBoxPrintf(Switch4, "UPDATE");
+       Serial.printf(" Compare saved and Current %i /n",CompStruct(Saved_Settings,Current_Settings));
+        GFXBorderBoxPrintf(Switch4,  CompStruct(Saved_Settings,Current_Settings)? "-same-" :"UPDATE");
         AddTitleBorderBox(0,Switch4, "EEPROM");
         GFXBorderBoxPrintf(Full5Center, "Logger and Debug");
        // GFXBorderBoxPrintf(Terminal, "- NMEA DATA -");  // moved to page -21
@@ -749,13 +754,13 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(Switch4)) {
         EEPROM_WRITE(Current_Settings);
         delay(50);
-        Display_Page = 0;
-        
+       // Display_Page = 0;
+        DataChanged = true;
       };
 
 
       if (CheckButton(TOPButton)) { Display_Page = 0; }
-      if (CheckButton(Full0Center)) { Display_Page = 0; }
+      //if (CheckButton(Full0Center)) { Display_Page = 0; }
       if (CheckButton(SecondRowButton)) { Display_Page = -5; };
       if (CheckButton(ThirdRowButton)) { Display_Page = -3; };
       if (CheckButton(FourthRowButton)) { Display_Page = -4; };
@@ -1255,7 +1260,6 @@ void loop() {
 
   if ((Current_Settings.Log_ON) && (millis() >= LogInterval)) {
     LogInterval = millis() + 5000;
-
     LOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f ,%4.0f ,%f ,%f \r\n",
         int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
         BoatData.STW.data, BoatData.SOG.data, BoatData.WaterDepth.data, BoatData.WindSpeedK.data,
@@ -1422,33 +1426,38 @@ void EEPROM_WRITE(MySettings A) {
 void EEPROM_READ() {
   int key;
   EEPROM.begin(512);
-  Serial.println("READING EEPROM");
+  Serial.print("READING EEPROM ");
   gfx->println(" EEPROM READING ");
   EEPROM.get(1, key);
-  Serial.printf(" read %i  default %i \n", key, Default_Settings.EpromKEY);
+ // Serial.printf(" read %i  default %i \n", key, Default_Settings.EpromKEY);
   if (key == Default_Settings.EpromKEY) {
     EEPROM.get(10, Saved_Settings);
-    Serial.println("Using EEPROM settings");
+    Serial.println("using EEPROM settings");
     gfx->println("Using EEPROM settings");
   } else {
     Saved_Settings = Default_Settings;
-    gfx->println("Using DEFAULTS");
+    gfx->println("Key wrong: using DEFAULTS");
     Serial.println("Using DEFAULTS");
     EEPROM_WRITE(Default_Settings);
   }
 }
 
 
-boolean CompStruct(MySettings A, MySettings B) {  // Does NOT compare the display page!
-  bool same = false;
+boolean CompStruct(MySettings A, MySettings B) {  // Does NOT compare the display page number or key!
+  bool same = true;
   // have to check each variable individually
-  if (A.EpromKEY == B.EpromKEY) { same = true; }
-  if (A.UDP_PORT == B.UDP_PORT) { same = true; }
-  if (A.UDP_ON == B.UDP_ON) { same = true; }
-  if (A.ESP_NOW_ON == B.ESP_NOW_ON) { same = true; }
-  if (A.Serial_on == B.Serial_on) { same = true; }
-  if (A.ssid == B.ssid) { same = true; }
-  if (A.password == B.password) { same = true; }
+  //if (A.EpromKEY == B.EpromKEY) { same = true; }
+  
+  if (A.UDP_ON != B.UDP_ON) { same = false; }
+  if (A.ESP_NOW_ON != B.ESP_NOW_ON) { same = false; }
+  if (A.Serial_on != B.Serial_on) { same = false; }
+  //Serial.print(" DEBUG ");Serial.print(A.ssid); Serial.print(" and ");Serial.println(B.ssid);
+  // these are char strings, so need strcmp to compare ...if strcmp==0 they are equal
+  if (strcmp(A.UDP_PORT,B.UDP_PORT) != 0) { same = false; }
+  if (strcmp(A.ssid,B.ssid) != 0) { same = false; }
+  if (strcmp(A.password,B.password) != 0) { same = false; }
+  
+  //Serial.print("Result same = ");Serial.println(same);
   return same;
 }
 
@@ -1606,7 +1615,7 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
       Serial.print("** Connected.: ");
       IsConnected = true;
       gfx->println(" Using :");
-      gfx->print(WiFi.SSID());
+      gfx->println(WiFi.SSID());
       Serial.print(" *Running with:  ssid<");
       Serial.print(WiFi.SSID());
       Serial.println(">");
@@ -1620,7 +1629,7 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
       WiFi.begin(Current_Settings.ssid, Current_Settings.password);
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-      Serial.print("The ESP32 has received an IP address from the network");
+      Serial.print("The ESP32 has received IP address :");
       gfx->print("IP: ");
       gfx->println(WiFi.localIP());
       Serial.println(WiFi.localIP());
