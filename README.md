@@ -47,8 +47,9 @@ Short video demo here :
 
 https://youtube.com/shorts/24qs9CJK5vo?si=zCDUuTbXkYfHtEDB
 
-=======
+
 #FEATURES:
+
 Multiple display options: Main display is a 'quad' with Wind, STW, DEPTH and SOG.
 separate additional pages display each of these variables, and can also display a graph of previous values.
 Code is (relatively!) simple to modify to create new pages for the display.
