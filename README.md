@@ -2,15 +2,15 @@
 
 ![Sdisplay](https://github.com/user-attachments/assets/e3a0ba0e-b552-46d3-bceb-dcc11c7a620e)
 
-=======
 This project is a Wireless Display for Boats
 It requires the boat to have a wireless NMEA multiplexer that repeats NMEA instrumentation on UDP.
 But it also accepts NMEA data over ESP-NOW from suitable multiplexers such as VELA-Naviga types: 
 https://www.vela-navega.com/index.php/multiplexers
 
-=======
- # HOW TO INSTALL FIRST TIME
-First, plug your module into a com port on your PC and record which port it is using. If confused, check device Manager and look for the USB-SERIAL CH340 port. 
+# HOW TO INSTALL FIRST TIME
+ 
+First, plug your module into a com port on your PC and record which port it is using. 
+If confused, check device Manager and look for the USB-SERIAL CH340 port. 
 Remember the port number!
 Download the Zip file of the GitHub Project. (green button -<>CODE and select 'Download Zip')
 save the file and extract all the files using a zip tool to somewhere on your PC. - I suggest /downloads.
@@ -31,7 +31,7 @@ If you do not see the picture, and just get the White text, the module has not r
 It can be quite fussy. 
 (*) Windows may bring up a blue box saying "Windows Protected your PC", as it does not like running unrecognised batch files. 
 select "More Info" and click on "Run anyway". 
-=======
+
 # Navigating the Menu
 
 The module will start with the "Quad" instrument display. Touching each quadrant will select a different display page.
