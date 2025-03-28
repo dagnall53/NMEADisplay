@@ -59,7 +59,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = " Version 2.0";
+const char soft_version[] = " Version 2.0 ";
 
 
 //set up Audio
