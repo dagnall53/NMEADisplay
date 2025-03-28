@@ -1,14 +1,52 @@
 # NMEADisplay
+
 ![Sdisplay](https://github.com/user-attachments/assets/e3a0ba0e-b552-46d3-bceb-dcc11c7a620e)
 
 =======
 This project is a Wireless Display for Boats
 It requires the boat to have a wireless NMEA multiplexer that repeats NMEA instrumentation on UDP.
-but it also accepts NMEA data over ESP-NOW from suitable multiplexers such as VELA-Naviga types: 
+But it also accepts NMEA data over ESP-NOW from suitable multiplexers such as VELA-Naviga types: 
 https://www.vela-navega.com/index.php/multiplexers
 
+=======
+ # HOW TO INSTALL FIRST TIME
+First, plug your module into a com port on your PC and record which port it is using. If confused, check device Manager and look for the USB-SERIAL CH340 port. 
+Remember the port number!
+Download the Zip file of the GitHub Project. (green button -<>CODE and select 'Download Zip')
+save the file and extract all the files using a zip tool to somewhere on your PC. - I suggest /downloads.
+You will then have a directory something like: C:\Users\admin\Downloads\NMEADisplay-main\
+Open the directory in a file browser and navigate to the subdirectory:
+C:\Users\admin\Downloads\NMEADisplay-main\NMEADisplay-main\build\esp32.esp32.esp32s3
+In this folder is a batch file called ProgramBoard.bat.
+Double click this bat file (see below*) and it will start and a new DOS prompt window will open and ask: 
+Enter Com port number: ... enter your com port number (eg 8) and press return. 
+The Esptool program will upload the program onto your board and it should restart. 
+You will next need to get a new microSD card, ( I used 4Gb), and format it using FAT32.
+Then copy the whole of the "SdRoot" folder onto the SD card. 
+You should then see it will have two sub directories: edit and logs. (If it does not have the logs sub directory, then add it!);
+The edit subdirectory wil have one file 'index.htm', which is vital for the Webeditor!.
+The root of the SD should have three files, logo.jpg (the start screen image), startws.htm, (a file that runs the webserver), and StartSound.mp3. ( a file that will play on modified boards if they have sound).
+Re insert the SD card into the module and restart and you should get the colour picture of a clipper ship and White text showing the program starting up. 
+If you do not see the picture, and just get the White text, the module has not recognised the SD card, and you need to try a different one. 
+It can be quite fussy. 
+(*) Windows may bring up a blue box saying "Windows Protected your PC", as it does not like running unrecognised batch files. 
+select "More Info" and click on "Run anyway". 
+=======
+# Navigating the Menu
 
-Short video demo : https://youtube.com/shorts/24qs9CJK5vo?si=zCDUuTbXkYfHtEDB
+The module will start with the "Quad" instrument display. Touching each quadrant will select a different display page.
+
+
+
+
+
+
+
+
+Short video demo here : 
+
+https://youtube.com/shorts/24qs9CJK5vo?si=zCDUuTbXkYfHtEDB
+
 =======
 #FEATURES:
 Multiple display options: Main display is a 'quad' with Wind, STW, DEPTH and SOG.
