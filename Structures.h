@@ -26,7 +26,7 @@ struct MyColors {  // for later Day/Night settings
 };
 
 struct instData {  // struct to hold instrument data AND the time it was updated.
-  double data;
+  double data,lastdata;
   unsigned long updated;
   bool displayed;
   bool greyed;
@@ -44,7 +44,7 @@ struct tBoatData {
   double Variation, GPSTime, Latitude, Longitude, GPSDate,  // keep GPS stuff in double..
     Altitude, HDOP, GeoidalSeparation, DGPSAge,
     WaterTemperature, Offset, RPM;
-
+//not used .. yet?
   int GPSQualityIndicator, SatelliteCount, DGPSReferenceStationID;
   bool MOBActivated;
   char Status;
@@ -57,6 +57,7 @@ struct Button {
   bool Keypressed;           //used by keypressed
   unsigned long LastDetect;  //used by keypressed
   int PrintLine;             // used for UpdateLinef()
+  bool screenfull,debugpause;
 };
 
 struct Phv {

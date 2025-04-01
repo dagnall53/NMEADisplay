@@ -5,7 +5,7 @@ Pins and defines for GFX - various versions!
 #ifndef _ESPGFDEF_H_
 #define _ESPGFDEF_H_
 
-//****  Later  GFX VERSIONS HAVE Refactored  *BUS config and miss the ips (colour inversion??) setup  
+//****  Later  GFX VERSIONS HAVE this Refactored  *BUS config and miss the ips (colour inversion??) setup  
 #define GFX_BL 38
 Arduino_DataBus *bus = new Arduino_SWSPI(
   GFX_NOT_DEFINED /* DC */,
@@ -39,9 +39,7 @@ Arduino_RGB_Display *gfx = new Arduino_RGB_Display(
 /*
 Note: Use Type1 modified (line ~ 511)  or type 9 modified 
 WRITE_COMMAND_8, 0x20, // 0x20 normal, 0x21 IPS
-WRITE_C8_D8, 0x3A, 0x50, // 0x70 RGB888, 0x60 RGB666, 0x50 RGB565
-try 0x60 ?
-
+WRITE_C8_D8, 0x3A, 0x60, // 0x70 RGB888, 0x60 RGB666, 0x50 RGB565
  
 */
 //** OTHER PINS
@@ -69,9 +67,6 @@ try 0x60 ?
 #define TOUCH_WIDTH  480
 #define TOUCH_HEIGHT 480
 */
-
-// workss with (https://github.com/moononournation/Arduino_GFX) GFX 1.3.1 where:
-
 
 
 
