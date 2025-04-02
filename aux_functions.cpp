@@ -251,102 +251,115 @@ int TopLeftYforthisLine(Button button, int printline) {
   return button.v + button.bordersize + (printline * (text_height + 2));
 
 }
-
-
-void UpdateLinef(uint16_t color,int font,Button &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
-  //static int button.PrintLine; // place in button so its static for each button!
+void CommonSubUpdateLinef(uint16_t color,int font, Button &button, const char* msg) { 
   int LinesOfType;
   int16_t x, y, TBx1, TBy1;
   uint16_t TBw, TBh;
   int typingspaceH, typingspaceW;
   int local;
-   if (button.screenfull && button.debugpause) { return; } 
   local = MasterFont;
   // can now change font iside this
   setFont(font);
   typingspaceH = button.height - (2 * button.bordersize);
   typingspaceW = button.width - (2 * button.bordersize);
   LinesOfType = typingspaceH / (text_height + 2);  //assumes textsize 1?
-  static char msg[300] = { '\0' };
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(msg, 128, fmt, args);
-  va_end(args);
-  int len = strlen(msg);
   x = button.h + button.bordersize;  // shift inwards for border
-  gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
-  gfx->setTextWrap(true);
-  //y = TopLeftYforthisLine(button, button.PrintLine);  //NOT Needed for the text bounds?
-  gfx->getTextBounds(msg, 0, 0, &TBx1, &TBy1, &TBw, &TBh);
-  gfx->fillRect(x, TopLeftYforthisLine(button, button.PrintLine)+1, typingspaceW, TBh + 3, button.backcol);
-  gfx->setCursor(x, TopLeftYforthisLine(button, button.PrintLine) + text_offset + 1);  // puts cursor on a specific line with 2 pixels of V spacing
-  gfx->setTextColor(color);
-  gfx->print(msg);
-  //Serial.printf(" lines  tbh %i textheight %i  >lines are %i  \n",TBh,text_height,TBh/text_height);                                                       // lines should be blanked by previous filRect
-  button.PrintLine = button.PrintLine + 1;// ?? was (TBh / (text_height + 2)) + 1;
-  if (button.PrintLine >= (LinesOfType)) {
+    if (button.PrintLine >= (LinesOfType+1)) {
     button.screenfull = true;
     if (!button.debugpause) {
       button.PrintLine = 0;
+      //  gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
+      //  gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
+      //             button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.backcol);
+
       gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH, button.backcol);
       button.screenfull = false;
     }
   }
-  gfx->setTextBound(0, 0, 480, 480);  //MUST RESET IT
-  setFont(local);
-}
-
-
-void UpdateLinef(int font, Button &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
-  //static int button.PrintLine; // place in button so its static for each button!
-  int LinesOfType;
-  int16_t x, y, TBx1, TBy1;
-  uint16_t TBw, TBh;
-  int typingspaceH, typingspaceW;
-  int local;
-   if (button.screenfull && button.debugpause) { return; } 
-  local = MasterFont;
-  // can now change font iside this
-  setFont(font);
-  typingspaceH = button.height - (2 * button.bordersize);
-  typingspaceW = button.width - (2 * button.bordersize);
-  LinesOfType = typingspaceH / (text_height + 2);  //assumes textsize 1?
-  static char msg[300] = { '\0' };
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(msg, 128, fmt, args);
-  va_end(args);
-  int len = strlen(msg);
-  x = button.h + button.bordersize;  // shift inwards for border
   //gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
   gfx->setTextWrap(false);
  // y = TopLeftYforthisLine(button, button.PrintLine);  //Needed for the text bounds?
   gfx->getTextBounds(msg, 0, 0, &TBx1, &TBy1, &TBw, &TBh);
   // need to clear ??
   gfx->fillRect(x, TopLeftYforthisLine(button, button.PrintLine)+1, typingspaceW, TBh + 3, button.backcol);
-
   gfx->setCursor(x, TopLeftYforthisLine(button, button.PrintLine) + text_offset + 1);  // puts cursor on a specific line with 2 pixels of V spacing
-  gfx->setTextColor(button.textcol);
-
+  gfx->setTextColor(color);
   gfx->print(msg);
   //Serial.printf(" lines  tbh %i textheight %i  >lines are %i  \n",TBh,text_height,TBh/text_height);                                                       // lines should be blanked by previous filRect
-  button.PrintLine = button.PrintLine + 1;//(TBh / (text_height + 2)) + 1;
-  
-  if (button.PrintLine >= (LinesOfType)) {
-    button.screenfull = true;
-    if (!button.debugpause) {
-      button.PrintLine = 0;
-       gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
-       gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
-                  button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.backcol);
-
-     // gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH, button.backcol);
-      button.screenfull = false;
-    }
-  }
+  button.PrintLine = button.PrintLine + 1;//  FOR NEXT LINE (TBh / (text_height + 2)) + 1;
   gfx->setTextBound(0, 0, 480, 480);  //MUST RESET IT
   setFont(local);
 }
+
+void UpdateLinef(uint16_t color,int font, Button &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
+   if (button.screenfull && button.debugpause) { return; } 
+  //Serial.printf(" lines  TypingspaceH =%i  number of lines=%i printing line <%i>\n",typingspaceH,LinesOfType,button.PrintLine); 
+  static char msg[300] = { '\0' };
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  CommonSubUpdateLinef(color,font, button, msg);
+}
+
+// void UpdateLinef(uint16_t color,int font,Button &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
+//   //static int button.PrintLine; // place in button so its static for each button!
+//   int LinesOfType;
+//   int16_t x, y, TBx1, TBy1;
+//   uint16_t TBw, TBh;
+//   int typingspaceH, typingspaceW;
+//   int local;
+//    if (button.screenfull && button.debugpause) { return; } 
+//   local = MasterFont;
+//   // can now change font iside this
+//   setFont(font);
+//   typingspaceH = button.height - (2 * button.bordersize);
+//   typingspaceW = button.width - (2 * button.bordersize);
+//   LinesOfType = typingspaceH / (text_height + 2);  //assumes textsize 1?
+//   static char msg[300] = { '\0' };
+//   va_list args;
+//   va_start(args, fmt);
+//   vsnprintf(msg, 128, fmt, args);
+//   va_end(args);
+//   int len = strlen(msg);
+//   x = button.h + button.bordersize;  // shift inwards for border
+//   gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
+//   gfx->setTextWrap(true);
+//   //y = TopLeftYforthisLine(button, button.PrintLine);  //NOT Needed for the text bounds?
+//   gfx->getTextBounds(msg, 0, 0, &TBx1, &TBy1, &TBw, &TBh);
+//   gfx->fillRect(x, TopLeftYforthisLine(button, button.PrintLine)+1, typingspaceW, TBh + 3, button.backcol);
+//   gfx->setCursor(x, TopLeftYforthisLine(button, button.PrintLine) + text_offset + 1);  // puts cursor on a specific line with 2 pixels of V spacing
+//   gfx->setTextColor(color);
+//   gfx->print(msg);
+//   //Serial.printf(" lines  tbh %i textheight %i  >lines are %i  \n",TBh,text_height,TBh/text_height);                                                       // lines should be blanked by previous filRect
+//   button.PrintLine = button.PrintLine + 1;// ?? was (TBh / (text_height + 2)) + 1;
+//   if (button.PrintLine >= (LinesOfType)) {
+//     button.screenfull = true;
+//     if (!button.debugpause) {
+//       button.PrintLine = 0;
+//       gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH, button.backcol);
+//       button.screenfull = false;
+//     }
+//   }
+//   gfx->setTextBound(0, 0, 480, 480);  //MUST RESET IT
+//   setFont(local);
+// }
+
+
+void UpdateLinef(int font, Button &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
+   if (button.screenfull && button.debugpause) { return; } 
+  //Serial.printf(" lines  TypingspaceH =%i  number of lines=%i printing line <%i>\n",typingspaceH,LinesOfType,button.PrintLine); 
+  static char msg[300] = { '\0' };
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  CommonSubUpdateLinef(button.textcol,font, button, msg);
+}
+
+
 
 
 void Sub_for_UpdateTwoSize(bool horizCenter, bool vertCenter, bool erase,int bigfont, int smallfont, Button button, instData &data, const char *fmt, ...) {  // TWO font print. separates at decimal point Centers text in space GREYS if data is OLD
@@ -387,7 +400,7 @@ void Sub_for_UpdateTwoSize(bool horizCenter, bool vertCenter, bool erase,int big
   //Serial.printf("  *** DEBUG text_offset %i  and y%i  TBy1 %i \n",text_offset,y, TBy1); //Serial.print(digits);Serial.print(decimal);Serial.println(">");  //debugcheck for font too big - causes crashes?
   setFont(smallfont);                                                           // smaller for second part after decimal point
   gfx->getTextBounds(decimal, x+TBw1,y, &TBx2, &TBy2, &TBw2, &TBh2);  // width of smaller stuff
-  gfx->setTextBound(button.h+ button.bordersize, button.v + button.bordersize, typingspaceW +button.bordersize, typingspaceH+button.bordersize);
+  gfx->setTextBound(button.h+ button.bordersize, button.v + button.bordersize, typingspaceW , typingspaceH);
    if (((TBw1 + TBw2) >= typingspaceW) || ((TBh1) >= typingspaceH)) {
     Serial.print("***DEBUG <");Serial.print(msg);Serial.print("> became <");Serial.print(digits);Serial.print(decimal);
     Serial.println("> and was too big to print in box");
@@ -669,7 +682,27 @@ void PfillCircle(Phv P1, int rad, uint16_t COLOUR) {
   gfx->fillCircle(P1.h, P1.v, rad, COLOUR);
 }
 
+void DrawGPSPlot(bool reset, Button button,tBoatData BoatData, double magnification ){
+    static double startposlat,startposlon;
+        double LatD,LongD; //deltas
+        int h,v; 
+       if (BoatData.Latitude != NMEA0183DoubleNA) {
+       if (reset){startposlat=BoatData.Latitude;startposlon=BoatData.Longitude;}
+       
+        h=button.h+((button.width)/2);
+        v=button.v+((button.height)/2);
+        // magnification 1 degree is roughly 111111 m
+        AddTitleInsideBox(1,1, button, "circle:%4.1fm", float((button.height)/(2*(magnification/111111))));
+        gfx->drawCircle(h,v,(button.height)/2,button.BorderColor);
+        AddTitleBorderBox(0,button, "Magnification:%4.1f pixel/m",float(magnification)/111111);
+        if (startposlon==0){startposlat=BoatData.Latitude;startposlon=BoatData.Longitude;}
+        LongD= h+ ((BoatData.Longitude-startposlon)* magnification);  
+        LatD = v- ((BoatData.Latitude-startposlat)* magnification); // negative because display is top left to bottom right!
+       //set limits!! ?
+        gfx->fillCircle(LongD, LatD, 4, button.textcol);
 
+       } 
+}
 
 
 

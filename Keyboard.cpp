@@ -20,7 +20,7 @@ int caps = 0;
 bool change = false;
 int sz = 3;  //Modulus of key definitions
 int Keyboard_X =0;
-int Keyboard_Y = 240;
+int Keyboard_Y = 200;
 int KBD_size = 2;  //generic size modifier for Kbd 1=small, 2=480 wide
 /*
               //30 is key V spacing AT SIZE 1
@@ -73,8 +73,8 @@ void Use_Keyboard(char* DATA, int sizeof_data) {
     //Serial.printf(" Pressure test %i  KEYchr<%i> Bool <%i>\n",ts.points[0].size,ts.points[0].x, ts.points[0].y,KEY,st );
   }
 
-  if (!KeyPressUsed && (ts.isTouched) && (ts.points[0].size > 35) && (KeyOver(ts.points[0].x, ts.points[0].y, KEY, caps))) {
-    Serial.printf(" Keyboard check inputsizeof<%i>   sizeof_here *data(%i)   currentlen<%i>\n", sizeof_data, sizeof(*DATA), strlen(Local_var));
+  if (!KeyPressUsed && (ts.isTouched) && (ts.points[0].size > 10) && (KeyOver(ts.points[0].x, ts.points[0].y, KEY, caps))) {
+  //  Serial.printf(" Keyboard check inputsizeof<%i>   sizeof_here *data(%i)   currentlen<%i>\n", sizeof_data, sizeof(*DATA), strlen(Local_var));
     KeyPressUsed = true;
     lastkeypressed = millis();
     Command_Key = false;
@@ -93,7 +93,7 @@ void Use_Keyboard(char* DATA, int sizeof_data) {
       Local_var[0] = '\0';
       Command_Key = true;
     }
-    if (!strcmp(KEY, "rst")) {
+    if (!strcmp(KEY, "MEM")) {
       strcpy(Local_var, DATA);
       //Serial.printf(" reset  <%s> \n",Local_var);
       WriteinKey(result_positionX, result_positionY, 1, Local_var);
@@ -140,6 +140,7 @@ void keyboard(int type) {
  //Serial.printf(" setup keyboard %i  was%i \n",type,lasttype);
   if (type == -1){lasttype=6; return;} // silly number to reset things
   if (lasttype == type) {return;} // redraws only if keys change
+  caps=type;
   Serial.printf("\n*** Start keyboard type %i  last type%i \n",type,lasttype);
   lasttype=type;
   ///gfx->setFont(&FreeMonoBold18pt7b);
@@ -147,7 +148,7 @@ void keyboard(int type) {
 
   gfx->setTextSize(1);
   gfx->setTextColor(WHITE);// reset in case its has been changed!
-  gfx->fillRect(Keyboard_X,Keyboard_Y,480-Keyboard_X,480-Keyboard_Y,BLACK);
+  gfx->fillRect(Keyboard_X,Keyboard_Y-5,480-Keyboard_X,240,BLACK);
   for (int x = 0; x < 10; x++) {
     int a = KBD_size*((x * 4) + (20 * x) + 2) + Keyboard_X;
     gfx->drawRoundRect(a, Keyboard_Y, 20*KBD_size, 25*KBD_size, 3, WHITE);
@@ -173,7 +174,7 @@ void keyboard(int type) {
    DrawKey(2,50, 3,30,"CLR");
    DrawKey(2,155, 3,30,"DEL");
    DrawKey(2,190, 3,50,"ENT");
-   DrawKey(2,5, 3,30,"rst");
+   DrawKey(2,5, 3,30,"MEM");
   gfx->drawRoundRect((90*KBD_size)+ Keyboard_X, Keyboard_Y + (90*KBD_size), 60*KBD_size, 25*KBD_size, 3, WHITE);
   setFont(0);
 }
@@ -234,7 +235,7 @@ bool KeyOver(int x, int y, char* Key, int type){ //char array version
   if (XYinBox(x,y,55,3,30)){ strcpy(Key,"CLR");Keyfound=true;}
   if (XYinBox(x,y,90,3,60)){ strcpy(Key," ");Keyfound=true;}
   if (XYinBox(x,y,155,3,30)){strcpy(Key,"DEL");Keyfound=true;}
-  if (XYinBox(x,y,10,3,30)){strcpy(Key,"rst");Keyfound=true;}
+  if (XYinBox(x,y,10,3,30)){strcpy(Key,"MEM");Keyfound=true;}
   
   if (XYinBox(x,y,190,3,50)){strcpy(Key,"ENT");Keyfound=true;}
  return Keyfound;

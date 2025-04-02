@@ -30,6 +30,7 @@ void PfillCircle(Phv P1, int rad, uint16_t COLOUR);
 
 
 void DrawGraph (bool reset,Button button, instData &DATA, double dmin, double dmax);
+void DrawGPSPlot(bool reset, Button button,tBoatData BoatData, double magnification );
 
 int Circular(int x, int min,int max);
 int GraphRange( double data, int low, int high, double dmin ,double dmax );
