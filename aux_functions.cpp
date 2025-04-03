@@ -716,13 +716,13 @@ void DrawGraph( Button button, instData &DATA, double dmin, double dmax,int font
                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.backcol);
     index = 1;
     // I think this is better done explicitly when DrawGraph is called
-    // AddTitleInsideBox(font,3, button, " %s", msg);
-    // AddTitleInsideBox(font,1, button, " %4.0f%s", dmax,units);
-    // AddTitleInsideBox(font,2, button, " %4.0f%s", dmin,units);
+    AddTitleInsideBox(font,3, button, " %s", msg);
+    AddTitleInsideBox(font,1, button, " %4.0f%s", dmax,units);
+    AddTitleInsideBox(font,2, button, " %4.0f%s", dmin,units);
   }
   //PfillCircle(graph[lastindex], dotsize, button.backcol); // blank the last circle (if using 'dot on end of line approach') 
 
-  if (index == 1) { // redraw text in case it gets overwritten
+  if (index == 2) { // redraw text in case it gets overwritten
     AddTitleInsideBox(font,3, button, " %s", msg);
     AddTitleInsideBox(font,1, button, " %4.0f%s", dmax,units);
     AddTitleInsideBox(font,2, button, " %4.0f%s", dmin,units);
