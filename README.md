@@ -13,7 +13,7 @@ First, plug your module into a com port on your PC and record which port it is u
 If confused, check device Manager and look for the USB-SERIAL CH340 port. 
 Remember the port number!
 Download the Zip file of the GitHub Project. (green button -<>CODE and select 'Download Zip')
-save the file and extract all the files using a zip tool to somewhere on your PC. - I suggest /downloads.
+Save the file and extract all the files using a zip tool to somewhere on your PC. - I suggest /downloads.
 You will then have a directory something like: C:\Users\admin\Downloads\NMEADisplay-main\
 Open the directory in a file browser and navigate to the subdirectory:
 C:\Users\admin\Downloads\NMEADisplay-main\NMEADisplay-main\build\esp32.esp32.esp32s3
@@ -21,12 +21,15 @@ In this folder is a batch file called ProgramBoard.bat.
 Double click this bat file (see below*) and it will start and a new DOS prompt window will open and ask: 
 Enter Com port number: ... enter your com port number (eg 8) and press return. 
 The Esptool program will upload the program onto your board and it should restart. 
+
 You will next need to get a new microSD card, ( I used 4Gb), and format it using FAT32.
 Then copy the whole of the "SdRoot" folder onto the SD card. 
 You should then see it will have two sub directories: edit and logs.
 The edit subdirectory will have one file 'index.htm', which is vital for the Webeditor!.
-The root of the SD should have three files, logo.jpg (the start screen image), startws.htm, (a file that runs the webserver), and StartSound.mp3. ( a file that will play on modified boards if they have sound).
-Re insert the SD card into the module and restart. You should get the colour picture of a clipper ship and white text showing the program starting up. 
+The root of the SD should have four files, config.txt, logo.jpg (the start screen image), startws.htm, (a file that runs the webserver), and StartSound.mp3. ( a file that will play on modified boards if they have sound).
+Re insert the SD card into the module and restart. 
+
+You should get the colour picture of a clipper ship and white text showing the program starting up. 
 If you do not see the picture, and just get the white text, the module has not recognised the SD card, and you need to try a different one. 
 It can be quite fussy.
  
@@ -40,6 +43,15 @@ For your SSID, Go to Wifi Settings Click on "set SSID", and you will be presente
 
 You can select a network by touching it and it will update in the second box and show (eg) Select<GUESTBOAT>?
 if you touch this, it will select that SSID and return you to the main Wif Settings page. Press EEPROM "UPDATE" and then "Save/Reset to Quad NMEA" to save this new SSID in the eeprom. 
+
+# USING Webbrowser to select settings.
+
+Use the Webbrowser (see later) or put the SD card in a PC and open (double click on) the file "config.txt".
+This is a JSON file with settings for wifi etc.
+Edit the file and save it .
+The Multiplexer will check this file on startup and use these settings. 
+If you have no SD card, it will revert to using its internal EEPROM to save the settings. 
+You can select which 'page' displays after startup by changing the number "Start_Page". 4 is the quad display and the default. 
 
 
 # Navigating the Menu

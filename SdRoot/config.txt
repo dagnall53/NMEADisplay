@@ -1,0 +1,11 @@
+{
+  "Start_Page": 4,
+  "ssid": "GUESTBOAT",
+  "password": "12345678",
+  "UDP_PORT": "2000",
+  "Serial": true,
+  "UDP": true,
+  "ESP": false,
+  "LOG": false,
+  "NMEALOG": false
+}

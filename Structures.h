@@ -6,6 +6,11 @@ tBoatdata from Timo Llapinen by Dr.András Szép under GNU General Public Licens
 #ifndef _BoatData_H_
 #define _BoatData_H_
 
+struct JSONCONFIG {  // for the JSON set Defaults and user settings for displays 
+  int Start_Page ;
+
+};
+
 
 struct MySettings {  //key,ssid,PW,udpport, UDP,serial,Espnow
   int EpromKEY;      // Key is changed to allow check for clean EEprom and no data stored change in the default will result in eeprom being reset

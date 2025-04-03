@@ -606,13 +606,13 @@ void AddTitleInsideBox(int font, int pos, Button button, const char *fmt, ...) {
   //top right
   switch (pos) {
     case 1:  // top right
-      gfx->setCursor(button.h + button.width - TBw - button.bordersize, button.v + TBh);
+      gfx->setCursor(button.h + button.width - TBw - button.bordersize, button.v + TBh +button.bordersize);
       break;
     case 2:  //bottom right
       gfx->setCursor(button.h + button.width - TBw - button.bordersize, button.v + button.height - TBh);
       break;
     case 3:  //top left
-      gfx->setCursor(button.h, button.v + TBh);
+      gfx->setCursor(button.h, button.v + TBh +button.bordersize);
       break;
     case 4:  //bottom left
       gfx->setCursor(button.h, button.v + button.height - TBh);
@@ -625,38 +625,12 @@ void AddTitleInsideBox(int font, int pos, Button button, const char *fmt, ...) {
   setFont(Font_Before);  //Serial.println("Font selected is %i",MasterFont);
 }
 
-
-
-// void AddTitleBorderBox(int h, int v, uint16_t BorderColor, const char *fmt, ...) {  // add a title to the position
-//   int Font_Before;
-//   //Serial.println("Font at start is %i",MasterFont);
-//   Font_Before = MasterFont;
-//   setFont(0);
-//   static char Title[300] = { '\0' };
-//   int16_t x, y, TBx1, TBy1;
-//   uint16_t TBw, TBh;  // used in message buildup
-//   va_list args;
-//   va_start(args, fmt);
-//   vsnprintf(Title, 128, fmt, args);
-//   va_end(args);
-//   int len = strlen(Title);
-//   gfx->getTextBounds(Title, h, v, &TBx1, &TBy1, &TBw, &TBh);
-//   gfx->setTextColor(WHITE, BorderColor);
-//   if ((v - TBh) >= 0) {
-//     gfx->setCursor(h, v);
-//   } else {
-//     gfx->setCursor(h, v + TBh);
-//   }
-//   gfx->print(Title);
-//   setFont(Font_Before);  //Serial.println("Font selected is %i",MasterFont);
-// }
-
 int Circular(int x, int min, int max) {  // returns circulated data in range min to max
   // based on compass idea in sincos: Normalize the input  to the range min (0) to max (359)
   while (x < min)
-    x += max + 1;
+    x +=  max-min;
   while (x > max)
-    x -= max + 1;
+    x -=  max-min;
   return x;
 }
 
@@ -676,8 +650,16 @@ void PTriangleFill(Phv P1, Phv P2, Phv P3, uint16_t COLOUR) {
   gfx->fillTriangle(P1.h, P1.v, P2.h, P2.v, P3.h, P3.v, COLOUR);
 }
 void Pdrawline(Phv P1, Phv P2, uint16_t COLOUR) {
+  gfx->drawLine(P1.h+1, P1.v, P2.h+1, P2.v, COLOUR);
+  gfx->drawLine(P1.h, P1.v+1, P2.h, P2.v+1, COLOUR);
   gfx->drawLine(P1.h, P1.v, P2.h, P2.v, COLOUR);
+
+
+
 }
+
+
+
 void PfillCircle(Phv P1, int rad, uint16_t COLOUR) {
   gfx->fillCircle(P1.h, P1.v, rad, COLOUR);
 }
@@ -704,19 +686,26 @@ void DrawGPSPlot(bool reset, Button button,tBoatData BoatData, double magnificat
        } 
 }
 
-
-
-void DrawGraph(bool reset, Button button, instData &DATA, double dmin, double dmax) {
+void DrawGraph (Button button, instData &DATA, double dmin, double dmax){
+  DrawGraph(button, DATA, dmin, dmax, 8," "," ");
+}
+extern int Display_Page;
+void DrawGraph( Button button, instData &DATA, double dmin, double dmax,int font,const char *msg,const char *units ) {
+  bool reset = false;
   if (DATA.displayed) { return; }
   if (DATA.data==NMEA0183DoubleNA){return;}
+  static int Displaypage; // where were we last called from ??
+  if (Displaypage != Display_Page){reset=true; Displaypage=Display_Page;}
   static Phv graph[102];
   static int index, lastindex;
+  static bool haslooped;
   int dotsize;
   double data;
   data = DATA.data;
   dotsize = 4;
   if (reset) {
-    for (int x = 0; x <= 101; x++) {  //set all mid point
+    haslooped = false;
+    for (int x = 0; x <= 101; x++) {  //set all mid point (so it does not rub things out!)
       graph[x].v = (button.v + button.bordersize + (button.height / 2));
       graph[x].h = (button.h + button.bordersize + (button.width / 2));
     }
@@ -725,15 +714,18 @@ void DrawGraph(bool reset, Button button, instData &DATA, double dmin, double dm
     gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
     gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.backcol);
-    index = 0;
-    AddTitleInsideBox(0,1, button, "%4.0f", dmax);
-    AddTitleInsideBox(0,2, button, "%4.0f", dmin);
-
-    return;
+    index = 1;
+    // I think this is better done explicitly when DrawGraph is called
+    // AddTitleInsideBox(font,3, button, " %s", msg);
+    // AddTitleInsideBox(font,1, button, " %4.0f%s", dmax,units);
+    // AddTitleInsideBox(font,2, button, " %4.0f%s", dmin,units);
   }
   //PfillCircle(graph[lastindex], dotsize, button.backcol); // blank the last circle (if using 'dot on end of line approach') 
-  //Pdrawline(graph[index], graph[index + 1], button.backcol); // blank the old line
-  if (index == 0) {AddTitleInsideBox(0,1, button, "%4.0f", dmax);AddTitleInsideBox(0,2, button, "%4.0f", dmin);
+
+  if (index == 1) { // redraw text in case it gets overwritten
+    AddTitleInsideBox(font,3, button, " %s", msg);
+    AddTitleInsideBox(font,1, button, " %4.0f%s", dmax,units);
+    AddTitleInsideBox(font,2, button, " %4.0f%s", dmin,units);
     //AddTitleInsideBox(0,3, button, "Title3");
     //AddTitleInsideBox(0,4, button, "Title4");
   }
@@ -741,15 +733,21 @@ void DrawGraph(bool reset, Button button, instData &DATA, double dmin, double dm
   graph[index].v = GraphRange(data, button.v + button.height - button.bordersize - dotsize, button.v + button.bordersize + dotsize, dmin, dmax);
   graph[index].h = GraphRange(index, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, 100);
   //Serial.printf(" Debug Graph new data index %i.. data %f becomes ploth:%i  become plotv%i\n", index, data, graph[index].h, graph[index].v);
- // draw new line.. note is only one pixel thick!  
- // if (index >= 1) { Pdrawline(graph[index - 1], graph[index], button.textcol); }
- // if ((index >= 2) && (index <= 99)) { Pdrawline(graph[index - 2], graph[index - 1], button.textcol); }
- // just do circles!
-  PfillCircle(graph[Circular(index + 2, 0, 100)], dotsize, button.backcol); // blank the N=+1th  circle 
+ // note Pdrawline is only one pixel thick!  
+ //blank old line and old circle
+  
+  if ((haslooped) && (index>=1)){ // only erase if there is something to erase!
+  PfillCircle(graph[Circular(index + 1, 1, 100)], dotsize, button.backcol); // blank the N=+1th  circle
+  if(index<=99){Pdrawline(graph[Circular(index, 1, 100)], graph[Circular(index+1 , 1, 100)], button.backcol);}
+  if(index<=98) {Pdrawline(graph[Circular(index+1, 1, 100)], graph[Circular(index+2 , 1, 100)], button.backcol);}
+  }
+ 
+  if ((index>=2)&&(index<=99))  {Pdrawline(graph[Circular(index -1, 1, 100)], graph[Circular(index , 1, 100)], button.textcol);} 
   PfillCircle(graph[index], 4, button.textcol);
   lastindex = index;
-  index = Circular(index + 1, 0, 100);  //circular increment but not to zero
-  DATA.displayed = true;                //reset to false inside toNewStruct
+  index = Circular(index + 1, 1, 100);  //circular increment but not to zero
+  if (lastindex>=index) {haslooped=true;}
+  DATA.displayed = true;                //reset to false inside toNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
 
   // for (int x = 0; x <= 100; x++) {  //draw line from index-1 to index in text col
   //                                   // Pdrawline(graph[x], graph[x + 1], button.textcol);

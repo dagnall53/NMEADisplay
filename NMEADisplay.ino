@@ -48,7 +48,8 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 
 //For SD card (see display page -98 for test)
-
+//#define ARDUINOJSON_ENABLE_COMMENTS 1 // allow comments in the JSON FILE
+#include <ArduinoJson.h>
 #include <SD.h>  // pins set in GFX .h
 #include "SPI.h"
 #include "FS.h"
@@ -60,9 +61,86 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 2.2";
+const char soft_version[] = "Version 3.0";
+
+//************JSON SETUP STUFF to get setup parameters from the SD card to make it easy for user to change 
+// READ https://arduinojson.org/?utm_source=meta&utm_medium=library.properties
+// *********************************************************************************************************
+const char *Setupfilename = "/config.txt";  // <- SD library uses 8.3 filenames
+JSONCONFIG Display_Config;  
+
+void loadConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings) {
+  // Open file for reading
+  File file = SD.open(filename);
+  // Allocate a temporary JsonDocument
+   JsonDocument doc;
+  // Deserialize the JSON document
+  DeserializationError error = deserializeJson(doc, file);
+  if (error)  Serial.println(F("**Failed to read JSON file, using default configuration"));
+  // Copy values (or defaults) from the JsonDocument to the config / settings
+  config.Start_Page = doc["Start_Page"] | 4; // 4 is default page
+  // only change settings if we have read the file! else we will use the EEPROM settings
+  if (!error)
+  strlcpy(settings.ssid,                  // <- destination
+          doc["ssid"] | "GuestBoat",  // <- source and default in case Json is corrupt!
+          sizeof(settings.ssid));         // <- destination's capacity
+  strlcpy(settings.password,                  // <- destination
+          doc["password"] | "12345678",  // <- source and default 
+          sizeof(settings.password));         // <- destination's capacity   
+  strlcpy(settings.UDP_PORT,                  // <- destination
+          doc["UDP_PORT"] | "2000",  // <- source and default. 
+          sizeof(settings.UDP_PORT));         // <- destination's capacity                
+  // Close the file (Curiously, File's destructor doesn't close the file)
+  file.close();
+}
 
 
+void saveConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings) {
+  // Delete existing file, otherwise the configuration is appended to the file
+  SD.remove(filename);
+  // Open file for writing
+  File file = SD.open(filename, FILE_WRITE);
+  if (!file) {Serial.println(F("Failed to create file"));return;}
+  // Allocate a temporary JsonDocument
+  JsonDocument doc;
+  // Set the values in the JSON file.. // NOT ALL ARE read yet!!
+  //modify how the display works   
+  doc["Start_Page"]=config.Start_Page;
+
+  //now the settings WIFI etc.. 
+  doc["ssid"]=settings.ssid; 
+  doc["password"]=settings.password;
+  doc["UDP_PORT"]=settings.UDP_PORT;
+  doc["Serial"]=settings.Serial_on;
+  doc["UDP"]=settings.UDP_ON;
+  doc["ESP"]=settings.ESP_NOW_ON;
+  doc["LOG"]=settings.Log_ON;
+  doc["NMEALOG"]=settings.NMEA_log_ON;
+  // Serialize JSON to file
+  if (serializeJsonPretty(doc, file) == 0) { // use 'pretty format' with line feeds
+    Serial.println(F("Failed to write to file"));
+  }
+  // Close the file
+  file.close();
+}
+
+
+void printFile(const char *filename) {
+  // Open file for reading
+  File file = SD.open(filename);
+  Serial.println(" READING JSON SETUP ");
+  if (!file) {
+    Serial.println(F("Failed to read file"));
+    return;
+  }
+  // Extract each characters by one by one
+  while (file.available()) {
+    Serial.print((char)file.read());
+  }
+  Serial.println();
+  // Close the file
+  file.close();
+}
 //set up Audio
 Audio audio;
 
@@ -189,9 +267,8 @@ Button Full6Center = { 80, 415, 320, 55, 5, BLUE, WHITE, BLACK };// inteferes wi
 
 #define On_Off ? "ON " : "OFF"  // if 1 first case else second (0 or off) same number of chars to try and helps some flashing later
 
+//****************  GRAPHICS STUFF ************************
 // Draw the compass pointer at an angle in degrees
-
-
 void WindArrow2(Button button, instData Speed, instData& Wind) {
  // Serial.printf(" ** DEBUG  speed %f    wind %f ",Speed.data,Wind.data);
   bool recent = (Wind.updated >= millis() - 3000);
@@ -199,7 +276,6 @@ void WindArrow2(Button button, instData Speed, instData& Wind) {
   if (Wind.greyed) { return; }
   if (!recent && !Wind.greyed) { WindArrowSub(button, Speed, Wind); }
 }
-
 
 void WindArrowSub(Button button, instData Speed, instData& wind) {
   //Serial.printf(" ** DEBUG WindArrowSub speed %f    wind %f \n",Speed.data,wind.data);
@@ -235,7 +311,6 @@ void WindArrowSub(Button button, instData Speed, instData& wind) {
   setFont(lastfont);
 }
 
-
 void DrawMeterPointer(Phv center, int wind, int inner, int outer, int linewidth, uint16_t FILLCOLOUR, uint16_t LINECOLOUR) {  // WIP
   Phv P1, P2, P3, P4, P5, P6;
   P1 = translate(center, wind - linewidth, outer);
@@ -255,9 +330,6 @@ Phv translate(Phv center, int angle, int rad) {
   moved.v = center.v + ((rad * getCosine(angle)) / 100);
   return moved;
 }
-
-
-
 
 void DrawCompass(Button button) {
   //xy are center in draw compass
@@ -291,7 +363,6 @@ void DrawCompass(Button button) {
   for (int i = 0; i < (360 / 10); i++) { gfx->fillArc(x, y, rad, Rad4, i * 10, (i * 10) + 1, BLACK); }  // dots at 10 degrees
 }
 
-
 void ShowToplinesettings(MySettings A, String Text) {
   // int local;
   // local = MasterFont;
@@ -311,6 +382,7 @@ void ShowToplinesettings(String Text) {
   ShowToplinesettings(Current_Settings, Text);
 }
 
+//***************************   DISPLAY .. The main place where the pages are described ****************
 void Display(int page) {  // setups for alternate pages to be selected by page.
 
         static double startposlat,startposlon;
@@ -410,7 +482,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         fontlocal = fontlocal + 1;
         if (fontlocal > 10) { fontlocal = 0; }
         GFXBorderBoxPrintf(CurrentSettingsBox, "Font size %i", fontlocal);
-        //DisplayCheck(true);
+      
       }
 
 
@@ -718,7 +790,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(TopRightbutton)) { Display_Page = -5; }
       break;
 
-    case -1:  // this is the main WIFI settings page
+    case -1:  // this is the WIFI settings page
       if (RunSetup || DataChanged) {
         gfx->fillScreen(BLACK);
         gfx->setTextColor(BLACK);
@@ -782,7 +854,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(ThirdRowButton)) { Display_Page = -3; };
       if (CheckButton(FourthRowButton)) { Display_Page = -4; };
       if (CheckButton(Full5Center)) { Display_Page = -21; };
-//      
+     
 
       break;
     case 0:  // main settings
@@ -795,7 +867,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         GFXBorderBoxPrintf(Full2Center, "NMEA DISPLAY");
         GFXBorderBoxPrintf(Full3Center, "Debug + LOG");
         GFXBorderBoxPrintf(Full4Center, "GPS Display");
-        GFXBorderBoxPrintf(Full5Center, "Save / Reset to Quad NMEA");
+        GFXBorderBoxPrintf(Full5Center, "Save / Reset ");
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
@@ -806,7 +878,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(Full3Center)) { Display_Page = -21; }
       if (CheckButton(Full4Center)) { Display_Page = 9; }  
       if (CheckButton(Full5Center)) {
-        Display_Page = 4;
+        //Display_Page = 4;
         EEPROM_WRITE(Current_Settings);
         delay(50);
         ESP.restart();
@@ -823,13 +895,16 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         gfx->fillScreen(BLACK);
         // DrawCompass(360, 120, 120);
         DrawCompass(topRightquarter);
-        AddTitleBorderBox(0,topRightquarter, "WIND");
+        AddTitleInsideBox(8,3,topRightquarter, "WIND ");
         GFXBorderBoxPrintf(topLeftquarter, "");
-        AddTitleBorderBox(0,topLeftquarter, "STW");
+        AddTitleInsideBox(9,3,topLeftquarter, "STW ");
+        AddTitleInsideBox(9,2, topLeftquarter, " Kts"); //font,position 
         GFXBorderBoxPrintf(bottomLeftquarter, "");
-        AddTitleBorderBox(0,bottomLeftquarter, "DEPTH");
+        AddTitleInsideBox(9,3,bottomLeftquarter, "DEPTH ");
+        AddTitleInsideBox(9,2, bottomLeftquarter, " Meters"); //font,position 
         GFXBorderBoxPrintf(bottomRightquarter, "");
-        AddTitleBorderBox(0,bottomRightquarter, "SOG");
+        AddTitleInsideBox(9,3,bottomRightquarter, "SOG ");
+        AddTitleInsideBox(9,2, bottomRightquarter, " Kts"); //font,position 
         delay(500);
       }
       if (millis() > slowdown + 300) {
@@ -837,15 +912,15 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         setFont(10);  // note: all the 'updates' now check for new data else return immediately
       }
       WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngle);
-      UpdateDataTwoSize(true,true,13, 11, topLeftquarter, BoatData.STW, "%3.1fkt");
-      UpdateDataTwoSize(true,true,13, 11, bottomLeftquarter, BoatData.WaterDepth, "%4.1fm");
-      UpdateDataTwoSize(true,true,13, 11, bottomRightquarter, BoatData.SOG, "%3.1fkt");
+      UpdateDataTwoSize(true,true,13, 11, topLeftquarter, BoatData.STW, "%3.1f");
+      UpdateDataTwoSize(true,true,13, 11, bottomLeftquarter, BoatData.WaterDepth, "%4.1f");
+      UpdateDataTwoSize(true,true,13, 11, bottomRightquarter, BoatData.SOG, "%3.1f");
       // }
       if (CheckButton(topLeftquarter)) { Display_Page = 6; }      //stw
       if (CheckButton(bottomLeftquarter)) { Display_Page = 7; }   //depth
       if (CheckButton(topRightquarter)) { Display_Page = 5; }     // Wind
       if (CheckButton(bottomRightquarter)) { Display_Page = 8; }  //SOG
-//      
+     
       break;
 
     case 5:  // wind instrument
@@ -853,6 +928,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         setFont(10);
         GFXBorderBoxPrintf(BigSingleDisplay, "");
         GFXBorderBoxPrintf(BigSingleTopRight, "");
+        AddTitleInsideBox(8,2,BigSingleTopRight, " deg");
         DrawCompass(BigSingleDisplay);
       }
       if (millis() > slowdown + 500) {
@@ -860,65 +936,56 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       }
       LocalCopy = BoatData.WindAngle;  //Duplicate wind angle so it can be shown again in a second box
       WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngle);
-      UpdateDataTwoSize(true,false,12, 10, BigSingleTopRight, LocalCopy, "%3.1fdeg");
+      UpdateDataTwoSize(true,true,12, 10, BigSingleTopRight, LocalCopy, "%3.1f");
    
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }
       if (CheckButton(topRightquarter)) { Display_Page = 4; }
-      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
-//      
+      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }     
       break;
     case 6:  //Speed Through WATER GRAPH
       if (RunSetup) {
         setFont(10);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
         GFXBorderBoxPrintf(BigSingleTopLeft, "");
-        AddTitleBorderBox(0,BigSingleTopLeft, "SOG");
-        AddTitleBorderBox(0,BigSingleTopRight, "STW");
+        AddTitleInsideBox(8,3,BigSingleTopRight, "STW");
+        AddTitleInsideBox(8,2,BigSingleTopRight, "Kts");
+        AddTitleInsideBox(8,3,BigSingleTopLeft, "SOG");
+        AddTitleInsideBox(8,2,BigSingleTopLeft, "Kts");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        AddTitleBorderBox(0,BigSingleDisplay, "STW Graph");
         LocalCopy = BoatData.STW;
-        DrawGraph(true, BigSingleDisplay, LocalCopy, 0, 10);
-      }
-      if (millis() > slowdown + 500) {
-        slowdown = millis();
       }
       LocalCopy = BoatData.STW;
-      DrawGraph(false, BigSingleDisplay, LocalCopy, 0, 10);
-      UpdateDataTwoSize(true,false,12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1fkt");
-      UpdateDataTwoSize(true,false,12, 10, BigSingleTopRight, BoatData.STW, "%2.1fkt");
+      DrawGraph( BigSingleDisplay, LocalCopy, 0, 10,9,"STW Graph ","Kts");
+      UpdateDataTwoSize(true,true,12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
+      UpdateDataTwoSize(true,true,12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
 
 
       //  if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 8; }
       if (CheckButton(bottomLeftquarter)) { Display_Page = 9; }
-      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
- //     
+      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }    
 
       break;
     case 7:  // Depth
       if (RunSetup) {
         setFont(11);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
-        AddTitleBorderBox(0,BigSingleTopRight, "Depth");
+        AddTitleInsideBox(8,3,BigSingleTopRight, "Depth");
+        AddTitleInsideBox(8,2,BigSingleTopRight, " m");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        AddTitleBorderBox(0,BigSingleDisplay, "Fathmometer 30m");
-        LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-        DrawGraph(true, BigSingleDisplay, LocalCopy, 30, 0);
+        //AddTitleInsideBox(9,3,BigSingleDisplay, "Fathmometer 30m");
+        LocalCopy = BoatData.WaterDepth;  //NOTE: need local copy or else we can only disply this data ONCE per page 
       }
-      if (millis() > slowdown + 500) {
-        slowdown = millis();
-      }
-      LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-      DrawGraph(false, BigSingleDisplay, LocalCopy, 30, 0);
-      UpdateDataTwoSize(true,false,12, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1fm");
+      LocalCopy = BoatData.WaterDepth;  //
+      DrawGraph( BigSingleDisplay, LocalCopy, 30, 0,9,"Fathmometer 30m ","m");
+      UpdateDataTwoSize(true,true,12, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1f");
 
       if (CheckButton(BigSingleTopRight)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
-      if (CheckButton(BigSingleDisplay)) { Display_Page = 11; }
- //     
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 11; }   
 
 
       break;
@@ -927,32 +994,27 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         setFont(11);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
         GFXBorderBoxPrintf(BigSingleTopLeft, "");
-        AddTitleBorderBox(0,BigSingleTopLeft, "SOG");
-        AddTitleBorderBox(0,BigSingleTopRight, "STW");
+        AddTitleInsideBox(8,3,BigSingleTopRight, "STW");
+        AddTitleInsideBox(8,2,BigSingleTopRight, "Kts");
+        AddTitleInsideBox(8,3,BigSingleTopLeft, "SOG");
+        AddTitleInsideBox(8,2,BigSingleTopLeft, "Kts");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        AddTitleBorderBox(0,BigSingleDisplay, "SOG Graph");
         LocalCopy = BoatData.SOG;
-        DrawGraph(true, BigSingleDisplay, LocalCopy, 0, 10);
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
       LocalCopy = BoatData.SOG;
-      DrawGraph(false, BigSingleDisplay, LocalCopy, 0, 10);
-      UpdateDataTwoSize(true,false,12, 10, BigSingleTopRight, BoatData.STW, "%2.1fkt");
-      UpdateDataTwoSize(true,false,12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1fkt");
+      DrawGraph( BigSingleDisplay, LocalCopy, 0, 10,9,"SOG Graph ","kts");
+      UpdateDataTwoSize(true,true,12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
+      UpdateDataTwoSize(true,true,12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
 
       //if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
       //if (CheckButton(topLeftquarter)) { Display_Page = 4; }   
       if (CheckButton(bottomLeftquarter)) { Display_Page = 9; }
       if (CheckButton(BigSingleTopRight)) { Display_Page = 6; }
-      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
-//      
-   
-      
-
-
+      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }    
       break;
 
     case 9:  // GPS page
@@ -984,12 +1046,10 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       }
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 10; }
       //if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }  //Loop to the main settings page
-      //if (CheckButton(topRightquarter)) { Display_Page = 4; }
-      //if (CheckButton(bottomRightquarter)) { Display_Page = 4; }  // test! check default loops back to 0
- //     
+    
 
       break;
-case 10:  // GPS page 2 sort of anchor watch
+     case 10:  // GPS page 2 sort of anchor watch
       static double magnification;
       if (RunSetup) {
         setFont(8);
@@ -1045,38 +1105,25 @@ case 10:  // GPS page 2 sort of anchor watch
         GFXBorderBoxPrintf(BottomRightbutton,"zoom in");
         GFXBorderBoxPrintf(BottomLeftbutton,"zoom out");}
       }  
-      
- 
-
-
       break;
-
-
 
     case 11:  // Depth different range
       if (RunSetup) {
         setFont(10);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
-        AddTitleBorderBox(0,BigSingleTopRight, "Depth");
+        AddTitleInsideBox(8,1,BigSingleTopRight, "Depth");
+        AddTitleInsideBox(8,2,BigSingleDisplay, "m");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        AddTitleBorderBox(0,BigSingleDisplay, "Fathmometer 10m");
         LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-      DrawGraph(true, BigSingleDisplay, LocalCopy, 10, 0);
-      }
-      if (millis() > slowdown + 500) {
-        slowdown = millis();
       }
       LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-      DrawGraph(false, BigSingleDisplay, LocalCopy, 10, 0);
-      UpdateDataTwoSize(true,false,12, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1fm");
-
+      DrawGraph( BigSingleDisplay, LocalCopy, 10, 0,8,"Fathmometer 10m ","m");
+      UpdateDataTwoSize(true,true,12, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1f");
       
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(BigSingleDisplay)) { Display_Page = 7; }
       if (CheckButton(topRightquarter)) { Display_Page = 4; }
-//      
-
       break;
 
     default:
@@ -1215,7 +1262,7 @@ void setFont(int fontinput) { //fonts 3..12 are FreeMonoBold in sizes incrementi
 void setup() {
   _null = 0;
   _temp = 0;
-//CONFIG_ESP_BROWNOUT_DET_LVL_SEL_5
+  //CONFIG_ESP_BROWNOUT_DET_LVL_SEL_5 ??
 
   Serial.begin(115200);
   Serial.println("Test for NMEA Display ");
@@ -1223,14 +1270,11 @@ void setup() {
 
   ts.begin();
   ts.setRotation(ROTATION_INVERTED);
-#ifdef GFX_BL
+ #ifdef GFX_BL
   pinMode(GFX_BL, OUTPUT);  //Serial.println(" IDF will throw errors here as one pin is -1!");
   digitalWrite(GFX_BL, HIGH);
-#endif
-// #ifdef GFX_BL  // I have no idea why this digital write seemed to be done twice- perhaps to reset some screens?
-//   pinMode(GFX_BL, OUTPUT);
-//   digitalWrite(GFX_BL, HIGH);
-// #endif
+ #endif
+
   // Init Display
   gfx->begin();
   //if GFX> 1.3.1 try and do this as the invert colours write 21h or 20h to 0Dh has been lost from the structure!
@@ -1246,14 +1290,30 @@ void setup() {
   Audio_setup();
   EEPROM_READ();  // setup and read Saved_Settings (saved variables)
   Current_Settings = Saved_Settings;
+  // Should load default config if run for the first time
+  // JSON READ .. used to Overwrite some of the EEPROM settings!
+  //             But will update JSON IF the Data is changed (I have a JSON save in EEPROM WRITE)
+  Serial.println(F("Loading JSON configuration..."));
+  loadConfiguration(Setupfilename, Display_Config,Current_Settings);
+
+  // Create configuration file
+  //Serial.println(F("Saving configuration..."));
+  //saveConfiguration(Setupfilename, Display_Config,Current_Settings);
+    // Dump config file
+  Serial.println(F("Printing  JSON config file..."));
+  printFile(Setupfilename);
+
+
   ConnectWiFiusingCurrentSettings();
   SetupOTA();
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
   keyboard(-1);     //reset keyboard display update settings
   gfx->println(F("***START Screen***"));
   Udp.begin(atoi(Current_Settings.UDP_PORT));
-  delay(1500);       // 1.5 seconds
-  Display_Page = 4;  // select first page to show or use non defined page to start with default
+  delay(250);       // 
+  Display_Page = Display_Config.Start_Page; 
+  Serial.printf(" Starting display with JSON setting page<%i> \n",Display_Config.Start_Page);
+   // select first page from the JSON. to show or use non defined page to start with default
   gfx->setTextBound(0, 0, 480, 480);
   gfx->setTextColor(WHITE);
   // gfx->setTextBound(0, 0, 480, 480); //reset or it wil cause issues later in other prints?
@@ -1267,8 +1327,6 @@ void loop() {
   static unsigned long flashinterval;
   yield();
   server.handleClient();  // for OTA;
-  //
-  //DisplayCheck(false);
   //EventTiming("START");
   delay(1);
   ts.read();
@@ -1282,11 +1340,11 @@ void loop() {
     StatusBox.PrintLine = 0; // always start / only use / the top line 0  of this box 
   if  (Current_Settings.Log_ON || Current_Settings.NMEA_log_ON){
     flash=!flash;  
-    if (flash) {UpdateLinef(3,StatusBox,"  Log status     NMEA     Click for settings");
-      }   else { UpdateLinef(3,StatusBox,"  Log status %s NMEA %s Click for settings",
+    if (flash) {UpdateLinef(3,StatusBox,"Page:%i  Log Status     NMEA     click for settings",Display_Page);
+      }   else { UpdateLinef(3,StatusBox,"Page:%i  Log Status %s NMEA %s click for settings",Display_Page,
               Current_Settings.Log_ON On_Off ,Current_Settings.NMEA_log_ON On_Off ); }
    }else
-   { UpdateLinef(3,StatusBox,"  Log status %s NMEA %s Click for settings",
+   { UpdateLinef(3,StatusBox,"Page:%i  Log Status %s NMEA %s click for settings",Display_Page,
               Current_Settings.Log_ON On_Off ,Current_Settings.NMEA_log_ON On_Off ); }
   }
 
@@ -1317,70 +1375,70 @@ void TouchCrosshair(int point, int size, uint16_t colour) {
   gfx->drawFastHLine(ts.points[point].x - size, ts.points[point].y, 2 * size, colour);
 }
 
-void DisplayCheck(bool invertcheck) {  //used to test colours are as expected while checking new dispolays
-  static unsigned long timedInterval;
-  static unsigned long updatetiming;
-  static unsigned long LoopTime;
-  static int Color;
+// void DisplayCheck(bool invertcheck) {  //used to test colours are as expected while checking new dispolays
+//   static unsigned long timedInterval;
+//   static unsigned long updatetiming;
+//   static unsigned long LoopTime;
+//   static int Color;
 
-  static bool ips;
-  LoopTime = millis() - updatetiming;
-  updatetiming = millis();
-  if (millis() >= timedInterval) {
-    //***** Timed updates *******
-    timedInterval = millis() + 300;
-    //Serial.printf("Loop Timing %ims",LoopTime);
-    if (invertcheck) {
-      //Serial.println(" Timed display check");
-      Color = Color + 1;
-      if (Color > 5) {
-        Color = 0;
-        ips = !ips;
-        gfx->invertDisplay(ips);
-      }
-      gfx->fillRect(300, text_height, 180, text_height * 2, BLACK);
-      gfx->setTextColor(WHITE);
-      if (ips) {
-        Writeat(310, text_height, "INVERTED");
-      } else {
-        Writeat(310, text_height, " Normal ");
-      }
+//   static bool ips;
+//   LoopTime = millis() - updatetiming;
+//   updatetiming = millis();
+//   if (millis() >= timedInterval) {
+//     //***** Timed updates *******
+//     timedInterval = millis() + 300;
+//     //Serial.printf("Loop Timing %ims",LoopTime);
+//     if (invertcheck) {
+//       //Serial.println(" Timed display check");
+//       Color = Color + 1;
+//       if (Color > 5) {
+//         Color = 0;
+//         ips = !ips;
+//         gfx->invertDisplay(ips);
+//       }
+//       gfx->fillRect(300, text_height, 180, text_height * 2, BLACK);
+//       gfx->setTextColor(WHITE);
+//       if (ips) {
+//         Writeat(310, text_height, "INVERTED");
+//       } else {
+//         Writeat(310, text_height, " Normal ");
+//       }
 
-      switch (Color) {
-        //gfx->fillRect(0, 00, 480, 20,BLACK);gfx->setTextColor(WHITE);Writeat(0,0, "WHITE");
-        case 0:
-          gfx->fillRect(300, 60, 180, 60, WHITE);
-          gfx->setTextColor(BLACK);
-          Writeat(310, 62, "WHITE");
-          break;
-        case 1:
-          gfx->fillRect(300, 60, 180, 60, BLACK);
-          ;
-          gfx->setTextColor(WHITE);
-          Writeat(310, 62, "BLACK");
-          break;
-        case 2:
-          gfx->fillRect(300, 60, 180, 60, RED);
-          ;
-          gfx->setTextColor(BLACK);
-          Writeat(310, 62, "RED");
-          break;
-        case 3:
-          gfx->fillRect(300, 60, 180, 60, GREEN);
-          ;
-          gfx->setTextColor(BLACK);
-          Writeat(310, 62, "GREEN");
-          break;
-        case 4:
-          gfx->fillRect(300, 60, 180, 60, BLUE);
-          ;
-          gfx->setTextColor(BLACK);
-          Writeat(310, 62, "BLUE");
-          break;
-      }
-    }
-  }
-}
+//       switch (Color) {
+//         //gfx->fillRect(0, 00, 480, 20,BLACK);gfx->setTextColor(WHITE);Writeat(0,0, "WHITE");
+//         case 0:
+//           gfx->fillRect(300, 60, 180, 60, WHITE);
+//           gfx->setTextColor(BLACK);
+//           Writeat(310, 62, "WHITE");
+//           break;
+//         case 1:
+//           gfx->fillRect(300, 60, 180, 60, BLACK);
+//           ;
+//           gfx->setTextColor(WHITE);
+//           Writeat(310, 62, "BLACK");
+//           break;
+//         case 2:
+//           gfx->fillRect(300, 60, 180, 60, RED);
+//           ;
+//           gfx->setTextColor(BLACK);
+//           Writeat(310, 62, "RED");
+//           break;
+//         case 3:
+//           gfx->fillRect(300, 60, 180, 60, GREEN);
+//           ;
+//           gfx->setTextColor(BLACK);
+//           Writeat(310, 62, "GREEN");
+//           break;
+//         case 4:
+//           gfx->fillRect(300, 60, 180, 60, BLUE);
+//           ;
+//           gfx->setTextColor(BLACK);
+//           Writeat(310, 62, "BLUE");
+//           break;
+//       }
+//     }
+//   }
+// }
 
 
 bool CheckButton(Button& button) {  // trigger on release. ?needs index (s) to remember which button!
@@ -1450,6 +1508,8 @@ void EEPROM_WRITE(MySettings A) {
   EEPROM.put(10, A);
   EEPROM.commit();
   delay(50);
+  //NEW also save as a JSON on the SD card SD card will overwrite current settings on setup..
+  saveConfiguration(Setupfilename, Display_Config,Current_Settings);
 }
 void EEPROM_READ() {
   int key;
@@ -1493,33 +1553,33 @@ boolean CompStruct(MySettings A, MySettings B) {  // Does NOT compare the displa
 }
 
 //*************** Not tidied up yet!! *************************
-void Writeat(int h, int v, const char* text) {  //Write text at h,v (using fontoffset to use TOP LEFT of text convention)
-  gfx->setCursor(h, v + (text_offset));         // offset up/down for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
-  gfx->print(text);
-  gfx->setCursor(h, v + (text_offset));
-}
+// void Writeat(int h, int v, const char* text) {  //Write text at h,v (using fontoffset to use TOP LEFT of text convention)
+//   gfx->setCursor(h, v + (text_offset));         // offset up/down for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
+//   gfx->print(text);
+//   gfx->setCursor(h, v + (text_offset));
+// }
 
 
-void GetGPSPos(char* str, char* NMEAgpspos, uint8_t sign) {
-  unsigned short int u = 0, d = 0;
-  unsigned int minutes;
-  unsigned char pos, i, j;
-  for (pos = 0; pos < strlen(NMEAgpspos) && NMEAgpspos[pos] != '.'; pos++)
-    ;
-  for (i = 0; i < pos - 2; i++) {
-    u *= 10;
-    u += NMEAgpspos[i] - '0';
-  }
-  d = (NMEAgpspos[pos - 2] - '0') * 10;
-  d += (NMEAgpspos[pos - 1] - '0');
-  for (i = pos + 1, j = 0; i < strlen(NMEAgpspos) && j < 4; i++, j++)  //Only 4 chars
-  {
-    d *= 10;
-    d += NMEAgpspos[i] - '0';
-  }
-  minutes = d / 60;
-  gfx->printf(str, "%d.%04d", (sign ? -1 : 1) * u, minutes);
-}
+// void GetGPSPos(char* str, char* NMEAgpspos, uint8_t sign) {
+//   unsigned short int u = 0, d = 0;
+//   unsigned int minutes;
+//   unsigned char pos, i, j;
+//   for (pos = 0; pos < strlen(NMEAgpspos) && NMEAgpspos[pos] != '.'; pos++)
+//     ;
+//   for (i = 0; i < pos - 2; i++) {
+//     u *= 10;
+//     u += NMEAgpspos[i] - '0';
+//   }
+//   d = (NMEAgpspos[pos - 2] - '0') * 10;
+//   d += (NMEAgpspos[pos - 1] - '0');
+//   for (i = pos + 1, j = 0; i < strlen(NMEAgpspos) && j < 4; i++, j++)  //Only 4 chars
+//   {
+//     d *= 10;
+//     d += NMEAgpspos[i] - '0';
+//   }
+//   minutes = d / 60;
+//   gfx->printf(str, "%d.%04d", (sign ? -1 : 1) * u, minutes);
+// }
 
 
 
@@ -1546,13 +1606,12 @@ void sendAdvicef(const char* fmt, ...) {  //complete object type suitable for ho
 
 
 
-//SD and image functions  include #include "JpegFunc.h"
+//****           SD and image functions  include #include "JpegFunc.h"
 static int jpegDrawCallback(JPEGDRAW* pDraw) {
   // Serial.printf("Draw pos = %d,%d. size = %d x %d\n", pDraw->x, pDraw->y, pDraw->iWidth, pDraw->iHeight);
   gfx->draw16bitBeRGBBitmap(pDraw->x, pDraw->y, pDraw->pPixels, pDraw->iWidth, pDraw->iHeight);
   return 1;
 }
-
 
 void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
   Serial.printf("Listing directory: %s\n", dirname);
@@ -1637,7 +1696,7 @@ void SD_Setup() {
 
   //listDir(SD, "/", 3);
 }
-
+//  ************  WIFI support functions *****************
 void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
@@ -1784,8 +1843,7 @@ void UDPSEND(const char* buf) {                              // this is the one 
 //************ Music stuff  Purely to explore if the ESP32 has any spare capacity while doing display etc!
 //***
 
-//*****   AUDIO ....
-
+//*****   AUDIO ****  STRICTLY experimental - needs three resistors moving to wire in the Is2 audio chip! 
 
 void Audio_setup() {
   Serial.println("Audio setup");
@@ -1871,6 +1929,13 @@ void open_new_song(String dir, String filename) {
   //music_info.m = music_info.length / 60;
   //music_info.s = music_info.length % 60;
 }
+
+
+
+
+
+
+
 
 //************ TIMING FUNCTIONS FOR TESTING PURPOSES ONLY ******************
 //Note this is also an example of how useful Function overloading can be!!
