@@ -8,7 +8,10 @@ tBoatdata from Timo Llapinen by Dr.András Szép under GNU General Public Licens
 
 struct JSONCONFIG {  // for the JSON set Defaults and user settings for displays 
   int Start_Page ;
-
+  char StartLogo[20];
+  char PanelName[25];
+  char APpassword[25]; 
+   
 };
 
 

@@ -44,15 +44,41 @@
 
 #include <SPI.h>
 #include <SD.h>
-
+extern JSONCONFIG Display_Config; 
 // extern Arduino_ST7701_RGBPanel *gfx ;  // declare the gfx structure so I can use GFX commands in Keyboard.cpp and here...
 extern Arduino_RGB_Display *gfx;  //  change if alternate (not 'Arduino_RGB_Display' ) display !
 extern void setFont(int);
 extern const char soft_version[];
-const char *host = "NMEADisplay";
+//const char *host = "NMEADisplay";
 extern tBoatData BoatData;
 
 WebServer server(80);
+
+// for placing startws here and not on SD ? - Just so I can modify the Display Panel Name! 
+// st+= String(soft_version);
+String html_startws() {
+ String st   = "<html><head> <meta http-equiv='Content-type' content='text/html; charset=utf-8'>";
+ st += "<title>NavDisplay ";
+ st+= String(soft_version);
+ st+= "</title>";
+ st +="<style>" ;
+ st +="body {background-color:black;color:white;}";
+ st +=" </style> </head>";
+//st +="<body id='index' onload='onBodyLoad()'>";
+st +="<h1 ><a>NavDisplay ";
+st += String(soft_version);
+st +="</a></h1><br> <img src='/v3small.jpg' /><br> <h1 >  <a style='color:white;' href='http://";
+st += String(Display_Config.PanelName);
+st += ".local/edit/index.htm'>SD File Access (PC)</a></h1>";
+st +="  <h1 >  <a style='color:white;' href='http://";
+st += String(Display_Config.PanelName);
+st +=".local/OTA'>OTA Update</a></h1>";
+st += "</body></html>";
+return st;
+}
+
+
+
 
 
 /* Style */
@@ -119,11 +145,11 @@ String serverIndex =
 
 
 
-static bool hasSD = false;
+extern bool hasSD;
 static bool logFileStarted = false;
 static bool NMEAlogFileStarted = false;
-File uploadFile;
 
+File uploadFile;
 
 void returnOK() {
   server.send(200, "text/plain", "");
@@ -135,9 +161,10 @@ void returnFail(String msg) {
 
 bool loadFromSdCard(String path) {
   String dataType = "text/plain";
-  if (path.endsWith("/")) {
-    path += "startws.htm";  // a file on the SD !
-  }
+  // for previous version where this was on SD card.
+  // if (path.endsWith("/")) {
+  //   path += "startws.htm";  // a file on the SD !
+  // }
 
   if (path.endsWith(".src")) {
     path = path.substring(0, path.lastIndexOf("."));
@@ -323,9 +350,10 @@ void printDirectory() {
 
 void handleNotFound() {
   if (hasSD && loadFromSdCard(server.uri())) {
+    //Serial.println(" SD and uri");
     return;
   }
-  String message = "SDCARD Not Detected\n\n";
+  String message = "";//"SDCARD Not Detected\n\n";
   message += "URI: ";
   message += server.uri();
   message += "\nMethod: ";
@@ -339,13 +367,18 @@ void handleNotFound() {
   server.send(404, "text/plain", message);
   Serial.print(message);
 }
+void handleRoot() {
+  server.sendContent(html_startws());
+  server.sendContent("");
+  server.client().stop();
+}
 
 void SetupOTA() {
-  if (MDNS.begin(host)) {
+  if (MDNS.begin(Display_Config.PanelName)) {
     MDNS.addService("http", "tcp", 80);
     Serial.println("MDNS responder started");
     Serial.print("You can now connect to http://");
-    Serial.print(host);
+    Serial.print(Display_Config.PanelName);
     Serial.println(".local");
   }
   //**************
@@ -357,6 +390,7 @@ void SetupOTA() {
     server.sendHeader("Connection", "close");
     server.send(200, "text/html", serverIndex);
   });
+  server.on("/", handleRoot);
 
   /*handling uploading firmware file */
   server.on(

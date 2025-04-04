@@ -48,7 +48,7 @@ if you touch this, it will select that SSID and return you to the main Wif Setti
 
 Use the Webbrowser (see later) or put the SD card in a PC and open (double click on) the file "config.txt".
 This is a JSON file with settings for wifi etc.
-Edit the file and save it .
+Edit the file and save it . (on touchscreens - press SAVE to save once edited.)
 The Multiplexer will check this file on startup and use these settings. 
 If you have no SD card, it will revert to using its internal EEPROM to save the settings. 
 You can select which 'page' displays after startup by changing the number "Start_Page". 4 is the quad display and the default. 
@@ -102,11 +102,14 @@ There is a web interface that can be connected to by pointing a browser at http:
 ![wEBBROWSER](https://github.com/user-attachments/assets/d0582791-e483-49ed-8e1f-06d8a2bc3a83)
 
 This gives remote access to a SD File access page and also to a page to allow OTA of any binary updates to the code.
+NOTE it uses keyboard and mouse actions that are not available on Touchscreen (tablets / phones). So this editor interface is best used with a PC
 
 ![wEBBROWSER INDEX](https://github.com/user-attachments/assets/686fd86d-3a69-4338-9ca3-57efec9dd92b)
 ThIS SD file access allows wireless viewing and modification of the log and other files on the SD.
 
 OTA allows update by downloading an updated NMEADisplay Binary. 
+
+# AUDIO 
 
 In Version 1 and 2 an audio player has been added for experimental use, that plays MP3 from files stored on the SD card /music directory.
 It requires that three resistors are moved on the PCB to activate the audio circuit, and is not recommended unless you are comfortable with soldering and desoldering SMD resistors!

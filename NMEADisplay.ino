@@ -48,7 +48,8 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 
 //For SD card (see display page -98 for test)
-//#define ARDUINOJSON_ENABLE_COMMENTS 1 // allow comments in the JSON FILE
+// allow comments in the JSON FILE
+#define ARDUINOJSON_ENABLE_COMMENTS 1
 #include <ArduinoJson.h>
 #include <SD.h>  // pins set in GFX .h
 #include "SPI.h"
@@ -56,7 +57,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 //jpeg
 #include "JpegFunc.h"
-#define JPEG_FILENAME_LOGO "/logo.jpg"  // logo in jpg on sd card
+#define JPEG_FILENAME_LOGO "/logo3.jpg"  // logo in jpg on sd card
 #define AUDIO_FILENAME_START "/StartSound.mp3"
 //audio
 #include "Audio.h"
@@ -73,12 +74,23 @@ void loadConfiguration(const char *filename, JSONCONFIG &config, MySettings &set
   // Open file for reading
   File file = SD.open(filename);
   // Allocate a temporary JsonDocument
-   JsonDocument doc;
+  JsonDocument doc;
   // Deserialize the JSON document
   DeserializationError error = deserializeJson(doc, file);
   if (error)  Serial.println(F("**Failed to read JSON file, using default configuration"));
   // Copy values (or defaults) from the JsonDocument to the config / settings
   config.Start_Page = doc["Start_Page"] | 4; // 4 is default page
+  
+  strlcpy(config.StartLogo,                  // User selectable 
+          doc["StartLogo"] | "/logo3.jpg",  // <- and default in case Json is corrupt / missing !
+          sizeof(config.StartLogo));
+  strlcpy(config.PanelName,                  // User selectable 
+          doc["PanelName"] | "NMEADISPLAY",  // <- and default in case Json is corrupt / missing !
+          sizeof(config.PanelName)); 
+  strlcpy(config.APpassword,                  // User selectable 
+          doc["APpassword"] | "12345678",  // <- and default in case Json is corrupt / missing !
+          sizeof(config.APpassword));         
+       
   // only change settings if we have read the file! else we will use the EEPROM settings
   if (!error)
   strlcpy(settings.ssid,                  // <- destination
@@ -100,13 +112,15 @@ void saveConfiguration(const char *filename, JSONCONFIG &config, MySettings &set
   SD.remove(filename);
   // Open file for writing
   File file = SD.open(filename, FILE_WRITE);
-  if (!file) {Serial.println(F("Failed to create file"));return;}
+  if (!file) {Serial.println(F("JSON: Failed to create SD file"));return;}
   // Allocate a temporary JsonDocument
   JsonDocument doc;
   // Set the values in the JSON file.. // NOT ALL ARE read yet!!
   //modify how the display works   
   doc["Start_Page"]=config.Start_Page;
-
+  doc["StartLogo"]=config.StartLogo;
+  doc["PanelName"]=config.PanelName;
+  doc["APpassword"]=config.APpassword;
   //now the settings WIFI etc.. 
   doc["ssid"]=settings.ssid; 
   doc["password"]=settings.password;
@@ -118,10 +132,11 @@ void saveConfiguration(const char *filename, JSONCONFIG &config, MySettings &set
   doc["NMEALOG"]=settings.NMEA_log_ON;
   // Serialize JSON to file
   if (serializeJsonPretty(doc, file) == 0) { // use 'pretty format' with line feeds
-    Serial.println(F("Failed to write to file"));
+    Serial.println(F("JSON: Failed to write to SD file"));
   }
-  // Close the file
+  // Close the file, but print serial as a check 
   file.close();
+  printFile(filename);
 }
 
 
@@ -813,7 +828,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         AddTitleBorderBox(0,Switch3, "ESP-Now");
        // GFXBorderBoxPrintf(Switch5, Current_Settings.Log_ON On_Off);
        // AddTitleBorderBox(0,Switch5, "Log");
-       Serial.printf(" Compare saved and Current %i /n",CompStruct(Saved_Settings,Current_Settings));
+       Serial.printf(" Compare Saved and Current <%s> \n",CompStruct(Saved_Settings,Current_Settings)? "-same-" :"UPDATE");
         GFXBorderBoxPrintf(Switch4,  CompStruct(Saved_Settings,Current_Settings)? "-same-" :"UPDATE");
         AddTitleBorderBox(0,Switch4, "EEPROM");
         GFXBorderBoxPrintf(Full5Center, "Logger and Debug");
@@ -1263,38 +1278,44 @@ void setup() {
   _null = 0;
   _temp = 0;
   //CONFIG_ESP_BROWNOUT_DET_LVL_SEL_5 ??
-
   Serial.begin(115200);
-  Serial.println("Test for NMEA Display ");
+  Serial.println("Starting NMEA Display ");
   Serial.println(soft_version);
-
   ts.begin();
   ts.setRotation(ROTATION_INVERTED);
  #ifdef GFX_BL
-  pinMode(GFX_BL, OUTPUT);  //Serial.println(" IDF will throw errors here as one pin is -1!");
+  pinMode(GFX_BL, OUTPUT);  
   digitalWrite(GFX_BL, HIGH);
  #endif
-
   // Init Display
   gfx->begin();
   //if GFX> 1.3.1 try and do this as the invert colours write 21h or 20h to 0Dh has been lost from the structure!
   gfx->invertDisplay(false);
   gfx->fillScreen(BLUE);
-  gfx->setCursor(40, 80);
+  gfx->setCursor(40, 40);
   gfx->setTextColor(WHITE);
-  gfx->setTextBound(40, 40, 440, 380);
-
+  gfx->setTextBound(10, 10, 440, 440);
   setFont(4);
-  gfx->println(F("***SETUP***"));
+  gfx->println(F("***Display Start***"));
+  gfx->println(F("Starting SD Card"));
+
   SD_Setup();
-  Audio_setup();
+  
   EEPROM_READ();  // setup and read Saved_Settings (saved variables)
   Current_Settings = Saved_Settings;
-  // Should load default config if run for the first time
-  // JSON READ .. used to Overwrite some of the EEPROM settings!
-  //             But will update JSON IF the Data is changed (I have a JSON save in EEPROM WRITE)
-  Serial.println(F("Loading JSON configuration..."));
+  // Should automatically load default config if run for the first time
+  // JSON READ will Overwrite EEPROM settings!
+  //      But will update JSON IF the Data is changed (I have a JSON save in EEPROM WRITE)
+  //Serial.println(F("Loading JSON configuration..."));
   loadConfiguration(Setupfilename, Display_Config,Current_Settings);
+  // flash User selected logo and setup audio if SD present 
+    if  (hasSD){
+    //Serial.printf("display <%s> \n",Display_Config.StartLogo);
+    //jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
+    jpegDraw(Display_Config.StartLogo, jpegDrawCallback, true /* useBigEndian */,
+             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+    Audio_setup();
+    }
 
   // Create configuration file
   //Serial.println(F("Saving configuration..."));
@@ -1302,17 +1323,14 @@ void setup() {
     // Dump config file
   Serial.println(F("Printing  JSON config file..."));
   printFile(Setupfilename);
-
-
   ConnectWiFiusingCurrentSettings();
   SetupOTA();
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
   keyboard(-1);     //reset keyboard display update settings
-  gfx->println(F("***START Screen***"));
   Udp.begin(atoi(Current_Settings.UDP_PORT));
-  delay(250);       // 
+  delay(1000);       // time to admire your user page! 
   Display_Page = Display_Config.Start_Page; 
-  Serial.printf(" Starting display with JSON setting page<%i> \n",Display_Config.Start_Page);
+  Serial.printf(" Starting display with JSON set page<%i> \n",Display_Config.Start_Page);
    // select first page from the JSON. to show or use non defined page to start with default
   gfx->setTextBound(0, 0, 480, 480);
   gfx->setTextColor(WHITE);
@@ -1647,7 +1665,8 @@ void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
     file = root.openNextFile();
   }
 }
-extern bool hasSD;
+
+bool hasSD;
 
 
 void SD_Setup() {
@@ -1655,15 +1674,19 @@ void SD_Setup() {
   if (!SD.begin(SD_CS)) {
     Serial.println("Card Mount Failed");
     gfx->println("NO SD Card");
+    hasSD = false;
     return;
   } else {
     hasSD = true;
-    // flash logo
+    // // flash logo
+    // // confing.StartLogo should be /logo3.jpg or similar 
+    // Serial.printf("display <%s> \n",Display_Config.StartLogo);
     jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
-             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
-    // Serial.printf("Time used: %lums\n", millis() - start);
-    //gfx->setTextColor(BLUE);  //if displaying the logo, write in Blue in a box!
-    //  gfx->setTextBound(80, 80, 400, 400); // a test
+    // jpegDraw(Display_Config.StartLogo, jpegDrawCallback, true /* useBigEndian */,
+          0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+    // // Serial.printf("Time used: %lums\n", millis() - start);
+    // //gfx->setTextColor(BLUE);  //if displaying the logo, write in Blue in a box!
+    // //  gfx->setTextBound(80, 80, 400, 400); // a test
   }
   uint8_t cardType = SD.cardType();
 
@@ -1671,10 +1694,9 @@ void SD_Setup() {
     Serial.println("No SD card attached");
     return;
   }
-
   Serial.print("SD Card Type: ");
   gfx->println("");  // or it starts outside text bound??
-  gfx->print("  SD Card Type: ");
+  gfx->print("SD Card Type: ");
   if (cardType == CARD_MMC) {
     Serial.println("MMC");
     gfx->println("MMC");
@@ -1732,7 +1754,7 @@ void ConnectWiFiusingCurrentSettings() {
   gfx->println("Setting up WiFi");
   WiFi.disconnect(true);
   WiFi.onEvent(wifiEvent);  // Register the event handler
-  WiFi.softAP("NMEADISPLAY", "12345678");
+  WiFi.softAP(Display_Config.PanelName, Display_Config.APpassword);
   delay(5);  // start an AP ?.. does this ure the WiFI scan bug?
   WiFi.mode(WIFI_AP_STA);
   //MDNS.begin("NMEA_Display");
