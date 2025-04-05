@@ -71,17 +71,11 @@ The module will start with the "Quad" instrument display. Touching each quadrant
 This is a simplified view of the page map.
 ![Screen Navigation](https://github.com/user-attachments/assets/f05d7e21-4c72-45cd-ae81-91a27ed20897)
 
-<<<<<<< HEAD
 <b>Version 3 now has a common 'click for settings' at the bottom of every screen that will take you directly to the list of menu functions. </b>
 
 Here is a short video tour of Version 1 of the software : https://youtube.com/shorts/24qs9CJK5vo?si=zCDUuTbXkYfHtEDB
 (Version 2 and 3 hav better graphics and a modified menu, but are essentailly similar)
 
-=======
-Here is a short video tour of Version 1 of the software : https://youtube.com/shorts/24qs9CJK5vo?si=zCDUuTbXkYfHtEDB
-(Version 2 and 3 hav better graphics and a modified menu, but is essentailly the same)
-
->>>>>>> 10d891a4d20f6ad9796a3bd5799f3041ad54fa2c
 ## MODULE Requirements
 
 The code is based on the GUITRON 4.0 Inch ESP32-S3 Development Board Smart Display Capacitive Touch Screen LCD.
