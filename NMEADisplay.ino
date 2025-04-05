@@ -883,6 +883,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         GFXBorderBoxPrintf(Full3Center, "Debug + LOG");
         GFXBorderBoxPrintf(Full4Center, "GPS Display");
         GFXBorderBoxPrintf(Full5Center, "Save / Reset ");
+        GFXBorderBoxPrintf(Full6Center, "Panel Name<%s>",Display_Config.PanelName );
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();

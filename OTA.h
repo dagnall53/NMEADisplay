@@ -44,6 +44,11 @@
 
 #include <SPI.h>
 #include <SD.h>
+
+extern bool hasSD;
+static bool logFileStarted = false;
+static bool NMEAlogFileStarted = false;
+
 extern JSONCONFIG Display_Config; 
 // extern Arduino_ST7701_RGBPanel *gfx ;  // declare the gfx structure so I can use GFX commands in Keyboard.cpp and here...
 extern Arduino_RGB_Display *gfx;  //  change if alternate (not 'Arduino_RGB_Display' ) display !
@@ -54,22 +59,26 @@ extern tBoatData BoatData;
 
 WebServer server(80);
 
-// for placing startws here and not on SD ? - Just so I can modify the Display Panel Name! 
-// st+= String(soft_version);
+// for placing startws here and not on SD  - 
+// So I can modify the Display Panel Name! but also so that OTA works even without SD card present 
+// 
 String html_startws() {
  String st   = "<html><head> <meta http-equiv='Content-type' content='text/html; charset=utf-8'>";
  st += "<title>NavDisplay ";
- st+= String(soft_version);
- st+= "</title>";
+ st += String(soft_version);
+ st += "</title>";
  st +="<style>" ;
  st +="body {background-color:black;color:white;}";
  st +=" </style> </head>";
 //st +="<body id='index' onload='onBodyLoad()'>";
-st +="<h1 ><a>NavDisplay ";
+st +="<h1 ><a>This device's panel name is <"; st += String(Display_Config.PanelName); st+="></h1><br><h2>Software :";
 st += String(soft_version);
-st +="</a></h1><br> <img src='/v3small.jpg' /><br> <h1 >  <a style='color:white;' href='http://";
-st += String(Display_Config.PanelName);
-st += ".local/edit/index.htm'>SD File Access (PC)</a></h1>";
+st +="</h2></a>";
+if (hasSD) {
+  st += "<br> <img src='/v3small.jpg' /><br><h1 ><a style='color:white;' href='http://";
+  st += String(Display_Config.PanelName);
+  st += ".local/edit/index.htm'>SD File Access (PC)</a></h1>";}
+else {st+= "<h1> NO SD CARD PRESENT </h1>";  }
 st +="  <h1 >  <a style='color:white;' href='http://";
 st += String(Display_Config.PanelName);
 st +=".local/OTA'>OTA Update</a></h1>";
@@ -139,15 +148,6 @@ String serverIndex =
                            "</script>"
   + style;
 
-
-
-
-
-
-
-extern bool hasSD;
-static bool logFileStarted = false;
-static bool NMEAlogFileStarted = false;
 
 File uploadFile;
 
