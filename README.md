@@ -1,17 +1,18 @@
+
 # NMEADisplay
 This project is a Wireless Instrument Display for Boats.
-
-Version 2                       
-<img src="https://github.com/user-attachments/assets/f7ee5526-b172-4278-a29b-25652bf69c3d" width="200" />
-
-Version 3
-<img src="https://github.com/user-attachments/assets/a6a14548-3c6a-4396-b0af-098bd9176c43)" width="200" />
-
 It requires the boat to have a wireless NMEA multiplexer that repeats NMEA instrumentation on UDP.
 But it also accepts NMEA data over ESP-NOW from suitable multiplexers such as VELA-Naviga types: 
 https://www.vela-navega.com/index.php/multiplexers
+<p align="center"> Version 3 display <img width = 400 src="https://github.com/user-attachments/assets/a6a14548-3c6a-4396-b0af-098bd9176c43" width="200" /></p>
 
-# HOW TO INSTALL FIRST TIME
+Images of previous versions of the display
+<p> <img  height =200 src="https://github.com/user-attachments/assets/7f585734-d98d-4989-88b9-e27b94a2dbbe" />
+<img height = 200 src="https://github.com/user-attachments/assets/f7ee5526-b172-4278-a29b-25652bf69c3d" /></p>
+
+
+
+## HOW TO INSTALL FIRST TIME
  
 First, plug your module into a com port on your PC and record which port it is using. 
 If confused, check device Manager and look for the USB-SERIAL CH340 port. 
@@ -40,36 +41,40 @@ It can be quite fussy.
 (*) Windows may bring up a blue box saying "Windows Protected your PC", as it does not like running unrecognised batch files. 
 select "More Info" and click on "Run anyway". 
 
-# Connecting to your Wifi SSID
+## Connecting to your Wifi SSID
 
 If you happen to have a boat with a wifi SSID "GuestBoat" and password 12345678, you will connect instantly as this is the default.
-For your SSID, Go to Wifi Settings Click on "set SSID", and you will be presented with a scan of available networks.
+For your SSID, Go to Settings WiFi,  Click on "set SSID", and you will be presented with a scan of available networks.
 
 You can select a network by touching it and it will update in the second box and show (eg) Select<GUESTBOAT>?
-if you touch this, it will select that SSID and return you to the main Wif Settings page. Press EEPROM "UPDATE" and then "Save/Reset to Quad NMEA" to save this new SSID in the eeprom. 
+if you touch this, it will select that SSID and return you to the main WiFi Settings page. Press EEPROM "UPDATE" and then "Save/Reset " to save this new SSID in the eeprom.
+Settings made via the screen will be copied into the config.txt file on the SD card and may also be modified wirelessly. (see next).
+Settings on the config.txt take priority when starting.
 
-# USING Webbrowser to select settings.
-
+## USING Webbrowser to select settings.
 Use the Webbrowser (see later) or put the SD card in a PC and open (double click on) the file "config.txt".
 This is a JSON file with settings for wifi etc.
-Edit the file and save it . (on touchscreens - press SAVE to save once edited.)
-The Multiplexer will check this file on startup and use these settings. 
-If you have no SD card, it will revert to using its internal EEPROM to save the settings. 
+Edit the file and save it . (On touchscreens - just press SAVE to save once edited).
+The Multiplexer will check this file on startup and use these settings. If the file is not present it will use defaults. 
+If you have no SD card, it will revert to using its internal EEPROM to save the WIFI settings. 
 You can select which 'page' displays after startup by changing the number "Start_Page". 4 is the quad display and the default. 
+### Using webbrowser settings: VERSION 3 Update / corrections
+Prior to V3, it was not possible to easily access OTA via the webbrowser without the correctly formatted SD card. This has been corrected.
+The Config.txt SD file also now includes options to modify the Panelname, start log picture and AP password. 
+<b>IF</b> you change to a new panel name, then you will need to point the webbrowser to the new name: I.E after  I changed from NMEADISPLAy to "Panel2", I need to point the webbrowser to 'http://panel2.local/' This allows use and control of more than one panel at a time.
+The panelname in use is shown at the bottom of the settings page.
 
 
-# Navigating the Menu
+## Navigating the Menu
 
 The module will start with the "Quad" instrument display. Touching each quadrant will select a different display page.
 This is a simplified view of the page map.
 ![Screen Navigation](https://github.com/user-attachments/assets/f05d7e21-4c72-45cd-ae81-91a27ed20897)
 
-Here is a short video tour of Version 1 of the software here: 
-(Version 2 has better graphics and a modified menu, but is essentailly the same)
+Here is a short video tour of Version 1 of the software : https://youtube.com/shorts/24qs9CJK5vo?si=zCDUuTbXkYfHtEDB
+(Version 2 and 3 hav better graphics and a modified menu, but is essentailly the same)
 
-https://youtube.com/shorts/24qs9CJK5vo?si=zCDUuTbXkYfHtEDB
-
-# MODULE Requirements
+## MODULE Requirements
 
 The code is based on the GUITRON 4.0 Inch ESP32-S3 Development Board Smart Display Capacitive Touch Screen LCD.
 There are sometimes two versions. This code is for the version with an ST7701 driver.
@@ -77,7 +82,7 @@ It can be purchased with or without the Relays or the backing plate used for hom
 The code should be compatible with other development boards that use the ST7701 driver. But be warned, you will need to determine the ESP32 pin configuration as it will differ from the Guitron version. The Esp32_4inch.h file contains the correct pin allocations for the Guitron module. There is an UNTESTED pin file for the MakerFabs ESP32S3 board in the /documents directory.   
 
 
-# CODE FEATURES:
+## CODE FEATURES:
 
 The "DISPLAY" function in the main ino is a (huge) 'switch' function that defines what happens on each page of the display and what will happen if buttons on that page are pressed. 
 There is a 'button' structure that defines the size and shape and colours of all boxes on the screen. 
@@ -95,14 +100,16 @@ This displays the SOG (in BigSingleTopLeft), using two font sizes (here 11 and 1
 Touch screen 'actions' are controlled by a boolean CheckButton(), and an example would be:  
 if (CheckButton(BigSingleTopLeft)) { Display_Page = 8; }
 
-# SD CARD
+## SD CARD
 
 If a SD card is fitted, the display can show Jpg images, and uses one on startup.
 It can then store a 'log' file with instrument data.
 This log file has a filename of 'date" eg 180325.log where the date is as received from a GPS RMC message It only works if a RMC message has been seen. 
 
-# WEB INTERFACE
-There is a web interface that can be connected to by pointing a browser at http://nmeadisplay.local/
+## WEB INTERFACE
+There is a web interface that can be connected to by pointing a browser at http://nmeadisplay.local/ (default)
+If you change the panel name, you will need to point to the new name: eg http://panel2.local (etc).
+You can also point directly to the IP address as shown on the WiFi settings page. 
 ![wEBBROWSER](https://github.com/user-attachments/assets/d0582791-e483-49ed-8e1f-06d8a2bc3a83)
 
 This gives remote access to a SD File access page and also to a page to allow OTA of any binary updates to the code.
