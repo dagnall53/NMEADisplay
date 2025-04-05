@@ -1,7 +1,11 @@
 # NMEADisplay
-![P1030716](https://github.com/user-attachments/assets/f7ee5526-b172-4278-a29b-25652bf69c3d)
-
 This project is a Wireless Instrument Display for Boats.
+
+Version 2                       
+<img src="https://github.com/user-attachments/assets/f7ee5526-b172-4278-a29b-25652bf69c3d" width="200" />
+
+Version 3
+<img src="https://github.com/user-attachments/assets/a6a14548-3c6a-4396-b0af-098bd9176c43)" width="200" />
 
 It requires the boat to have a wireless NMEA multiplexer that repeats NMEA instrumentation on UDP.
 But it also accepts NMEA data over ESP-NOW from suitable multiplexers such as VELA-Naviga types: 
