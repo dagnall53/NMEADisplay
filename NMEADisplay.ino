@@ -5,6 +5,9 @@ GFX library for Arduino 1.5.5
 Select "ESP32-S3 DEV Module"
 Select PSRAM "OPI PSRAM"
 
+16M flash 
+8m with spiffs - 3Mb app +spiffs
+
 
 
 
@@ -62,13 +65,145 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.0";
+const char soft_version[] = "Version 3.1";
+bool hasSD;
+
+
 
 //************JSON SETUP STUFF to get setup parameters from the SD card to make it easy for user to change 
 // READ https://arduinojson.org/?utm_source=meta&utm_medium=library.properties
 // *********************************************************************************************************
 const char *Setupfilename = "/config.txt";  // <- SD library uses 8.3 filenames
 JSONCONFIG Display_Config;  
+
+
+//set up Audio
+Audio audio;
+
+
+// some wifi stuff
+
+IPAddress udp_ap(0, 0, 0, 0);   // the IP address to send UDP data in SoftAP mode
+IPAddress udp_st(0, 0, 0, 0);   // the IP address to send UDP data in Station mode
+IPAddress sta_ip(0, 0, 0, 0);   // the IP address (or received from DHCP if 0.0.0.0) in Station mode
+IPAddress gateway(0, 0, 0, 0);  // the IP address for Gateway in Station mode
+IPAddress subnet(0, 0, 0, 0);   // the SubNet Mask in Station mode
+boolean IsConnected = false;    // may be used in AP_AND_STA to flag connection success (got IP)
+int NetworksFound;              // used for scan Networks result. Done at start up!
+WiFiUDP Udp;
+#define BufferLength 500
+char nmea_1[BufferLength];    //serial
+char nmea_U[BufferLength];    // NMEA buffer for UDP input port
+char nmea_EXT[BufferLength];  // buffer for ESP_now received data
+
+bool EspNowIsRunning = false;
+char* pTOKEN;
+//********** All boat data (instrument readings) are stored as double in a single structure:
+
+tBoatData BoatData;  // BoatData values, int double etc
+
+
+bool dataUpdated;  // flag that Nmea Data has been updated
+
+//**   structures and helper functions for my variables
+
+
+
+//for MP3 player based on (but modified!) https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L119
+char File_List[20][20];  //array of 20 (20 long) file names for listing..
+String runtimes[20];
+int file_num = 0;
+
+// MySettings (see structures.h) are the settings for the Display:
+// If the structure is changed, be sure to change the Key (first figure) so that new defaults and struct can be set.
+//                                                                                    LOG off NMEAlog Off
+MySettings Default_Settings = { 13, "GUESTBOAT", "12345678", "2002", false, true, true,false,false };
+int Display_Page = 4;  //set last in setup(), but here for clarity?
+MySettings Saved_Settings;
+MySettings Current_Settings;
+
+
+int MasterFont;  //global for font! Idea is to use to reset font after 'temporary' seletion of another fone
+                 // to be developed ....
+struct BarChart {
+  int topleftx, toplefty, width, height, bordersize, value, rangemin, rangemax, visible;
+  uint16_t barcolour;
+};
+
+
+
+String Fontname;
+int text_height = 12;      //so we can get them if we change heights etc inside functions
+int text_offset = 12;      //offset is not equal to height, as subscripts print lower than 'height'
+int text_char_width = 12;  // useful for monotype? only NOT USED YET! Try gfx->getTextBounds(string, x, y, &x1, &y1, &w, &h);
+
+//****  My displays are based on 'Button' structures to define position, width height, borders and colours.
+// int h, v, width, height, bordersize;  uint16_t backcol, textcol, BorderColor;
+Button CurrentSettingsBox = { 0, 0, 480, 75, 5, BLUE, WHITE, BLACK };  //also used for showing the current settings
+
+Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
+
+//Button WindDisplay = { 0, 0, 480, 480, 0, BLUE, WHITE, BLACK };  // full screen no border
+
+//used for single data display
+// modified all to lift by 30 pixels to allow a common bottom row display (to show logs and get to settings)
+
+Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK }; // used for wind and graph displays
+Button BigSingleTopRight = {240, 0, 240, 90, 5, BLUE, WHITE, BLACK }; //  ''
+Button BigSingleTopLeft = {0, 0, 240, 90, 5, BLUE, WHITE, BLACK };    //  ''
+//used for nmea RMC /GPS display // was only three lines to start!
+Button Threelines0 = { 20, 30, 440, 80, 5, BLUE, WHITE, BLACK };
+Button Threelines1 = { 20, 130, 440, 80, 5, BLUE, WHITE, BLACK };
+Button Threelines2 = { 20, 230, 440, 80, 5, BLUE, WHITE, BLACK };
+Button Threelines3 = { 20, 330, 440, 80, 5, BLUE, WHITE, BLACK };
+// for the quarter screens on the main page 
+Button topLeftquarter =    { 0, 0, 240, 240-15, 5, BLUE, WHITE, BLACK };     //h  reduced by 15 to give 30 space at the bottom
+Button bottomLeftquarter = { 0, 240-15, 240, 240-15, 5, BLUE, WHITE, BLACK };
+Button topRightquarter = { 240, 0, 240, 240-15, 5, BLUE, WHITE, BLACK };
+Button bottomRightquarter = { 240, 240-15, 240, 240-15, 5, BLUE, WHITE, BLACK };
+
+Button StatusBox =  {0,450,480,29,5,BLUE,WHITE,BLACK};
+
+
+Button TopLeftbutton = { 0, 0, 75, 45, 5, BLUE, WHITE, BLACK };
+Button TopRightbutton = { 405, 0, 75, 45, 5, BLUE, WHITE, BLACK };
+Button BottomRightbutton = { 405, 405, 75, 45, 5, BLUE, WHITE, BLACK };
+Button BottomLeftbutton = { 0, 405, 75, 45, 5, BLUE, WHITE, BLACK };
+
+// buttons for the wifi/settings pages
+Button TOPButton = { 20, 10, 430, 35, 5, WHITE, BLACK, BLUE };
+Button SecondRowButton = { 20, 60, 430, 35, 5, WHITE, BLACK, BLUE };
+Button ThirdRowButton = { 20, 100, 430, 35, 5, WHITE, BLACK, BLUE };
+Button FourthRowButton = { 20, 140, 430, 35, 5, WHITE, BLACK, BLUE };
+Button FifthRowButton = { 20, 180, 430, 35, 5, WHITE, BLACK, BLUE };
+
+#define sw_width 65
+//switches at line 180
+Button Switch1 = { 20, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
+Button Switch2 = { 100, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
+Button Switch3 = { 180, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
+Button Switch5 = { 260, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
+Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };  // big one for eeprom update 
+//switches at line 60
+Button Switch6 = { 20, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+Button Switch7 = { 100, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+
+Button Terminal = { 0, 100, 480, 345, 5, WHITE, BLACK, BLACK };  // inset to try and get printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
+//for selections
+Button FullTopCenter = { 80, 0, 320, 55, 5, BLUE, WHITE, BLACK };
+
+Button Full0Center = { 80, 55, 320, 55, 5, BLUE, WHITE, BLACK };
+Button Full1Center = { 80, 115, 320, 55, 5, BLUE, WHITE, BLACK };
+Button Full2Center = { 80, 175, 320, 55, 5, BLUE, WHITE, BLACK };
+Button Full3Center = { 80, 235, 320, 55, 5, BLUE, WHITE, BLACK };
+Button Full4Center = { 80, 295, 320, 55, 5, BLUE, WHITE, BLACK };
+Button Full5Center = { 80, 355, 320, 55, 5, BLUE, WHITE, BLACK };
+Button Full6Center = { 80, 415, 320, 55, 5, BLUE, WHITE, BLACK };// inteferes with settings box do not use!
+
+
+#define On_Off ? "ON " : "OFF"  // if 1 first case else second (0 or off) same number of chars to try and helps some flashing later
+
+
 
 void loadConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings) {
   // Open file for reading
@@ -156,131 +291,7 @@ void printFile(const char *filename) {
   // Close the file
   file.close();
 }
-//set up Audio
-Audio audio;
 
-
-// some wifi stuff
-
-IPAddress udp_ap(0, 0, 0, 0);   // the IP address to send UDP data in SoftAP mode
-IPAddress udp_st(0, 0, 0, 0);   // the IP address to send UDP data in Station mode
-IPAddress sta_ip(0, 0, 0, 0);   // the IP address (or received from DHCP if 0.0.0.0) in Station mode
-IPAddress gateway(0, 0, 0, 0);  // the IP address for Gateway in Station mode
-IPAddress subnet(0, 0, 0, 0);   // the SubNet Mask in Station mode
-boolean IsConnected = false;    // may be used in AP_AND_STA to flag connection success (got IP)
-int NetworksFound;              // used for scan Networks result. Done at start up!
-WiFiUDP Udp;
-#define BufferLength 500
-char nmea_1[BufferLength];    //serial
-char nmea_U[BufferLength];    // NMEA buffer for UDP input port
-char nmea_EXT[BufferLength];  // buffer for ESP_now received data
-
-bool EspNowIsRunning = false;
-char* pTOKEN;
-//********** All boat data (instrument readings) are stored as double in a single structure:
-
-tBoatData BoatData;  // BoatData values, int double etc
-
-
-bool dataUpdated;  // flag that Nmea Data has been updated
-
-//**   structures and helper functions for my variables
-
-
-
-//for MP3 player based on (but modified!) https://github.com/VolosR/MakePythonLCDMP3/blob/main/MakePythonLCDMP3.ino#L119
-char File_List[20][20];  //array of 20 (20 long) file names for listing..
-String runtimes[20];
-int file_num = 0;
-
-// MySettings (see structures.h) are the settings for the Display:
-// If the structure is changed, be sure to change the Key (first figure) so that new defaults and struct can be set.
-//                                                                                    LOG off NMEAlog Off
-MySettings Default_Settings = { 13, "GUESTBOAT", "12345678", "2002", false, true, true,false,false };
-int Display_Page = 4;  //set last in setup(), but here for clarity?
-MySettings Saved_Settings;
-MySettings Current_Settings;
-
-
-int MasterFont;  //global for font! Idea is to use to reset font after 'temporary' seletion of another fone
-                 // to be developed ....
-struct BarChart {
-  int topleftx, toplefty, width, height, bordersize, value, rangemin, rangemax, visible;
-  uint16_t barcolour;
-};
-
-int _null, _temp;  //null pointers
-
-String Fontname;
-int text_height = 12;      //so we can get them if we change heights etc inside functions
-int text_offset = 12;      //offset is not equal to height, as subscripts print lower than 'height'
-int text_char_width = 12;  // useful for monotype? only NOT USED YET! Try gfx->getTextBounds(string, x, y, &x1, &y1, &w, &h);
-
-//****  My displays are based on 'Button' structures to define position, width height, borders and colours.
-// int h, v, width, height, bordersize;  uint16_t backcol, textcol, BorderColor;
-Button CurrentSettingsBox = { 0, 0, 480, 75, 5, BLUE, WHITE, BLACK };  //also used for showing the current settings
-
-Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
-
-//Button WindDisplay = { 0, 0, 480, 480, 0, BLUE, WHITE, BLACK };  // full screen no border
-
-//used for single data display
-// modified all to lift by 30 pixels to allow a common bottom row display (to show logs and get to settings)
-
-Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK }; // used for wind and graph displays
-Button BigSingleTopRight = {240, 0, 240, 90, 5, BLUE, WHITE, BLACK }; //  ''
-Button BigSingleTopLeft = {0, 0, 240, 90, 5, BLUE, WHITE, BLACK };    //  ''
-//used for nmea RMC /GPS display // was only three lines to start!
-Button Threelines0 = { 20, 30, 440, 80, 5, BLUE, WHITE, BLACK };
-Button Threelines1 = { 20, 130, 440, 80, 5, BLUE, WHITE, BLACK };
-Button Threelines2 = { 20, 230, 440, 80, 5, BLUE, WHITE, BLACK };
-Button Threelines3 = { 20, 330, 440, 80, 5, BLUE, WHITE, BLACK };
-// for the quarter screens on the main page 
-Button topLeftquarter =    { 0, 0, 240, 240-15, 5, BLUE, WHITE, BLACK };     //h  reduced by 15 to give 30 space at the bottom
-Button bottomLeftquarter = { 0, 240-15, 240, 240-15, 5, BLUE, WHITE, BLACK };
-Button topRightquarter = { 240, 0, 240, 240-15, 5, BLUE, WHITE, BLACK };
-Button bottomRightquarter = { 240, 240-15, 240, 240-15, 5, BLUE, WHITE, BLACK };
-
-Button StatusBox =  {0,450,480,29,5,BLUE,WHITE,BLACK};
-
-
-Button TopLeftbutton = { 0, 0, 75, 45, 5, BLUE, WHITE, BLACK };
-Button TopRightbutton = { 405, 0, 75, 45, 5, BLUE, WHITE, BLACK };
-Button BottomRightbutton = { 405, 405, 75, 45, 5, BLUE, WHITE, BLACK };
-Button BottomLeftbutton = { 0, 405, 75, 45, 5, BLUE, WHITE, BLACK };
-
-// buttons for the wifi/settings pages
-Button TOPButton = { 20, 10, 430, 35, 5, WHITE, BLACK, BLUE };
-Button SecondRowButton = { 20, 60, 430, 35, 5, WHITE, BLACK, BLUE };
-Button ThirdRowButton = { 20, 100, 430, 35, 5, WHITE, BLACK, BLUE };
-Button FourthRowButton = { 20, 140, 430, 35, 5, WHITE, BLACK, BLUE };
-Button FifthRowButton = { 20, 180, 430, 35, 5, WHITE, BLACK, BLUE };
-
-#define sw_width 65
-//switches at line 180
-Button Switch1 = { 20, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
-Button Switch2 = { 100, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
-Button Switch3 = { 180, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
-Button Switch5 = { 260, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
-Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };  // big one for eeprom update 
-//switches at line 60
-Button Switch6 = { 20, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
-Button Switch7 = { 100, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
-
-Button Terminal = { 0, 100, 480, 345, 5, WHITE, BLACK, BLACK };  // inset to try and get printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
-//for selections
-Button FullTopCenter = { 80, 0, 320, 55, 5, BLUE, WHITE, BLACK };
-
-Button Full0Center = { 80, 55, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full1Center = { 80, 115, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full2Center = { 80, 175, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full3Center = { 80, 235, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full4Center = { 80, 295, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full5Center = { 80, 355, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full6Center = { 80, 415, 320, 55, 5, BLUE, WHITE, BLACK };// inteferes with settings box do not use!
-
-
-#define On_Off ? "ON " : "OFF"  // if 1 first case else second (0 or off) same number of chars to try and helps some flashing later
 
 //****************  GRAPHICS STUFF ************************
 // Draw the compass pointer at an angle in degrees
@@ -336,7 +347,7 @@ void DrawMeterPointer(Phv center, int wind, int inner, int outer, int linewidth,
   P6 = translate(center, wind, outer);
   PTriangleFill(P1, P2, P3, FILLCOLOUR);
   PTriangleFill(P2, P3, P4, FILLCOLOUR);
-  Pdrawline(P5, P6, LINECOLOUR);
+  //Pdrawline(P5, P6, LINECOLOUR);
 }
 
 Phv translate(Phv center, int angle, int rad) {
@@ -688,7 +699,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         if (IsConnected) {
           GFXBorderBoxPrintf(TOPButton, "Connected<%s>", Current_Settings.ssid);
         } else {
-          GFXBorderBoxPrintf(TOPButton, "look for:%s", Current_Settings.ssid);
+          GFXBorderBoxPrintf(TOPButton, "NOT FOUND:%s", Current_Settings.ssid);
         }
         GFXBorderBoxPrintf(TopRightbutton, "Scan");
         GFXBorderBoxPrintf(SecondRowButton, "SCANNING...");
@@ -1276,32 +1287,33 @@ void setFont(int fontinput) { //fonts 3..12 are FreeMonoBold in sizes incrementi
 }
 
 void setup() {
-  _null = 0;
-  _temp = 0;
   //CONFIG_ESP_BROWNOUT_DET_LVL_SEL_5 ??
   Serial.begin(115200);
   Serial.println("Starting NMEA Display ");
   Serial.println(soft_version);
   ts.begin();
   ts.setRotation(ROTATION_INVERTED);
- #ifdef GFX_BL
+  // guitron sets GFX_BL 38 
+ #ifdef GFX_BL 
   pinMode(GFX_BL, OUTPUT);  
   digitalWrite(GFX_BL, HIGH);
  #endif
-  // Init Display
+   // Init Display
   gfx->begin();
   //if GFX> 1.3.1 try and do this as the invert colours write 21h or 20h to 0Dh has been lost from the structure!
   gfx->invertDisplay(false);
   gfx->fillScreen(BLUE);
-  gfx->setCursor(40, 40);
-  gfx->setTextColor(WHITE);
-  gfx->setTextBound(10, 10, 440, 440);
+  gfx->setTextBound(0, 0, 480, 480);
+  gfx->setTextColor(WHITE); 
   setFont(4);
-  gfx->println(F("***Display Start***"));
+  gfx->setCursor(40, 120);
+  gfx->println(F("***Display Started***"));
   gfx->println(F("Starting SD Card"));
-
-  SD_Setup();
   
+  SD_Setup();
+
+  Audio_setup();
+
   EEPROM_READ();  // setup and read Saved_Settings (saved variables)
   Current_Settings = Saved_Settings;
   // Should automatically load default config if run for the first time
@@ -1309,13 +1321,25 @@ void setup() {
   //      But will update JSON IF the Data is changed (I have a JSON save in EEPROM WRITE)
   //Serial.println(F("Loading JSON configuration..."));
   loadConfiguration(Setupfilename, Display_Config,Current_Settings);
+
+ 
+  gfx->setCursor(40, 120);
+  gfx->setTextColor(WHITE);
+  gfx->setTextBound(0, 0, 480, 480);
+  setFont(4);
+  gfx->println(F("***Display Start***"));
+  gfx->println(F("Starting SD Card"));
+  gfx->println(soft_version);
   // flash User selected logo and setup audio if SD present 
-    if  (hasSD){
-    //Serial.printf("display <%s> \n",Display_Config.StartLogo);
-    //jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
-    jpegDraw(Display_Config.StartLogo, jpegDrawCallback, true /* useBigEndian */,
-             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
-    Audio_setup();
+  if  (hasSD){
+ // // flash logo
+    // // confing.StartLogo should be /logo3.jpg or similar decided by user?
+    // Serial.printf("display <%s> \n",Display_Config.StartLogo);
+    jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
+    // jpegDraw(Display_Config.StartLogo, jpegDrawCallback, true /* useBigEndian */,
+          0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+    gfx->setCursor(80,140);
+    gfx->println(soft_version);
     }
 
   // Create configuration file
@@ -1324,6 +1348,7 @@ void setup() {
     // Dump config file
   Serial.println(F("Printing  JSON config file..."));
   printFile(Setupfilename);
+
   ConnectWiFiusingCurrentSettings();
   SetupOTA();
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
@@ -1667,28 +1692,22 @@ void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
   }
 }
 
-bool hasSD;
+
 
 
 void SD_Setup() {
+  hasSD = false;
+  Serial.println("SD Card START");
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI);
+  delay(100);
   if (!SD.begin(SD_CS)) {
     Serial.println("Card Mount Failed");
     gfx->println("NO SD Card");
-    hasSD = false;
     return;
   } else {
-    hasSD = true;
-    // // flash logo
-    // // confing.StartLogo should be /logo3.jpg or similar 
-    // Serial.printf("display <%s> \n",Display_Config.StartLogo);
-    jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
-    // jpegDraw(Display_Config.StartLogo, jpegDrawCallback, true /* useBigEndian */,
-          0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
-    // // Serial.printf("Time used: %lums\n", millis() - start);
-    // //gfx->setTextColor(BLUE);  //if displaying the logo, write in Blue in a box!
-    // //  gfx->setTextBound(80, 80, 400, 400); // a test
-  }
+    hasSD = true; // picture is run in setup, after load config
+     }
+
   uint8_t cardType = SD.cardType();
 
   if (cardType == CARD_NONE) {
@@ -1696,7 +1715,7 @@ void SD_Setup() {
     return;
   }
   Serial.print("SD Card Type: ");
-  gfx->println("");  // or it starts outside text bound??
+  gfx->println(" ");  // or it starts outside text bound??
   gfx->print("SD Card Type: ");
   if (cardType == CARD_MMC) {
     Serial.println("MMC");
@@ -1716,10 +1735,11 @@ void SD_Setup() {
   Serial.printf("SD Card Size: %lluMB\n", cardSize);
   gfx->printf("SD Card Size: %lluMB\n", cardSize);
   // Serial.println("*** SD card contents  (to three levels) ***");
-
   //listDir(SD, "/", 3);
 }
 //  ************  WIFI support functions *****************
+
+
 void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
@@ -1751,23 +1771,41 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
 }
 
 void ConnectWiFiusingCurrentSettings() {
+  bool result;
   uint32_t StartTime = millis();
   gfx->println("Setting up WiFi");
   WiFi.disconnect(true);
   WiFi.onEvent(wifiEvent);  // Register the event handler
-  WiFi.softAP(Display_Config.PanelName, Display_Config.APpassword);
-  delay(5);  // start an AP ?.. does this ure the WiFI scan bug?
+  // start the display's AP - potentially with NULL pasword
+  if (String(Display_Config.APpassword) == "NULL" )  {result=WiFi.softAP(Display_Config.PanelName); delay(5); }  
+  else { result = WiFi.softAP(Display_Config.PanelName, Display_Config.APpassword);}
+  delay(5);  
+  if (result == true) {
+    Serial.println("Soft-AP creation success!");
+    Serial.print("   ssidAP: ");
+    Serial.println(WiFi.softAPSSID());    
+    Serial.print("   passAP: ");
+   Serial.println(Display_Config.APpassword); 
+    Serial.print("   AP IP address: ");
+    Serial.println(WiFi.softAPIP());
+
+    Serial.println(udp_ap);
+  }
+  else {
+    Serial.println("Soft-AP creation failed!");
+  }
   WiFi.mode(WIFI_AP_STA);
-  //MDNS.begin("NMEA_Display");
   // (sucessful!) experiment.. do the WIfI/scan(i) and they get independently stored??
   NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
-  WiFi.disconnect(false);
+  WiFi.disconnect(false); // Do NOT turn off wifi if the network disconnects
   delay(100);
   gfx->printf(" Scan found <%i> networks\n", NetworksFound);
-  Serial.printf(" Scan found <%i> networks", NetworksFound);
+  Serial.printf(" Scan found <%i> networks:\n", NetworksFound);
   bool found = false;
   for (int i = 0; i < NetworksFound; ++i) {
-    if (WiFi.SSID(i) = Current_Settings.ssid) { found = true; }
+     if (WiFi.SSID(i).length() <= 25){ Serial.printf(" <%s> \n", WiFi.SSID(i));}
+     else {Serial.printf(" <name too long> \n");}
+    if (WiFi.SSID(i) == Current_Settings.ssid) { found = true; }
   }
   if (found) { gfx->printf("Found <%s> network!\n", Current_Settings.ssid); }
   WiFi.begin(Current_Settings.ssid, Current_Settings.password);                 //standard wifi start
@@ -1776,6 +1814,7 @@ void ConnectWiFiusingCurrentSettings() {
     gfx->print(".");
     Serial.print(".");
   }
+
 }
 
 bool Test_Serial_1() {  // UART0 port P1
@@ -1867,15 +1906,15 @@ void UDPSEND(const char* buf) {                              // this is the one 
 //***
 
 //*****   AUDIO ****  STRICTLY experimental - needs three resistors moving to wire in the Is2 audio chip! 
-
 void Audio_setup() {
+  if (!hasSD){ Serial.println("Audio setup FAILED - no SD");return;}
   Serial.println("Audio setup");
   delay(200);
   audio.setPinout(I2S_BCLK, I2S_LRCK, I2S_DOUT);
   audio.setVolume(15);  // 0...21
   if (audio.connecttoFS(SD, "/StartSound.mp3")) {
     delay(10);
-    if (audio.isRunning()) { gfx->println("Playing Ships bells"); }
+    if (audio.isRunning()) {  Serial.println("StartSound.mp3"); }
     while (audio.isRunning()) {
       audio.loop();
       vTaskDelay(1);
@@ -1884,8 +1923,6 @@ void Audio_setup() {
     gfx->println("No Audio");
     Serial.println("Audio setup FAILED");
   };
-  // gfx->println("Exiting Setup");
-  // audio.connecttoFS(SD, AUDIO_FILENAME_02); // would start some music -- not needed but fun !
 }
 
 struct Music_info {

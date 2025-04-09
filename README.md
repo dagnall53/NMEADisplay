@@ -10,7 +10,10 @@ Images of previous versions of the display
 <p> <img  height =200 src="https://github.com/user-attachments/assets/7f585734-d98d-4989-88b9-e27b94a2dbbe" />
 <img height = 200 src="https://github.com/user-attachments/assets/f7ee5526-b172-4278-a29b-25652bf69c3d" /></p>
 
-
+# SAFARI ISSUE on IPAD
+I have (currently - april 25) a strange issue with Safari on IPAD (iOS 18.3.2) that will not display the web page. It just shows "cannot parse response"
+Clearing cache and restarting had no effect. Chrome on same device works fine after a cache clear.
+Safari seems to work on on Iphone (iOS 16.7) 
 
 ## HOW TO INSTALL FIRST TIME
  

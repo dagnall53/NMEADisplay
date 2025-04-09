@@ -1,5 +1,10 @@
 /*******************************************************************************
 Pins and defines for GFX - various versions!
+
+// experimental - NOT TESTED by Dagnall 
+
+
+// this is the OLD format for early GFX 
  ******************************************************************************/
  
 #ifndef _ESPGFDEF_H_

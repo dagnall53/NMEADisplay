@@ -50,6 +50,11 @@ static bool logFileStarted = false;
 static bool NMEAlogFileStarted = false;
 
 extern JSONCONFIG Display_Config; 
+extern const char *Setupfilename; // <- SD library uses 8.3 filenames
+extern void loadConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings);
+extern MySettings Current_Settings;
+extern void EEPROM_WRITE(MySettings A);
+
 // extern Arduino_ST7701_RGBPanel *gfx ;  // declare the gfx structure so I can use GFX commands in Keyboard.cpp and here...
 extern Arduino_RGB_Display *gfx;  //  change if alternate (not 'Arduino_RGB_Display' ) display !
 extern void setFont(int);
@@ -58,31 +63,55 @@ extern const char soft_version[];
 extern tBoatData BoatData;
 
 WebServer server(80);
+File uploadFile;
 
 // for placing startws here and not on SD  - 
 // So I can modify the Display Panel Name! but also so that OTA works even without SD card present 
 // 
-String html_startws() {
- String st   = "<html><head> <meta http-equiv='Content-type' content='text/html; charset=utf-8'>";
+
+
+String html_Question() {
+  String st   = "<!DOCTYPE html>\r\n";
+  st+= "<html><head>";
  st += "<title>NavDisplay ";
  st += String(soft_version);
  st += "</title>";
+ st +=" </head>";
+ st +="<body><h1 ><a>This device's panel name is "; st += String(Display_Config.PanelName); 
+ st+="</h1><br>\r\n</a><h1>Software :";
+ st += String(soft_version);
+ st +="</h1><br> I may add user help instructions here:<br>";
+ st += "</body></html>";
+return st;
+}
+
+
+String html_startws() {
+ String st   = "<!DOCTYPE html>\r\n<html><head> <meta http-equiv=""content-type"" content=""text/html; charset=utf-8"">";
+ st += "<title>NavDisplay</title>";
  st +="<style>" ;
  st +="body {background-color:black;color:white;}";
- st +=" </style> </head>";
-//st +="<body id='index' onload='onBodyLoad()'>";
-st +="<h1 ><a>This device's panel name is <"; st += String(Display_Config.PanelName); st+="></h1><br><h2>Software :";
-st += String(soft_version);
-st +="</h2></a>";
+ st +=" </style>";
+ st +="</head><body>"; 
+ if (hasSD) {st += "<img src='/v3small.jpg' /><br>";}
+ st +="<h1 ><a>"; st += String(Display_Config.PanelName);
+ st+= "</h1><br>";
+ st+=" <h2>Software :";
+ st += String(soft_version);
+ st +="</h2></a>";
 if (hasSD) {
-  st += "<br> <img src='/v3small.jpg' /><br><h1 ><a style='color:white;' href='http://";
+  st+="<h1 ><a style='color:white;' href='http://";
   st += String(Display_Config.PanelName);
   st += ".local/edit/index.htm'>SD File Access (PC)</a></h1>";}
 else {st+= "<h1> NO SD CARD PRESENT </h1>";  }
 st +="  <h1 >  <a style='color:white;' href='http://";
 st += String(Display_Config.PanelName);
 st +=".local/OTA'>OTA Update</a></h1>";
+st +="  <h1 >  <a style='color:white;' href='http://";
+st += String(Display_Config.PanelName);
+st +=".local/Reset'>Save/Reset</a></h1>";
 st += "</body></html>";
+
 return st;
 }
 
@@ -149,7 +178,7 @@ String serverIndex =
   + style;
 
 
-File uploadFile;
+
 
 void returnOK() {
   server.send(200, "text/plain", "");
@@ -159,12 +188,20 @@ void returnFail(String msg) {
   server.send(500, "text/plain", msg + "\r\n");
 }
 
+void handleRoot() {
+  Serial.println(" sending local html version");
+  server.send(500, "text/html", html_startws() + "\r\n");
+}
+
 bool loadFromSdCard(String path) {
   String dataType = "text/plain";
-  // for previous version where this was on SD card.
-  // if (path.endsWith("/")) {
-  //   path += "startws.htm";  // a file on the SD !
-  // }
+  //  previous version used just this html from SD card.
+  if (path.endsWith("/")) { // send our local version with modified path!
+    handleRoot(); return true;
+    //wilnot get here now!
+    path += "startws.htm";  // start our html file from  the SD !
+
+  }
 
   if (path.endsWith(".src")) {
     path = path.substring(0, path.lastIndexOf("."));
@@ -188,6 +225,8 @@ bool loadFromSdCard(String path) {
     dataType = "application/pdf";
   } else if (path.endsWith(".zip")) {
     dataType = "application/zip";
+  } else if (path.endsWith(".mp3")) {
+    dataType = "audio/mpeg";
   }
 
   File dataFile = SD.open(path.c_str());
@@ -349,11 +388,13 @@ void printDirectory() {
 }
 
 void handleNotFound() {
+  Serial.print(" handleNotFound: server.uri:<");Serial.print(server.uri());Serial.println(">");
   if (hasSD && loadFromSdCard(server.uri())) {
-    //Serial.println(" SD and uri");
-    return;
+      return;
   }
-  String message = "";//"SDCARD Not Detected\n\n";
+  String message ="";
+  if (!hasSD){ message += "SDCARD Not Detected\n\n";}
+      else{ message += " not understood\n\n";}
   message += "URI: ";
   message += server.uri();
   message += "\nMethod: ";
@@ -367,12 +408,14 @@ void handleNotFound() {
   server.send(404, "text/plain", message);
   Serial.print(message);
 }
-void handleRoot() {
-  server.sendContent(html_startws());
+
+void handleQuestion() {
+  Serial.println(" sending handle Question");
+  Serial.println( html_Question());
+  server.sendContent(html_Question());
   server.sendContent("");
   server.client().stop();
 }
-
 void SetupOTA() {
   if (MDNS.begin(Display_Config.PanelName)) {
     MDNS.addService("http", "tcp", 80);
@@ -382,6 +425,30 @@ void SetupOTA() {
     Serial.println(".local");
   }
   //**************
+  server.on("/", HTTP_GET, []() {
+    Serial.println(" handling  root");
+    handleRoot();
+  });
+
+  server.on("/Q",handleQuestion);
+  //server.on("/", HTTP_GET,handleRoot); //?? 
+  server.on("/list", HTTP_GET, printDirectory);
+  server.on("/edit", HTTP_DELETE, handleDelete);
+  server.on("/edit", HTTP_PUT, handleCreate);
+  server.on("/edit", HTTP_POST, []() {
+      returnOK();
+    },
+    handleFileUpload);
+  server.onNotFound(handleNotFound);
+
+  server.on("/Reset", HTTP_GET, []() {
+    server.sendHeader("Connection", "close");
+    loadConfiguration(Setupfilename, Display_Config,Current_Settings);
+    EEPROM_WRITE(Current_Settings);
+    delay(50);
+    ESP.restart();
+  });
+
   server.on("/OTA", HTTP_GET, []() {
     server.sendHeader("Connection", "close");
     server.send(200, "text/html", serverIndex);
@@ -390,11 +457,10 @@ void SetupOTA() {
     server.sendHeader("Connection", "close");
     server.send(200, "text/html", serverIndex);
   });
-  server.on("/", handleRoot);
+
 
   /*handling uploading firmware file */
-  server.on(
-    "/update", HTTP_POST, []() {
+  server.on("/update", HTTP_POST, []() {
       server.sendHeader("Connection", "close");
       server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
       ESP.restart();
@@ -440,23 +506,9 @@ void SetupOTA() {
 
   //*********** END of OTA stuff *****************
 
-  server.on("/list", HTTP_GET, printDirectory);
-  server.on("/edit", HTTP_DELETE, handleDelete);
-  server.on("/edit", HTTP_PUT, handleCreate);
-  server.on(
-    "/edit", HTTP_POST, []() {
-      returnOK();
-    },
-    handleFileUpload);
-  server.onNotFound(handleNotFound);
 
   server.begin();
   Serial.println("HTTP server started");
-  // SPI.begin(SD_SCK, SD_MISO, SD_MOSI);    // done in void SD_Setup()
-  // if (SD.begin(SD_CS)) {
-  //   Serial.println("SD Card initialized.");
-  //   hasSD = true;
-  // }
 }
 
 // from https://randomnerdtutorials.com/esp32-data-logging-temperature-to-microsd-card/
