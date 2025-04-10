@@ -35,6 +35,7 @@ void DrawGPSPlot(bool reset, Button button,tBoatData BoatData, double magnificat
 int Circular(int x, int min,int max);
 int GraphRange( double data, int low, int high, double dmin ,double dmax );
 
+void toNewStruct(char *field, instData &data);
 
 
 #endif

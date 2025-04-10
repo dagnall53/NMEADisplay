@@ -187,7 +187,7 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
       break;
 
     case 4:  //mwv
-      toNewStruct(Field[1], BoatData.WindAngle);
+      toNewStruct(Field[1], BoatData.WindAngleApp);
       toNewStruct(Field[3], BoatData.WindSpeedK);
 
       return true;
@@ -207,7 +207,8 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
       BoatData.Longitude = LatLonToDouble(Field[5], Field[6][0]);  //nb we use +1 on his numbering that omits the command
                                                                    //        Serial.println(BoatData.GPSTime); Serial.println(BoatData.Latitude);  Serial.println(BoatData.Longitude);  Serial.println(BoatData.SOG);
       BoatData.GPSTime = NMEA0183GPTimeToSeconds(Field[1]);
-      BoatData.GPSDate = atof(Field[9]);
+      BoatData.GPSDate = atof(Field[9]);  
+      // mag variaion is [10]/[11] (E) But I think this comes from a look up and not the sattelites at least on my cheapo GPS module.
 
       return true;  //
       break;
@@ -348,7 +349,7 @@ void UpdateLinef(uint16_t color, int font, Button &button, const char *fmt, ...)
 
 void UpdateLinef(int font, Button &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
   if (button.screenfull && button.debugpause) { return; }
-  //Serial.printf(" lines  TypingspaceH =%i  number of lines=%i printing line <%i>\n",typingspaceH,LinesOfType,button.PrintLine);
+    //Serial.printf(" lines  TypingspaceH =%i  number of lines=%i printing line <%i>\n",typingspaceH,LinesOfType,button.PrintLine);
   static char msg[300] = { '\0' };
   va_list args;
   va_start(args, fmt);

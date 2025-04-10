@@ -151,6 +151,8 @@ Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK }; // used for wind and graph displays
 Button BigSingleTopRight = {240, 0, 240, 90, 5, BLUE, WHITE, BLACK }; //  ''
 Button BigSingleTopLeft = {0, 0, 240, 90, 5, BLUE, WHITE, BLACK };    //  ''
+Button TopHalfBigSingleTopRight = {240, 0, 240, 45, 5, BLUE, WHITE, BLACK }; //  ''
+Button BottomHalfBigSingleTopRight = {240, 45, 240, 45, 5, BLUE, WHITE, BLACK }; //  ''
 //used for nmea RMC /GPS display // was only three lines to start!
 Button Threelines0 = { 20, 30, 440, 80, 5, BLUE, WHITE, BLACK };
 Button Threelines1 = { 20, 130, 440, 80, 5, BLUE, WHITE, BLACK };
@@ -209,14 +211,16 @@ void loadConfiguration(const char *filename, JSONCONFIG &config, MySettings &set
   // Open file for reading
   File file = SD.open(filename);
   // Allocate a temporary JsonDocument
+  char temp[15];
   JsonDocument doc;
   // Deserialize the JSON document
   DeserializationError error = deserializeJson(doc, file);
   if (error)  Serial.println(F("**Failed to read JSON file, using default configuration"));
   // Copy values (or defaults) from the JsonDocument to the config / settings
-  config.Start_Page = doc["Start_Page"] | 4; // 4 is default page
-  
-  strlcpy(config.StartLogo,                  // User selectable 
+  config.Start_Page = doc["Start_Page"] | 4; // 4 is default page int - no problem...
+   strlcpy(temp,doc["Mag_Var"] | "1.15",sizeof(temp));
+   BoatData.Variation = atof(temp); //  (+ = easterly) Positive: If the magnetic north is to the east of true north, the declination is positive (or easterly). 
+   strlcpy(config.StartLogo,                  // User selectable 
           doc["StartLogo"] | "/logo3.jpg",  // <- and default in case Json is corrupt / missing !
           sizeof(config.StartLogo));
   strlcpy(config.PanelName,                  // User selectable 
@@ -245,6 +249,7 @@ void loadConfiguration(const char *filename, JSONCONFIG &config, MySettings &set
 void saveConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings) {
   // Delete existing file, otherwise the configuration is appended to the file
   SD.remove(filename);
+  char buff[15];
   // Open file for writing
   File file = SD.open(filename, FILE_WRITE);
   if (!file) {Serial.println(F("JSON: Failed to create SD file"));return;}
@@ -253,6 +258,9 @@ void saveConfiguration(const char *filename, JSONCONFIG &config, MySettings &set
   // Set the values in the JSON file.. // NOT ALL ARE read yet!!
   //modify how the display works   
   doc["Start_Page"]=config.Start_Page;
+  Serial.print("save magvar:");Serial.printf("%5.3f",BoatData.Variation);
+  snprintf(buff,sizeof(buff),"%5.3f",BoatData.Variation);
+  doc["Mag_Var"]=buff;
   doc["StartLogo"]=config.StartLogo;
   doc["PanelName"]=config.PanelName;
   doc["APpassword"]=config.APpassword;
@@ -411,31 +419,29 @@ void ShowToplinesettings(String Text) {
 //***************************   DISPLAY .. The main place where the pages are described ****************
 void Display(int page) {  // setups for alternate pages to be selected by page.
 
-        static double startposlat,startposlon;
-        double LatD,LongD; //deltas
-        int magnification,h,v;
-
-
+  static double startposlat,startposlon;
+  double LatD,LongD; //deltas
+  int magnification,h,v;
 
   static int LastPageselected;
   static bool DataChanged;
   static int wifissidpointer;
   // some local variables for tests;
-  char blank[] = "null";
+  //char blank[] = "null";
   static int SwipeTestLR, SwipeTestUD, volume;
   static bool RunSetup;
   static unsigned int slowdown, timer2;
-  static float wind, SOG, Depth;
+  //static float wind, SOG, Depth;
   float temp, oldtemp;
-  static instData LocalCopy,LocalCopy2;
+  static instData LocalCopy,LocalCopy2,LocalCopy3;
 
   static int fontlocal;
   static int FileIndex, Playing;  // static to hold after selection and before pressing play!
   static int V_offset;            // used in the audio file selection to sort print area
   char Tempchar[30];
-  String tempstring;
-  int FS = 1;  // for font size test
-  int tempint;
+  //String tempstring;
+ // int FS = 1;  // for font size test
+ // int tempint;
   if (page != LastPageselected) { RunSetup = true; }
   //generic setup stuff for ALL pages
   if (RunSetup) {
@@ -922,7 +928,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         gfx->fillScreen(BLACK);
         // DrawCompass(360, 120, 120);
         DrawCompass(topRightquarter);
-        AddTitleInsideBox(8,3,topRightquarter, "WIND ");
+        AddTitleInsideBox(8,3,topRightquarter, "WIND APP ");
         GFXBorderBoxPrintf(topLeftquarter, "");
         AddTitleInsideBox(9,3,topLeftquarter, "STW ");
         AddTitleInsideBox(9,2, topLeftquarter, " Kts"); //font,position 
@@ -938,7 +944,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         slowdown = millis();
         setFont(10);  // note: all the 'updates' now check for new data else return immediately
       }
-      WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngle);
+      WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp);
       UpdateDataTwoSize(true,true,13, 11, topLeftquarter, BoatData.STW, "%3.1f");
       UpdateDataTwoSize(true,true,13, 11, bottomLeftquarter, BoatData.WaterDepth, "%4.1f");
       UpdateDataTwoSize(true,true,13, 11, bottomRightquarter, BoatData.SOG, "%3.1f");
@@ -957,18 +963,17 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         GFXBorderBoxPrintf(BigSingleTopRight, "");
         AddTitleInsideBox(8,2,BigSingleTopRight, " deg");
         DrawCompass(BigSingleDisplay);
+        AddTitleInsideBox(8,3,BigSingleDisplay, "WIND Apparent ");
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-      LocalCopy = BoatData.WindAngle;  //Duplicate wind angle so it can be shown again in a second box
-      WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngle);
+      LocalCopy = BoatData.WindAngleApp;  //Duplicate wind angle so it can be shown again in a second box
+      WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngleApp);
       UpdateDataTwoSize(true,true,12, 10, BigSingleTopRight, LocalCopy, "%3.1f");
-   
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 15; }
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
-      if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }
-      if (CheckButton(topRightquarter)) { Display_Page = 4; }
-      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }     
+        
       break;
     case 6:  //Speed Through WATER GRAPH
       if (RunSetup) {
@@ -1048,11 +1053,18 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (RunSetup) {
         setFont(8);
         GFXBorderBoxPrintf(BigSingleDisplay, "");
+        GFXBorderBoxPrintf(TopHalfBigSingleTopRight, "");
+        GFXBorderBoxPrintf(BottomHalfBigSingleTopRight, "");
         GFXBorderBoxPrintf(BigSingleTopLeft,"Click for graphic");
         setFont(10);
       }
+      LocalCopy = BoatData.COG;
+      LocalCopy2 = BoatData.SOG;
+      UpdateDataTwoSize(true,true,9, 8, TopHalfBigSingleTopRight, BoatData.SOG, "SOG: %3.1f kt");
+      UpdateDataTwoSize(true,true,9, 8, BottomHalfBigSingleTopRight, BoatData.COG, "COG: %4.1f d");
       if (millis() > slowdown + 1000) {
         slowdown = millis();
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
         // do this one once a second.. I have not yet got simplified functions testing if previously displayed and greyed yet
         gfx->setTextColor(BigSingleDisplay.textcol);
         BigSingleDisplay.PrintLine = 0;
@@ -1070,7 +1082,14 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
           UpdateLinef(8,BigSingleDisplay, "");
           UpdateLinef(8,BigSingleDisplay, "LON: %f", BoatData.Longitude);
         }
+        UpdateLinef(8,BigSingleDisplay, "some data for review .. 'easy' view here\n");
+        if (LocalCopy.data != NMEA0183DoubleNA){UpdateLinef(8,BigSingleDisplay, "COG: %5.4f", LocalCopy.data);}
+        if (LocalCopy2.data != NMEA0183DoubleNA){UpdateLinef(8,BigSingleDisplay, "SOG: %5.4f", LocalCopy2.data);}
+        if (BoatData.MagHeading.data != NMEA0183DoubleNA){UpdateLinef(8,BigSingleDisplay,"Mag Heading: %5.4f", BoatData.MagHeading);}
+        UpdateLinef(8,BigSingleDisplay, "Variation: %5.4f", BoatData.Variation);
       }
+        
+      
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 10; }
       //if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }  //Loop to the main settings page
     
@@ -1152,7 +1171,29 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(BigSingleDisplay)) { Display_Page = 7; }
       if (CheckButton(topRightquarter)) { Display_Page = 4; }
       break;
-
+         case 15:  // wind instrument TRUE Ground ref - experimental
+      if (RunSetup) {
+        setFont(10);
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        GFXBorderBoxPrintf(BigSingleTopRight, "");
+        AddTitleInsideBox(8,2,BigSingleTopRight, " deg");
+        DrawCompass(BigSingleDisplay);
+        AddTitleInsideBox(8,3,BigSingleDisplay, "WIND ground ");
+      }
+      if (millis() > slowdown + 500) {
+        slowdown = millis();
+      }
+      LocalCopy = BoatData.WindAngleApp;  //Duplicate wind angle so it can be shown again in a second box
+      LocalCopy2.data= BoatData.WindAngleApp.data+BoatData.MagHeading.data+BoatData.Variation;  // most are instData type, so the data is ".data"  Variation is just a double  
+      LocalCopy3.data= LocalCopy2.data;
+      WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, LocalCopy2);
+      UpdateDataTwoSize(true,true,9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %3.1f");
+      UpdateDataTwoSize(true,true,9, 8, BottomHalfBigSingleTopRight, LocalCopy3, "true %3.1f");
+   
+      if (CheckButton(topLeftquarter)) { Display_Page = 4; }
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 5; }
+ 
+      break;
     default:
       Display_Page = 0;
       break;
@@ -1321,7 +1362,8 @@ void setup() {
   //      But will update JSON IF the Data is changed (I have a JSON save in EEPROM WRITE)
   //Serial.println(F("Loading JSON configuration..."));
   loadConfiguration(Setupfilename, Display_Config,Current_Settings);
-
+  // set up anything BoatData from the configs 
+  //Serial.print("now.. magvar:");Serial.println(BoatData.Variation);
  
   gfx->setCursor(40, 120);
   gfx->setTextColor(WHITE);
@@ -1356,6 +1398,7 @@ void setup() {
   Udp.begin(atoi(Current_Settings.UDP_PORT));
   delay(1000);       // time to admire your user page! 
   Display_Page = Display_Config.Start_Page; 
+ 
   Serial.printf(" Starting display with JSON set page<%i> \n",Display_Config.Start_Page);
    // select first page from the JSON. to show or use non defined page to start with default
   gfx->setTextBound(0, 0, 480, 480);
@@ -1397,7 +1440,8 @@ void loop() {
     LOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f ,%4.0f ,%f ,%f \r\n",
         int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
         BoatData.STW.data, BoatData.SOG.data, BoatData.WaterDepth.data, BoatData.WindSpeedK.data,
-        BoatData.WindAngle.data, BoatData.Latitude, BoatData.Longitude);
+        BoatData.COG.data,BoatData.MagHeading.data,
+        BoatData.WindAngleApp.data, BoatData.Latitude, BoatData.Longitude);
   }
   // NMEALOG is done in CheckAndUseInputs
   //EventTiming(" loop time touch sample display");
@@ -1785,12 +1829,10 @@ void ConnectWiFiusingCurrentSettings() {
     Serial.print("   ssidAP: ");
     Serial.println(WiFi.softAPSSID());    
     Serial.print("   passAP: ");
-   Serial.println(Display_Config.APpassword); 
+    Serial.println(Display_Config.APpassword); 
     Serial.print("   AP IP address: ");
     Serial.println(WiFi.softAPIP());
-
-    Serial.println(udp_ap);
-  }
+    }
   else {
     Serial.println("Soft-AP creation failed!");
   }

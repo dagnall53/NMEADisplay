@@ -49,8 +49,8 @@ extern bool hasSD;
 static bool logFileStarted = false;
 static bool NMEAlogFileStarted = false;
 
-extern JSONCONFIG Display_Config; 
-extern const char *Setupfilename; // <- SD library uses 8.3 filenames
+extern JSONCONFIG Display_Config;
+extern const char *Setupfilename;  // <- SD library uses 8.3 filenames
 extern void loadConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings);
 extern MySettings Current_Settings;
 extern void EEPROM_WRITE(MySettings A);
@@ -65,61 +65,60 @@ extern tBoatData BoatData;
 WebServer server(80);
 File uploadFile;
 
-// for placing startws here and not on SD  - 
-// So I can modify the Display Panel Name! but also so that OTA works even without SD card present 
-// 
+// for placing startws here and not on SD  -
+// So I can modify the Display Panel Name! but also so that OTA works even without SD card present
+//
 
-
+// Slightly more flexible way of defining page.. allows if statements ..if required.. 
 String html_Question() {
-  String st   = "<!DOCTYPE html>\r\n";
-  st+= "<html><head>";
- st += "<title>NavDisplay ";
- st += String(soft_version);
- st += "</title>";
- st +=" </head>";
- st +="<body><h1 ><a>This device's panel name is "; st += String(Display_Config.PanelName); 
- st+="</h1><br>\r\n</a><h1>Software :";
- st += String(soft_version);
- st +="</h1><br> I may add user help instructions here:<br>";
- st += "</body></html>";
-return st;
-}
-
-
-String html_startws() {
- String st   = "<!DOCTYPE html>\r\n<html><head> <meta http-equiv=""content-type"" content=""text/html; charset=utf-8"">";
- st += "<title>NavDisplay</title>";
- st +="<style>" ;
- st +="body {background-color:black;color:white;}";
- st +=" </style>";
- st +="</head><body>"; 
- if (hasSD) {st += "<img src='/v3small.jpg' /><br>";}
- st +="<h1 ><a>"; st += String(Display_Config.PanelName);
- st+= "</h1><br>";
- st+=" <h2>Software :";
- st += String(soft_version);
- st +="</h2></a>";
-if (hasSD) {
-  st+="<h1 ><a style='color:white;' href='http://";
+  String st = "<!DOCTYPE html>\r\n";
+  st += "<html><head>";
+  st += "<title>NavDisplay ";
+  st += String(soft_version);
+  st += "</title>";
+  st += " </head>";
+  st += "<body><h1 ><a>This device's panel name is ";
   st += String(Display_Config.PanelName);
-  st += ".local/edit/index.htm'>SD File Access (PC)</a></h1>";}
-else {st+= "<h1> NO SD CARD PRESENT </h1>";  }
-st +="  <h1 >  <a style='color:white;' href='http://";
-st += String(Display_Config.PanelName);
-st +=".local/OTA'>OTA Update</a></h1>";
-st +="  <h1 >  <a style='color:white;' href='http://";
-st += String(Display_Config.PanelName);
-st +=".local/Reset'>Save/Reset</a></h1>";
-st += "</body></html>";
-
-return st;
+  st += "</h1><br>\r\n</a><h1>Software :";
+  st += String(soft_version);
+  st += "</h1><br> I may add user help instructions here:<br>";
+  st += "</body></html>";
+  return st;
 }
+/*the main html web page, with modified names etc    */
+String html_startws() {
+String st =
+  "<!DOCTYPE html>\r\n<html><head> <meta http-equiv="
+  "content-type"
+  " content="
+  "text/html; charset=utf-8"
+  ">"
+  "<title>NavDisplay</title>"
+  "<style>"
+  "body {background-color:black;color:white;}"
+  "</style>"
+  "</head><body>"
+  "<img src='/v3small.jpg' /><br>"
+  "<h1 ><a>";
+  st+= String(Display_Config.PanelName);
+  st+= "</h1><br>"
+       " <h2>Software :";
+  st+= String(soft_version);
+  st+= "</h2></a>"
+  "<h1 ><a style='color:white;' href='http://";
+  st+= String(Display_Config.PanelName);
+  st+= ".local/edit/index.htm'>SD File Access</a></h1>"
+  "  <h1 >  <a style='color:white;' href='http://";
+  st+= String(Display_Config.PanelName);
+  st += ".local/OTA'>OTA Update</a></h1>"
+  "  <h1 >  <a style='color:white;' href='http://";
+  st+= String(Display_Config.PanelName);
+  st += ".local/Reset'>Save/Reset</a></h1>"
+  "</body></html>";
+  return st;
+  }
 
-
-
-
-
-/* Style */
+/* Style  Noted: Arduino will mis-colour some parts such as %;he */
 String style =
   "<style>#file-input,input{width:100%;height:44px;border-radius:4px;margin:10px auto;font-size:15px}"
   "input{background:#f1f1f1;border:0;padding:0 15px}body{background:#3498db;font-family:sans-serif;font-size:14px;color:#777}"
@@ -190,17 +189,17 @@ void returnFail(String msg) {
 
 void handleRoot() {
   Serial.println(" sending local html version");
-  server.send(500, "text/html", html_startws() + "\r\n");
+  server.send(200, "text/html", html_startws() + "\r\n");
 }
 
 bool loadFromSdCard(String path) {
   String dataType = "text/plain";
   //  previous version used just this html from SD card.
-  if (path.endsWith("/")) { // send our local version with modified path!
-    handleRoot(); return true;
+  if (path.endsWith("/")) {  // send our local version with modified path!
+    handleRoot();
+    return true;
     //wilnot get here now!
     path += "startws.htm";  // start our html file from  the SD !
-
   }
 
   if (path.endsWith(".src")) {
@@ -388,13 +387,18 @@ void printDirectory() {
 }
 
 void handleNotFound() {
-  Serial.print(" handleNotFound: server.uri:<");Serial.print(server.uri());Serial.println(">");
+  Serial.print(" handleNotFound: server.uri:<");
+  Serial.print(server.uri());
+  Serial.println(">");
   if (hasSD && loadFromSdCard(server.uri())) {
-      return;
+    return;
   }
-  String message ="";
-  if (!hasSD){ message += "SDCARD Not Detected\n\n";}
-      else{ message += " not understood\n\n";}
+  String message = "";
+  if (!hasSD) {
+    message += "SDCARD Not Detected\n\n";
+  } else {
+    message += " not understood\n\n";
+  }
   message += "URI: ";
   message += server.uri();
   message += "\nMethod: ";
@@ -405,13 +409,13 @@ void handleNotFound() {
   for (uint8_t i = 0; i < server.args(); i++) {
     message += " NAME:" + server.argName(i) + "\n VALUE:" + server.arg(i) + "\n";
   }
-  server.send(404, "text/plain", message);
+  server.send(404, "text/plain", message);  //404 is the error message
   Serial.print(message);
 }
 
 void handleQuestion() {
   Serial.println(" sending handle Question");
-  Serial.println( html_Question());
+  Serial.println(html_Question());
   server.sendContent(html_Question());
   server.sendContent("");
   server.client().stop();
@@ -430,12 +434,13 @@ void SetupOTA() {
     handleRoot();
   });
 
-  server.on("/Q",handleQuestion);
-  //server.on("/", HTTP_GET,handleRoot); //?? 
+  server.on("/Q", handleQuestion);
+  //server.on("/", HTTP_GET,handleRoot); //??
   server.on("/list", HTTP_GET, printDirectory);
   server.on("/edit", HTTP_DELETE, handleDelete);
   server.on("/edit", HTTP_PUT, handleCreate);
-  server.on("/edit", HTTP_POST, []() {
+  server.on(
+    "/edit", HTTP_POST, []() {
       returnOK();
     },
     handleFileUpload);
@@ -443,7 +448,7 @@ void SetupOTA() {
 
   server.on("/Reset", HTTP_GET, []() {
     server.sendHeader("Connection", "close");
-    loadConfiguration(Setupfilename, Display_Config,Current_Settings);
+    loadConfiguration(Setupfilename, Display_Config, Current_Settings);
     EEPROM_WRITE(Current_Settings);
     delay(50);
     ESP.restart();
@@ -460,7 +465,8 @@ void SetupOTA() {
 
 
   /*handling uploading firmware file */
-  server.on("/update", HTTP_POST, []() {
+  server.on(
+    "/update", HTTP_POST, []() {
       server.sendHeader("Connection", "close");
       server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
       ESP.restart();
@@ -521,7 +527,7 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
     return;
   }
   if (file.print(message)) {
-  //  Serial.println("File written");
+    //  Serial.println("File written");
   } else {
     Serial.println("Write failed");
   }
@@ -530,17 +536,17 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
 
 // Append data to the SD card (DON'T MODIFY THIS FUNCTION)
 void appendFile(fs::FS &fs, const char *path, const char *message) {
- // Serial.printf("Appending to file: %s\n", path);
+  // Serial.printf("Appending to file: %s\n", path);
 
   File file = fs.open(path, FILE_APPEND);
   if (!file) {
-   // Serial.println("Failed to open file for appending");
+    // Serial.println("Failed to open file for appending");
     return;
   }
   if (file.print(message)) {
-  //  Serial.println("Message appended");
+    //  Serial.println("Message appended");
   } else {
-  //  Serial.println("Append failed");
+    //  Serial.println("Append failed");
   }
   file.close();
 }
@@ -553,19 +559,24 @@ void Startlogfile() {
   if (!hasSD) { return; }
   // If the data.txt file doesn't exist
   // Create a file on the SD card and write the data labels
-  if (BoatData.GPSDate == 0) { return; }  
-  if (BoatData.GPSDate == NMEA0183DoubleNA) { return; } // and check for NMEA0183DoubleNA?
+  if (BoatData.GPSDate == 0) { return; }
+  if (BoatData.GPSDate == NMEA0183DoubleNA) { return; }  // and check for NMEA0183DoubleNA?
   //We have a date so we can use this for the file name!
- // Serial.printf("  ***** LOG FILE DEBUG ***  use: <%6i>  to make name..  ",int(BoatData.GPSDate));
-  snprintf(LogFileName,25,"/logs/%6i.log",int(BoatData.GPSDate));
- //  Serial.printf("  <%s> \n",LogFileName);
+  // Serial.printf("  ***** LOG FILE DEBUG ***  use: <%6i>  to make name..  ",int(BoatData.GPSDate));
+  snprintf(LogFileName, 25, "/logs/%6i.log", int(BoatData.GPSDate));
+  //  Serial.printf("  <%s> \n",LogFileName);
   File file = SD.open(LogFileName);
   if (!file) {
     //Serial.println("File doesn't exist");
     logFileStarted = true;
-    Serial.printf("Creating <%s>LOG file. and header..\n",LogFileName);
-   // data will be added by a  LOG(...) in the main loop at 5 sec intervals
-    writeFile(SD, LogFileName, "NEW LOG data headings\r\nTime ,SOG,STW,Depth,Windspeed,Windangle,Lat,Long \r\n");
+    Serial.printf("Creating <%s>LOG file. and header..\n", LogFileName);
+    // data will be added by a see the  LOG( fmt ...) in the main loop at 5 sec intervals
+    /*   LOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f ,%4.0f ,%f ,%f \r\n",
+        int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
+        BoatData.STW.data, BoatData.SOG.data, BoatData.WaterDepth.data, BoatData.WindSpeedK.data,
+        BoatData.COG.data,BoatData.MagHeading.data,
+        BoatData.WindAngleApp.data, BoatData.Latitude, BoatData.Longitude);*/
+    writeFile(SD, LogFileName, "NEW LOG data headings\r\nTime ,STW,SOG,Depth,Windspeed,WindAngleApp,COG,MagHeading,Lat,Long \r\n");
     file.close();
     return;
   } else {
@@ -603,9 +614,9 @@ void NMEALOG(const char *fmt, ...) {
   vsnprintf(msg, 128, fmt, args);
   va_end(args);
   int len = strlen(msg);
- // Serial.printf("  Logging to:<%s>", NMEALogFileName);
- // Serial.print("  Log  data: ");
- // Serial.println(msg);
+  // Serial.printf("  Logging to:<%s>", NMEALogFileName);
+  // Serial.print("  Log  data: ");
+  // Serial.println(msg);
   appendFile(SD, "/logs/NMEA.log", msg);
 }
 
@@ -620,9 +631,9 @@ void LOG(const char *fmt, ...) {
   vsnprintf(msg, 128, fmt, args);
   va_end(args);
   int len = strlen(msg);
- // Serial.printf("  Logging to:<%s>", LogFileName);
- // Serial.print("  Log  data: ");
- // Serial.println(msg);
+  // Serial.printf("  Logging to:<%s>", LogFileName);
+  // Serial.print("  Log  data: ");
+  // Serial.println(msg);
   appendFile(SD, LogFileName, msg);
 }
 

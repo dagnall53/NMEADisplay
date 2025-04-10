@@ -5,8 +5,12 @@ tBoatdata from Timo Llapinen by Dr.András Szép under GNU General Public Licens
 */
 #ifndef _BoatData_H_
 #define _BoatData_H_
+#include <NMEA0183.h>  // for the TL NMEA0183 library functions
+#include <NMEA0183Msg.h>
+#include <NMEA0183Messages.h> // for the doubleNA
 
 struct JSONCONFIG {  // for the JSON set Defaults and user settings for displays 
+  char Mag_Var[15]; // got to save double variable as a string! east is positive
   int Start_Page ;
   char StartLogo[20];
   char PanelName[25];
@@ -15,7 +19,7 @@ struct JSONCONFIG {  // for the JSON set Defaults and user settings for displays
 };
 
 
-struct MySettings {  //key,ssid,PW,udpport, UDP,serial,Espnow
+struct MySettings {  // MAINLY WIFI AND DATA LOGGING key,ssid,PW,udpport, UDP,serial,Espnow
   int EpromKEY;      // Key is changed to allow check for clean EEprom and no data stored change in the default will result in eeprom being reset
                      //  int DisplayPage;   // start page after defaults
   char ssid[25];
@@ -34,7 +38,8 @@ struct MyColors {  // for later Day/Night settings
 };
 
 struct instData {  // struct to hold instrument data AND the time it was updated.
-  double data,lastdata;
+  double data = NMEA0183DoubleNA;
+  double lastdata = NMEA0183DoubleNA;
   unsigned long updated;
   bool displayed;
   bool greyed;
@@ -46,7 +51,7 @@ struct instData {  // struct to hold instrument data AND the time it was updated
 struct tBoatData {
   unsigned long DaysSince1970;  // Days since 1970-01-01
   instData SOG, STW, COG, MagHeading, TrueHeading, WaterDepth, SatsInView,
-    WindDirectionT, WindDirectionM, WindSpeedK, WindSpeedM, WindAngle;
+    WindDirectionT, WindDirectionM, WindSpeedK, WindSpeedM, WindAngleApp;
      //instData will be used with NEWUPdate and greys if old
 
   double Variation, GPSTime, Latitude, Longitude, GPSDate,  // keep GPS stuff in double..
