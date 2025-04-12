@@ -51,9 +51,9 @@ static bool NMEAlogFileStarted = false;
 
 extern JSONCONFIG Display_Config;
 extern const char *Setupfilename;  // <- SD library uses 8.3 filenames
-extern void loadConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings);
+extern bool LoadConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings);
 extern MySettings Current_Settings;
-extern void EEPROM_WRITE(MySettings A);
+extern void EEPROM_WRITE(JSONCONFIG B,MySettings A);
 
 // extern Arduino_ST7701_RGBPanel *gfx ;  // declare the gfx structure so I can use GFX commands in Keyboard.cpp and here...
 extern Arduino_RGB_Display *gfx;  //  change if alternate (not 'Arduino_RGB_Display' ) display !
@@ -448,8 +448,7 @@ void SetupOTA() {
 
   server.on("/Reset", HTTP_GET, []() {
     server.sendHeader("Connection", "close");
-    loadConfiguration(Setupfilename, Display_Config, Current_Settings);
-    EEPROM_WRITE(Current_Settings);
+    if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
     delay(50);
     ESP.restart();
   });

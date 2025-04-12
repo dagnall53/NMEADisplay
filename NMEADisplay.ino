@@ -65,7 +65,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.1";
+const char soft_version[] = "Version 3.3";
 bool hasSD;
 
 
@@ -74,7 +74,7 @@ bool hasSD;
 // READ https://arduinojson.org/?utm_source=meta&utm_medium=library.properties
 // *********************************************************************************************************
 const char *Setupfilename = "/config.txt";  // <- SD library uses 8.3 filenames
-JSONCONFIG Display_Config;  
+
 
 
 //set up Audio
@@ -117,7 +117,13 @@ int file_num = 0;
 // MySettings (see structures.h) are the settings for the Display:
 // If the structure is changed, be sure to change the Key (first figure) so that new defaults and struct can be set.
 //                                                                                    LOG off NMEAlog Off
-MySettings Default_Settings = { 13, "GUESTBOAT", "12345678", "2002", false, true, true,false,false };
+MySettings Default_Settings = { 17, "GUESTBOAT", "12345678", "2002", false, true, true,false,false };
+/*  char Mag_Var[15]; // got to save double variable as a string! east is positive
+  int Start_Page ;
+  char PanelName[25];
+  char APpassword[25]; */
+JSONCONFIG Default_JSON ={"0.5",4,"nmeadisplay","12345678"};
+JSONCONFIG Display_Config;  
 int Display_Page = 4;  //set last in setup(), but here for clarity?
 MySettings Saved_Settings;
 MySettings Current_Settings;
@@ -207,22 +213,28 @@ Button Full6Center = { 80, 415, 320, 55, 5, BLUE, WHITE, BLACK };// inteferes wi
 
 
 
-void loadConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings) {
+bool LoadConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings) {
   // Open file for reading
-  File file = SD.open(filename);
+  if (!SD.exists(filename)){Serial.printf(" Json file %s did not exist\n Using defaults\n",filename); 
+     SaveConfiguration(filename,Default_JSON,Default_Settings);
+     config=Default_JSON;settings=Default_Settings;
+     return false;}
+  File file = SD.open(filename,FILE_READ);
+  if (!file) {Serial.println(F("**Failed to read JSON file")); return false;}
   // Allocate a temporary JsonDocument
   char temp[15];
   JsonDocument doc;
   // Deserialize the JSON document
   DeserializationError error = deserializeJson(doc, file);
-  if (error)  Serial.println(F("**Failed to read JSON file, using default configuration"));
+  if (error)  {Serial.println(F("**Failed to read JSON file")); return false;}
   // Copy values (or defaults) from the JsonDocument to the config / settings
+  if (doc["Start_Page"]==0){return false;}  //secondary backup in case the file is present (passes error) but zeroed!
+
   config.Start_Page = doc["Start_Page"] | 4; // 4 is default page int - no problem...
-   strlcpy(temp,doc["Mag_Var"] | "1.15",sizeof(temp));
-   BoatData.Variation = atof(temp); //  (+ = easterly) Positive: If the magnetic north is to the east of true north, the declination is positive (or easterly). 
-   strlcpy(config.StartLogo,                  // User selectable 
-          doc["StartLogo"] | "/logo3.jpg",  // <- and default in case Json is corrupt / missing !
-          sizeof(config.StartLogo));
+
+  strlcpy(temp,doc["Mag_Var"] | "1.15",sizeof(temp));
+  BoatData.Variation = atof(temp); //  (+ = easterly) Positive: If the magnetic north is to the east of true north, the declination is positive (or easterly). 
+
   strlcpy(config.PanelName,                  // User selectable 
           doc["PanelName"] | "NMEADISPLAY",  // <- and default in case Json is corrupt / missing !
           sizeof(config.PanelName)); 
@@ -243,10 +255,12 @@ void loadConfiguration(const char *filename, JSONCONFIG &config, MySettings &set
           sizeof(settings.UDP_PORT));         // <- destination's capacity                
   // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
+  if (!error) {return true;}
+  return false;
 }
 
 
-void saveConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings) {
+void SaveConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings) {
   // Delete existing file, otherwise the configuration is appended to the file
   SD.remove(filename);
   char buff[15];
@@ -261,7 +275,6 @@ void saveConfiguration(const char *filename, JSONCONFIG &config, MySettings &set
   Serial.print("save magvar:");Serial.printf("%5.3f",BoatData.Variation);
   snprintf(buff,sizeof(buff),"%5.3f",BoatData.Variation);
   doc["Mag_Var"]=buff;
-  doc["StartLogo"]=config.StartLogo;
   doc["PanelName"]=config.PanelName;
   doc["APpassword"]=config.APpassword;
   //now the settings WIFI etc.. 
@@ -279,14 +292,14 @@ void saveConfiguration(const char *filename, JSONCONFIG &config, MySettings &set
   }
   // Close the file, but print serial as a check 
   file.close();
-  printFile(filename);
+  PrintJsonFile(filename);
 }
 
 
-void printFile(const char *filename) {
+void PrintJsonFile(const char *filename) {
   // Open file for reading
-  File file = SD.open(filename);
-  Serial.println(" READING JSON SETUP ");
+  File file = SD.open(filename,FILE_READ );
+  Serial.println(" PRINT JSON SETUP ");
   if (!file) {
     Serial.println(F("Failed to read file"));
     return;
@@ -421,6 +434,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
 
   static double startposlat,startposlon;
   double LatD,LongD; //deltas
+  double wind_gnd;
   int magnification,h,v;
 
   static int LastPageselected;
@@ -873,7 +887,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       };
  
       if (CheckButton(Switch4)) {
-        EEPROM_WRITE(Current_Settings);
+        EEPROM_WRITE(Display_Config,Current_Settings);
         delay(50);
        // Display_Page = 0;
         DataChanged = true;
@@ -912,7 +926,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       if (CheckButton(Full4Center)) { Display_Page = 9; }  
       if (CheckButton(Full5Center)) {
         //Display_Page = 4;
-        EEPROM_WRITE(Current_Settings);
+        EEPROM_WRITE(Display_Config,Current_Settings);
         delay(50);
         ESP.restart();
       }
@@ -1068,7 +1082,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         // do this one once a second.. I have not yet got simplified functions testing if previously displayed and greyed yet
         gfx->setTextColor(BigSingleDisplay.textcol);
         BigSingleDisplay.PrintLine = 0;
-        if (BoatData.SatsInView.data != NMEA0183DoubleNA) {UpdateLinef(8,BigSingleDisplay, "%.0f Satellites in view", BoatData.SatsInView.data);}
+        if (BoatData.SatsInView != NMEA0183DoubleNA) {UpdateLinef(8,BigSingleDisplay, "%.0f Satellites in view", BoatData.SatsInView);}
         if (BoatData.GPSTime != NMEA0183DoubleNA) {
           UpdateLinef(8,BigSingleDisplay, "");
           UpdateLinef(8,BigSingleDisplay, "Date: %06i ", int(BoatData.GPSDate));
@@ -1078,11 +1092,11 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         }
         if (BoatData.Latitude != NMEA0183DoubleNA) {
           UpdateLinef(8,BigSingleDisplay, "");
-          UpdateLinef(8,BigSingleDisplay, "LAT: %f", BoatData.Latitude);
-          UpdateLinef(8,BigSingleDisplay, "");
-          UpdateLinef(8,BigSingleDisplay, "LON: %f", BoatData.Longitude);
+          UpdateLinef(8,BigSingleDisplay, "LAT %s",LattoString(BoatData.Latitude));
+          UpdateLinef(8,BigSingleDisplay, "LON %s",LongtoString(BoatData.Longitude));
         }
-        UpdateLinef(8,BigSingleDisplay, "some data for review .. 'easy' view here\n");
+
+        UpdateLinef(8,BigSingleDisplay, "some other data for review during testing :  \n\n");
         if (LocalCopy.data != NMEA0183DoubleNA){UpdateLinef(8,BigSingleDisplay, "COG: %5.4f", LocalCopy.data);}
         if (LocalCopy2.data != NMEA0183DoubleNA){UpdateLinef(8,BigSingleDisplay, "SOG: %5.4f", LocalCopy2.data);}
         if (BoatData.MagHeading.data != NMEA0183DoubleNA){UpdateLinef(8,BigSingleDisplay,"Mag Heading: %5.4f", BoatData.MagHeading);}
@@ -1126,9 +1140,8 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
         }
         if (BoatData.Latitude != NMEA0183DoubleNA) {
-
-          UpdateLinef(8,BigSingleTopLeft, "LAT: %f", BoatData.Latitude);
-          UpdateLinef(8,BigSingleTopLeft, "LON: %f", BoatData.Longitude);
+          UpdateLinef(8,BigSingleTopLeft, "LAT: %s", LattoString(BoatData.Latitude));
+          UpdateLinef(8,BigSingleTopLeft, "LON: %s", LongtoString(BoatData.Longitude));
           DrawGPSPlot(false, BigSingleDisplay, BoatData,  magnification );
       }
       }
@@ -1184,11 +1197,14 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
         slowdown = millis();
       }
       LocalCopy = BoatData.WindAngleApp;  //Duplicate wind angle so it can be shown again in a second box
-      LocalCopy2.data= BoatData.WindAngleApp.data+BoatData.MagHeading.data+BoatData.Variation;  // most are instData type, so the data is ".data"  Variation is just a double  
-      LocalCopy3.data= LocalCopy2.data;
-      WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, LocalCopy2);
+
+      LocalCopy2= BoatData.WindAngleApp; // save .. sets all flags to show undisplayed
+      LocalCopy2.data = BoatData.Variation + DoubleInstdataAdd (BoatData.WindAngleApp,BoatData.MagHeading);// most are instData type, so the data is ".data"  Variation is just a double 
+      LocalCopy3=LocalCopy2;   
       UpdateDataTwoSize(true,true,9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %3.1f");
-      UpdateDataTwoSize(true,true,9, 8, BottomHalfBigSingleTopRight, LocalCopy3, "true %3.1f");
+      
+      WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, LocalCopy2);
+      UpdateDataTwoSize(true,true,9, 8, BottomHalfBigSingleTopRight, LocalCopy3, "gnd %3.1f");
    
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(BigSingleDisplay)) { Display_Page = 5; }
@@ -1333,8 +1349,10 @@ void setup() {
   Serial.println("Starting NMEA Display ");
   Serial.println(soft_version);
   ts.begin();
+  Serial.println("ts has begun");
   ts.setRotation(ROTATION_INVERTED);
   // guitron sets GFX_BL 38 
+  Serial.println("GFX_BL set");
  #ifdef GFX_BL 
   pinMode(GFX_BL, OUTPUT);  
   digitalWrite(GFX_BL, HIGH);
@@ -1349,8 +1367,7 @@ void setup() {
   setFont(4);
   gfx->setCursor(40, 120);
   gfx->println(F("***Display Started***"));
-  gfx->println(F("Starting SD Card"));
-  
+ 
   SD_Setup();
 
   Audio_setup();
@@ -1361,7 +1378,8 @@ void setup() {
   // JSON READ will Overwrite EEPROM settings!
   //      But will update JSON IF the Data is changed (I have a JSON save in EEPROM WRITE)
   //Serial.println(F("Loading JSON configuration..."));
-  loadConfiguration(Setupfilename, Display_Config,Current_Settings);
+  if (LoadConfiguration(Setupfilename, Display_Config,Current_Settings)){Serial.println("USING JSON");}
+  else {Display_Config=Default_JSON; Serial.println(" USING EEPROM, display to defaults");}
   // set up anything BoatData from the configs 
   //Serial.print("now.. magvar:");Serial.println(BoatData.Variation);
  
@@ -1369,27 +1387,26 @@ void setup() {
   gfx->setTextColor(WHITE);
   gfx->setTextBound(0, 0, 480, 480);
   setFont(4);
-  gfx->println(F("***Display Start***"));
   gfx->println(F("Starting SD Card"));
+  gfx->setCursor(140, 140);
   gfx->println(soft_version);
   // flash User selected logo and setup audio if SD present 
   if  (hasSD){
  // // flash logo
-    // // confing.StartLogo should be /logo3.jpg or similar decided by user?
     // Serial.printf("display <%s> \n",Display_Config.StartLogo);
     jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
-    // jpegDraw(Display_Config.StartLogo, jpegDrawCallback, true /* useBigEndian */,
+    // jpegDraw(StartLogo, jpegDrawCallback, true /* useBigEndian */,
           0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
-    gfx->setCursor(80,140);
+    gfx->setCursor(140,140);
     gfx->println(soft_version);
     }
 
   // Create configuration file
   //Serial.println(F("Saving configuration..."));
-  //saveConfiguration(Setupfilename, Display_Config,Current_Settings);
+  //SaveConfiguration(Setupfilename, Display_Config,Current_Settings);
     // Dump config file
   Serial.println(F("Printing  JSON config file..."));
-  printFile(Setupfilename);
+  PrintJsonFile(Setupfilename);
 
   ConnectWiFiusingCurrentSettings();
   SetupOTA();
@@ -1588,16 +1605,16 @@ void UseNMEA(char* buf, int type) {
 }
 
 //*********** EEPROM functions *********
-void EEPROM_WRITE(MySettings A) {
+void EEPROM_WRITE(JSONCONFIG B,MySettings A) {
   // save my current settings
   // ALWAYS Write the Default display page!  may change this later and save separately?!!
-  Serial.printf("SAVING EEPROM key:%i \n", A.EpromKEY);
+  Serial.printf("SAVING EEPROM\n key:%i \n", A.EpromKEY);
   EEPROM.put(1, A.EpromKEY);  // separate and duplicated so it can be checked by itsself first in case structures change
   EEPROM.put(10, A);
   EEPROM.commit();
   delay(50);
   //NEW also save as a JSON on the SD card SD card will overwrite current settings on setup..
-  saveConfiguration(Setupfilename, Display_Config,Current_Settings);
+  SaveConfiguration(Setupfilename, B,A);
 }
 void EEPROM_READ() {
   int key;
@@ -1608,13 +1625,13 @@ void EEPROM_READ() {
  // Serial.printf(" read %i  default %i \n", key, Default_Settings.EpromKEY);
   if (key == Default_Settings.EpromKEY) {
     EEPROM.get(10, Saved_Settings);
-    Serial.println("using EEPROM settings");
-    gfx->println("Using EEPROM settings");
+    Serial.println("EEPROM Key OK");
+    gfx->println("EEPROM Key OK");
   } else {
     Saved_Settings = Default_Settings;
-    gfx->println("Key wrong: using DEFAULTS");
+    gfx->println("Using DEFAULTS");
     Serial.println("Using DEFAULTS");
-    EEPROM_WRITE(Default_Settings);
+    EEPROM_WRITE(Default_JSON,Default_Settings);
   }
 }
 
@@ -1818,10 +1835,13 @@ void ConnectWiFiusingCurrentSettings() {
   bool result;
   uint32_t StartTime = millis();
   gfx->println("Setting up WiFi");
-  WiFi.disconnect(true);
+  WiFi.disconnect(false,true); // clean the persistent memory in case someone else set it !! eg ESPHOME!!  
+  delay(100);
+  WiFi.persistent(false);
+    WiFi.mode(WIFI_AP_STA);
   WiFi.onEvent(wifiEvent);  // Register the event handler
   // start the display's AP - potentially with NULL pasword
-  if (String(Display_Config.APpassword) == "NULL" )  {result=WiFi.softAP(Display_Config.PanelName); delay(5); }  
+  if (( String(Display_Config.APpassword) == "NULL" ) ||(String(Display_Config.APpassword) == "null" ) || (String(Display_Config.APpassword) == "" )){result=WiFi.softAP(Display_Config.PanelName); delay(5); }  
   else { result = WiFi.softAP(Display_Config.PanelName, Display_Config.APpassword);}
   delay(5);  
   if (result == true) {
@@ -1834,7 +1854,11 @@ void ConnectWiFiusingCurrentSettings() {
     Serial.println(WiFi.softAPIP());
     }
   else {
-    Serial.println("Soft-AP creation failed!");
+    Serial.println("Soft-AP creation failed! set this up..");
+     Serial.print("   ssidAP: ");
+    Serial.println(WiFi.softAPSSID()); 
+        Serial.print("   AP IP address: ");
+    Serial.println(WiFi.softAPIP());  
   }
   WiFi.mode(WIFI_AP_STA);
   // (sucessful!) experiment.. do the WIfI/scan(i) and they get independently stored??
@@ -2094,3 +2118,28 @@ void EventTiming(String input, int number) {  // Event timing, Usage START, STOP
     calls = 0;
   }
 }
+
+char* LattoString(double data){
+  static char buff[25];
+  double pos;
+  pos=data;
+  int degrees = int(pos);
+  float minutes = (pos-degrees) *60;
+  bool direction;
+  direction = (pos>=0);
+  snprintf(buff,sizeof(buff),"%2ideg %6.3fmin %s",abs(degrees),abs(minutes),direction? "N":"S");
+
+ return buff; 
+} 
+char* LongtoString(double data){
+  static char buff[25];
+  double pos;
+  pos=data;
+  int degrees = int(pos);
+  float minutes = (pos-degrees) *60;
+  bool direction;
+  direction = (pos>=0);
+  snprintf(buff,sizeof(buff),"%3ideg %6.3fmin %s",abs(degrees),abs(minutes),direction? "E":"W");
+
+ return buff; 
+} 

@@ -12,7 +12,6 @@ tBoatdata from Timo Llapinen by Dr.András Szép under GNU General Public Licens
 struct JSONCONFIG {  // for the JSON set Defaults and user settings for displays 
   char Mag_Var[15]; // got to save double variable as a string! east is positive
   int Start_Page ;
-  char StartLogo[20];
   char PanelName[25];
   char APpassword[25]; 
    
@@ -50,17 +49,18 @@ struct instData {  // struct to hold instrument data AND the time it was updated
 
 struct tBoatData {
   unsigned long DaysSince1970;  // Days since 1970-01-01
-  instData SOG, STW, COG, MagHeading, TrueHeading, WaterDepth, SatsInView,
+
+  instData SOG, STW, COG, MagHeading, TrueHeading, WaterDepth,
     WindDirectionT, WindDirectionM, WindSpeedK, WindSpeedM, WindAngleApp;
      //instData will be used with NEWUPdate and greys if old
 
-  double Variation, GPSTime, Latitude, Longitude, GPSDate,  // keep GPS stuff in double..
-    Altitude, HDOP, GeoidalSeparation, DGPSAge,
-    WaterTemperature, Offset, RPM;
+  double SatsInView,Variation, GPSTime, Latitude, Longitude, GPSDate,  // keep GPS stuff in double ..
+    Altitude, HDOP, GeoidalSeparation, DGPSAge;
+    
 //not used .. yet?
-  int GPSQualityIndicator, SatelliteCount, DGPSReferenceStationID;
+  int GPSQualityIndicator, DGPSReferenceStationID;
   bool MOBActivated;
-  char Status;
+
 };
 
 struct Button {

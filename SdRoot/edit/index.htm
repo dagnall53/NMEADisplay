@@ -139,9 +139,20 @@
         background-color: #444;
         color:#EEE;
       }
-      #tree { 
+	  #filecmds { 
         position: absolute;
         top: 28px;
+        right: 0;
+        left: 0;
+        height:28px;
+        line-height: 24px;
+        padding-left: 10px;
+        background-color: #444;
+        color:#EEE;
+      }
+      #tree { 
+        position: absolute;
+        top: 56px;
         bottom: 0;
         left: 0;
         width:200px;
@@ -149,7 +160,7 @@
       }
       #editor, #preview { 
         position: absolute;
-        top: 28px;
+        top: 56px;
         right: 0;
         bottom: 0;
         left: 200px;
@@ -340,6 +351,9 @@
           list.appendChild(download);
           download.innerHTML = "<span>Download</span>";
           download.onclick = function(e){
+		  console.log('download 354');
+		  console.log(path);
+		  console.log(document.body.getElementsByClassName('contextMenu').length);
             loadDownload(path);
             if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
           };
@@ -548,6 +562,11 @@
 
       function createEditor(element, file, lang, theme, type){
         function getLangFromFilename(filename){
+          console.log('at 565');
+          console.log(filename);
+		  var pathEl = document.getElementById("upload-path");
+            if(pathEl){if (filename !== null) {pathEl.value = filename;}};
+         console.log(' got to 569');
           var lang = "plain";
           var ext = /(?:\.([^.]+))?$/.exec(filename)[1];
           if(typeof ext !== undefined){
@@ -625,10 +644,33 @@
         editor.setShowPrintMargin(false);
         <!-- Save Button -->		
       var saveButton = document.createElement("button");
-      saveButton.innerHTML = 'Save';
-      document.getElementById("uploader").appendChild(saveButton);
+      saveButton.innerHTML = 'Save Edited';
+      document.getElementById("filecmds").appendChild(saveButton);
       saveButton.onclick = function(e){
     	httpPost(file, editor.getValue()+"", type);
+      };
+	   <!-- Download Button -->		
+      var downloadButton = document.createElement("button");
+      downloadButton.innerHTML = 'Download';
+      document.getElementById("filecmds").appendChild(downloadButton);
+      downloadButton.onclick = function(e){
+	    console.log(' download variables 652 ');
+	    
+	    var pathEl = document.getElementById("upload-path");
+	    console.log(pathEl.value);
+            if(pathEl){if (pathEl.value !== null) {
+              //loadDownload(pathEl.value);
+              document.getElementById('download-frame').src = pathEl.value+"?download=true";
+              
+            }}; //loadDownload(path);
+
+      };
+	     <!-- Delete Button -->		
+      var deleteButton = document.createElement("button");
+      deleteButton.innerHTML = 'Delete';
+      document.getElementById("filecmds").appendChild(deleteButton);
+      deleteButton.onclick = function(e){
+    	//httpPost(file, editor.getValue()+"", type);
       };
        <!-- /Save Button-->
         editor.commands.addCommand({
@@ -677,6 +719,7 @@
   </head>
   <body onload="onBodyLoad();">
     <div id="uploader"></div>
+	<div id="filecmds"></div>
     <div id="tree"></div>
     <div id="editor"></div>
     <div id="preview" style="display:none;"></div>

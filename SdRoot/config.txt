@@ -1,5 +1,8 @@
 {
   "Start_Page": 4,
+  "Mag_Var": "0.200",
+  "PanelName": "nmeadisplay",
+  "APpassword": "12345678",
   "ssid": "GUESTBOAT",
   "password": "12345678",
   "UDP_PORT": "2000",

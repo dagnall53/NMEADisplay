@@ -32,11 +32,12 @@ int KBD_size = 2;  //generic size modifier for Kbd 1=small, 2=480 wide
 
 extern int text_height;  //so we can get them if we change heights etc inside functions
 
-extern void EEPROM_WRITE(MySettings A);
+extern void EEPROM_WRITE(JSONCONFIG B,MySettings A);
 extern void setFont(int);
 extern int Display_Page;
 extern TAMC_GT911 ts;
 extern struct MySettings Current_Settings;
+extern struct JSONCONFIG Display_Config;
 extern void TouchCrosshair(int);
 extern int text_offset;
 
@@ -105,7 +106,7 @@ void Use_Keyboard(char* DATA, int sizeof_data) {
       strncpy(DATA, Local_var, sizeof_data);  // limit_size so we cannot overwrite the original array size
       Command_Key = true;
       VariableChanged = false;
-      EEPROM_WRITE(Current_Settings);
+      EEPROM_WRITE(Display_Config,Current_Settings);
       Keyboardinuse=false;
       setFont(0);
       Display_Page=-1; //Always return to settings, page -1

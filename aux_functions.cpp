@@ -172,17 +172,14 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
   switch (Index / 4) {
     case 1:  //dbt
       toNewStruct(Field[3], BoatData.WaterDepth);
-      // BoatData.WaterDepth = atof(Field[3]);
       return true;
       break;
     case 2:  //DPT //dIFFERENT TO DBT/DBK
       toNewStruct(Field[1], BoatData.WaterDepth);
-      // BoatData.WaterDepth = atof(Field[1]);
       return true;
       break;
     case 3:  //DBK
       toNewStruct(Field[3], BoatData.WaterDepth);
-      //  BoatData.WaterDepth = atof(Field[3]);
       return true;
       break;
 
@@ -195,14 +192,13 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
 
     case 5:  //VHW
       toNewStruct(Field[5], BoatData.STW);
-      // BoatData.STW = atof(Field[5]);  // other VHW data (directions!) are usually false!
+       // other VHW data (directions!) are usually false!
       return true;
       break;
     case 6:  //RMC
       toNewStruct(Field[7], BoatData.SOG);
       toNewStruct(Field[8], BoatData.COG);
-      // BoatData.SOG = atof(Field[7]);  //  was just atof( or  use TL function NMEA0183GetDouble to cover some error cases and return NMEA0183DoubleNA if N/A
-      // BoatData.COG = atof(Field[8]);  // atof sets nmea0183nan (-10million.. so may need extra stuff to prevent silly displays!)
+    // nmea0183nan (-10million.. so may need extra stuff to prevent silly displays!)
       BoatData.Latitude = LatLonToDouble(Field[3], Field[4][0]);   // using TL's functions
       BoatData.Longitude = LatLonToDouble(Field[5], Field[6][0]);  //nb we use +1 on his numbering that omits the command
                                                                    //        Serial.println(BoatData.GPSTime); Serial.println(BoatData.Latitude);  Serial.println(BoatData.Longitude);  Serial.println(BoatData.SOG);
@@ -219,8 +215,7 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
       break;
     case 10:  //HDM
       toNewStruct(Field[1], BoatData.MagHeading);
-      //BoatData.MagHeading = atof(Field[1]);
-      return true;
+       return true;
       break;
 
     case 19:  //GSV
@@ -231,8 +226,9 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
       //          Serial.printf("%i=<%s>,",x,Field[x]);
       //        }
       //        Serial.println(" ");
-      toNewStruct(Field[3], BoatData.SatsInView);
-      //BoatData.SatsInView = atof(Field[3]);
+      //  Not new struct, sats in view is just a double. not an inststruct. toNewStruct(Field[3], BoatData.SatsInView);
+      BoatData.SatsInView= NMEA0183GetDouble(Field[3]);
+ 
       return true;
       break;
 
@@ -303,48 +299,6 @@ void UpdateLinef(uint16_t color, int font, Button &button, const char *fmt, ...)
   CommonSubUpdateLinef(color, font, button, msg);
 }
 
-// void UpdateLinef(uint16_t color,int font,Button &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
-//   //static int button.PrintLine; // place in button so its static for each button!
-//   int LinesOfType;
-//   int16_t x, y, TBx1, TBy1;
-//   uint16_t TBw, TBh;
-//   int typingspaceH, typingspaceW;
-//   int local;
-//    if (button.screenfull && button.debugpause) { return; }
-//   local = MasterFont;
-//   // can now change font iside this
-//   setFont(font);
-//   typingspaceH = button.height - (2 * button.bordersize);
-//   typingspaceW = button.width - (2 * button.bordersize);
-//   LinesOfType = typingspaceH / (text_height + 2);  //assumes textsize 1?
-//   static char msg[300] = { '\0' };
-//   va_list args;
-//   va_start(args, fmt);
-//   vsnprintf(msg, 128, fmt, args);
-//   va_end(args);
-//   int len = strlen(msg);
-//   x = button.h + button.bordersize;  // shift inwards for border
-//   gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
-//   gfx->setTextWrap(true);
-//   //y = TopLeftYforthisLine(button, button.PrintLine);  //NOT Needed for the text bounds?
-//   gfx->getTextBounds(msg, 0, 0, &TBx1, &TBy1, &TBw, &TBh);
-//   gfx->fillRect(x, TopLeftYforthisLine(button, button.PrintLine)+1, typingspaceW, TBh + 3, button.backcol);
-//   gfx->setCursor(x, TopLeftYforthisLine(button, button.PrintLine) + text_offset + 1);  // puts cursor on a specific line with 2 pixels of V spacing
-//   gfx->setTextColor(color);
-//   gfx->print(msg);
-//   //Serial.printf(" lines  tbh %i textheight %i  >lines are %i  \n",TBh,text_height,TBh/text_height);                                                       // lines should be blanked by previous filRect
-//   button.PrintLine = button.PrintLine + 1;// ?? was (TBh / (text_height + 2)) + 1;
-//   if (button.PrintLine >= (LinesOfType)) {
-//     button.screenfull = true;
-//     if (!button.debugpause) {
-//       button.PrintLine = 0;
-//       gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH, button.backcol);
-//       button.screenfull = false;
-//     }
-//   }
-//   gfx->setTextBound(0, 0, 480, 480);  //MUST RESET IT
-//   setFont(local);
-// }
 
 
 void UpdateLinef(int font, Button &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
@@ -406,12 +360,12 @@ void Sub_for_UpdateTwoSize(bool horizCenter, bool vertCenter, bool erase, int bi
   gfx->getTextBounds(decimal, x + TBw1, y, &TBx2, &TBy2, &TBw2, &TBh2);  // width of smaller stuff
   gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
   if (((TBw1 + TBw2) >= typingspaceW) || ((TBh1) >= typingspaceH)) {
-    Serial.print("***DEBUG <");
-    Serial.print(msg);
-    Serial.print("> became <");
-    Serial.print(digits);
-    Serial.print(decimal);
-    Serial.println("> and was too big to print in box");
+    // Serial.print("***DEBUG <");
+    // Serial.print(msg);
+    // Serial.print("> became <");
+    // Serial.print(digits);
+    // Serial.print(decimal);
+    // Serial.println("> and was too big to print in box");
     gfx->setTextBound(0, 0, 480, 480);
     data.displayed = true;
     return;
@@ -772,4 +726,12 @@ DATA.displayed = true;  //reset to false inside toNewStruct   it is this that he
 // for (int x = 0; x <= Hmax; x++) {  //draw line from index-1 to index in text col
 //                                   // Pdrawline(graph[x], graph[x + 1], button.textcol);
 // }
+}
+
+double DoubleInstdataAdd(instData &data1, instData &data){
+  double temp;
+  temp=0;
+  if (data.data != NMEA0183DoubleNA){temp += data.data;}
+  if (data1.data != NMEA0183DoubleNA){temp += data1.data;}
+  return temp;
 }

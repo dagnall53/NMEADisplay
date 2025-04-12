@@ -10,10 +10,6 @@ Images of previous versions of the display
 <p> <img  height =200 src="https://github.com/user-attachments/assets/7f585734-d98d-4989-88b9-e27b94a2dbbe" />
 <img height = 200 src="https://github.com/user-attachments/assets/f7ee5526-b172-4278-a29b-25652bf69c3d" /></p>
 
-# SAFARI ISSUE on IPAD
-I have (currently - april 25) a strange issue with Safari on IPAD (iOS 18.3.2) that will not display the web page. It just shows "cannot parse response"
-Clearing cache and restarting had no effect. Chrome on same device works fine after a cache clear.
-Safari seems to work on on Iphone (iOS 16.7) 
 
 ## HOW TO INSTALL FIRST TIME
  
@@ -34,10 +30,13 @@ You will next need to get a new microSD card, ( I used 4Gb), and format it using
 Then copy the whole of the "SdRoot" folder onto the SD card. 
 You should then see it will have two sub directories: edit and logs.
 The edit subdirectory will have one file 'index.htm', which is vital for the Webeditor!.
-The root of the SD should have four files, config.txt, logo.jpg (the start screen image), startws.htm, (a file that runs the webserver), and StartSound.mp3. ( a file that will play on modified boards if they have sound).
+The root of the SD should have (at least) these files:
+config.txt, ( a json file with user settings) and logo3.jpg (the start screen image), v3small.jpg (used in the webbrowser start screen). 
+and an 'edit' sub directory with the file 'index.html'. Other files may be included.. but are not essential.
+
 Re insert the SD card into the module and restart. 
 
-You should get the colour picture of a clipper ship and white text showing the program starting up. 
+You should get the colour picture and white text showing the program starting up. 
 If you do not see the picture, and just get the white text, the module has not recognised the SD card, and you need to try a different one. 
 It can be quite fussy.
  
@@ -66,7 +65,9 @@ Prior to V3, it was not possible to easily access OTA via the webbrowser without
 The Config.txt SD file also now includes options to modify the Panelname, start log picture and AP password. 
 <b>IF</b> you change to a new panel name, then you will need to point the webbrowser to the new name: I.E after  I changed from NMEADISPLAy to "Panel2", I need to point the webbrowser to 'http://panel2.local/' This allows use and control of more than one panel at a time.
 The panelname in use is shown at the bottom of the settings page.
-
+###  EDITOR ISSUE on IOS
+The SD editor uses right mouse click to select file download /delete etc. Which can be useful to download the LOGS from the SD card wirelessly. Unfortunately, IOS has not got a useful sensible file save capability, so its not possible on IOS to download.
+I will try later to add an alternate "send email" with th log file.  
 
 ## Navigating the Menu
 
