@@ -1,9 +1,8 @@
 
 # NMEADisplay
-This project is a Wireless Instrument Display for Boats.
-It requires the boat to have a wireless NMEA multiplexer that repeats NMEA instrumentation on UDP.
-But it also accepts NMEA data over ESP-NOW from suitable multiplexers such as VELA-Naviga types: 
-https://www.vela-navega.com/index.php/multiplexers
+This project is a Wireless Instrument Repeater Display for Boats.
+
+It requires the boat to have a wireless NMEA multiplexer that sends NMEA instrument readings on UDP. 
 <p align="center"> Version 3 display <img width = 400 src="https://github.com/user-attachments/assets/a6a14548-3c6a-4396-b0af-098bd9176c43" width="200" /></p>
 
 Images of previous versions of the display
@@ -23,8 +22,8 @@ Open the directory in a file browser and navigate to the subdirectory:
 C:\Users\admin\Downloads\NMEADisplay-main\NMEADisplay-main\build\esp32.esp32.esp32s3
 In this folder is a batch file called ProgramBoard.bat.
 Double click this bat file (see below*) and it will start and a new DOS prompt window will open and ask: 
-Enter Com port number: ... enter your com port number (eg 8) and press return. 
-The Esptool program will upload the program onto your board and it should restart. 
+Enter Com port number: ... Enter your com port number (eg 8) and press return. 
+The Esptool program will upload the program onto your board and the display board should restart. 
 
 You will next need to get a new microSD card, ( I used 4Gb), and format it using FAT32.
 Then copy the whole of the "SdRoot" folder onto the SD card. 
@@ -57,15 +56,19 @@ Settings on the config.txt take priority when starting.
 Use the Webbrowser (see later) or put the SD card in a PC and open (double click on) the file "config.txt".
 This is a JSON file with settings for wifi etc.
 Edit the file and save it . (On touchscreens - just press SAVE to save once edited).
-The Multiplexer will check this file on startup and use these settings. If the file is not present it will use defaults. 
+The Display will check this file on startup and use these settings. If the file is not present it will use defaults. 
 If you have no SD card, it will revert to using its internal EEPROM to save the WIFI settings. 
-You can select which 'page' displays after startup by changing the number "Start_Page". 4 is the quad display and the default. 
+You can select which 'page' displayed after startup by changing the number "Start_Page" 4 is the quad display and the default. 
+
 ### Using webbrowser settings: VERSION 3 Update / corrections
+
 Prior to V3, it was not possible to easily access OTA via the webbrowser without the correctly formatted SD card. This has been corrected.
 The Config.txt SD file also now includes options to modify the Panelname, start log picture and AP password. 
 <b>IF</b> you change to a new panel name, then you will need to point the webbrowser to the new name: I.E after  I changed from NMEADISPLAy to "Panel2", I need to point the webbrowser to 'http://panel2.local/' This allows use and control of more than one panel at a time.
 The panelname in use is shown at the bottom of the settings page.
+
 ###  EDITOR ISSUE on IOS
+
 The SD editor uses right mouse click to select file download /delete etc. Which can be useful to download the LOGS from the SD card wirelessly. Unfortunately, IOS has not got a useful sensible file save capability, so its not possible on IOS to download.
 I will try later to add an alternate "send email" with th log file.  
 
@@ -79,6 +82,11 @@ This is a simplified view of the page map.
 
 Here is a short video tour of Version 1 of the software : https://youtube.com/shorts/24qs9CJK5vo?si=zCDUuTbXkYfHtEDB
 (Version 2 and 3 hav better graphics and a modified menu, but are essentailly similar)
+
+# NMEA DATA and UDP
+
+Whilst the main way to send instrument data to the Display is via NMEA over UDP, the project also accepts NMEA data over 'ESP-NOW' from suitable multiplexers such as VELA-Naviga types: 
+https://www.vela-navega.com/index.php/multiplexers
 
 ## MODULE Requirements
 
