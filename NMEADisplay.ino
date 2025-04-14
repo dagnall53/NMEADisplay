@@ -30,7 +30,7 @@ Select PSRAM "OPI PSRAM"
 
 #include "Structures.h"
 #include "aux_functions.h"
-#include "SineCos.h"
+
 #include <Arduino_GFX_Library.h>
 // Original version was for GFX 1.3.1 only. #include "GUITIONESP32-S3-4848S040_GFX_133.h"
 #include "Esp32_4inch.h"  // defines GFX !
@@ -65,7 +65,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.3";
+const char soft_version[] = "Version 3.5";
 bool hasSD;
 
 
@@ -98,6 +98,9 @@ char nmea_EXT[BufferLength];  // buffer for ESP_now received data
 
 bool EspNowIsRunning = false;
 char* pTOKEN;
+// assists for wifigfx interrupt  box that shows status..  to help turn it off after a time
+  uint32_t WIFIGFXBoxstartedTime;
+  bool WIFIGFXBoxdisplaystarted;
 //********** All boat data (instrument readings) are stored as double in a single structure:
 
 tBoatData BoatData;  // BoatData values, int double etc
@@ -153,6 +156,8 @@ Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 
 //used for single data display
 // modified all to lift by 30 pixels to allow a common bottom row display (to show logs and get to settings)
+
+Button WifiStatus = {120,120,240,240,5, BLUE, WHITE, BLACK }; // big central box for wifi events to pop up - v3.5
 
 Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK }; // used for wind and graph displays
 Button BigSingleTopRight = {240, 0, 240, 90, 5, BLUE, WHITE, BLACK }; //  ''
@@ -329,7 +334,8 @@ void WindArrowSub(Button button, instData Speed, instData& wind) {
   bool recent = (wind.updated >= millis() - 3000);
   Phv center;
   int rad, outer, inner;
-  static int lastwind, lastfont;
+  static int  lastfont;
+  static double lastwind;
   center.h = button.h + button.width / 2;
   center.v = button.v + button.height / 2;
   rad = (button.height - (2 * button.bordersize)) / 2;  // height used as more likely to be squashed in height
@@ -358,7 +364,7 @@ void WindArrowSub(Button button, instData Speed, instData& wind) {
   setFont(lastfont);
 }
 
-void DrawMeterPointer(Phv center, int wind, int inner, int outer, int linewidth, uint16_t FILLCOLOUR, uint16_t LINECOLOUR) {  // WIP
+void DrawMeterPointer(Phv center, double wind, int inner, int outer, int linewidth, uint16_t FILLCOLOUR, uint16_t LINECOLOUR) {  // WIP
   Phv P1, P2, P3, P4, P5, P6;
   P1 = translate(center, wind - linewidth, outer);
   P2 = translate(center, wind + linewidth, outer);
@@ -368,25 +374,24 @@ void DrawMeterPointer(Phv center, int wind, int inner, int outer, int linewidth,
   P6 = translate(center, wind, outer);
   PTriangleFill(P1, P2, P3, FILLCOLOUR);
   PTriangleFill(P2, P3, P4, FILLCOLOUR);
-  //Pdrawline(P5, P6, LINECOLOUR);
+  Pdrawline(P5, P6, LINECOLOUR);
 }
 
-Phv translate(Phv center, int angle, int rad) {
+Phv translate(Phv center, double angle, int rad) {  // 'full version with full accuracy cos and sin
   Phv moved;
-  moved.h = center.h + ((rad * getSine(angle)) / 100);
-  moved.v = center.v + ((rad * getCosine(angle)) / 100);
+  moved.h = center.h + (rad * sin(angle *0.0174533));
+  moved.v = center.v - (rad * cos(angle *0.0174533)); // v is minus as this is positive  down in gfx
   return moved;
 }
 
+
 void DrawCompass(Button button) {
-  //xy are center in draw compass
+  //x y are center in drawcompass
   int x, y, rad;
   x = button.h + button.width / 2;
   y = button.v + button.height / 2;
   rad = (button.height - (2 * button.bordersize)) / 2;
-  //Work in progress!
   int Rad1, Rad2, Rad3, Rad4, inner;
-  // gfx->drawRect(x-rad,y-rad,rad*2,rad*2,BLACK);gfx->drawCircle(x,y,rad,WHITE);gfx->drawCircle(x,y,rad-1,Blue);gfx->drawCircle(x,y,Start,Blue);
   Rad1 = rad * 0.83;  //200
   Rad2 = rad * 0.86;  //208
   Rad3 = rad * 0.91;  //220
@@ -430,7 +435,11 @@ void ShowToplinesettings(String Text) {
 }
 
 //***************************   DISPLAY .. The main place where the pages are described ****************
-void Display(int page) {  // setups for alternate pages to be selected by page.
+void Display( int page){
+  Display(false, page); 
+}
+
+void Display(bool reset, int page) {  // setups for alternate pages to be selected by page.
 
   static double startposlat,startposlon;
   double LatD,LongD; //deltas
@@ -457,6 +466,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
  // int FS = 1;  // for font size test
  // int tempint;
   if (page != LastPageselected) { RunSetup = true; }
+  if (reset){ RunSetup = true; }
   //generic setup stuff for ALL pages
   if (RunSetup) {
     gfx->fillScreen(BLUE);
@@ -1090,10 +1100,10 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
           UpdateLinef(8,BigSingleDisplay, "TIME: %02i:%02i:%02i",
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
         }
-        if (BoatData.Latitude != NMEA0183DoubleNA) {
+        if (BoatData.Latitude.data != NMEA0183DoubleNA) {
           UpdateLinef(8,BigSingleDisplay, "");
-          UpdateLinef(8,BigSingleDisplay, "LAT %s",LattoString(BoatData.Latitude));
-          UpdateLinef(8,BigSingleDisplay, "LON %s",LongtoString(BoatData.Longitude));
+          UpdateLinef(8,BigSingleDisplay, "LAT %s",LattoString(BoatData.Latitude.data));
+          UpdateLinef(8,BigSingleDisplay, "LON %s",LongtoString(BoatData.Longitude.data));
         }
 
         UpdateLinef(8,BigSingleDisplay, "some other data for review during testing :  \n\n");
@@ -1120,13 +1130,13 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
           UpdateLinef(8,BigSingleTopLeft, "TIME: %02i:%02i:%02i",
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
         }
-        if (BoatData.Latitude != NMEA0183DoubleNA) {UpdateLinef(8,BigSingleTopLeft, "LAT: %f", BoatData.Latitude);
-          UpdateLinef(8,BigSingleTopLeft, "LON: %f", BoatData.Longitude);}
+        if (BoatData.Latitude.data != NMEA0183DoubleNA) {UpdateLinef(8,BigSingleTopLeft, "LAT: %f", BoatData.Latitude.data);
+          UpdateLinef(8,BigSingleTopLeft, "LON: %f", BoatData.Longitude.data);}
 
          GFXBorderBoxPrintf(BigSingleTopRight,"Quad Display");
          GFXBorderBoxPrintf(BottomRightbutton,"zoom in");
          GFXBorderBoxPrintf(BottomLeftbutton,"zoom out");
-         magnification =1111111;  //reset magnification
+         magnification =1111111;  //reset magnification 11111111 = 10 pixels / m == 18m circle. 
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();
@@ -1139,9 +1149,9 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
           UpdateLinef(8,BigSingleTopLeft, "TIME: %02i:%02i:%02i",
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
         }
-        if (BoatData.Latitude != NMEA0183DoubleNA) {
-          UpdateLinef(8,BigSingleTopLeft, "LAT: %s", LattoString(BoatData.Latitude));
-          UpdateLinef(8,BigSingleTopLeft, "LON: %s", LongtoString(BoatData.Longitude));
+        if (BoatData.Latitude.data != NMEA0183DoubleNA) {
+          UpdateLinef(8,BigSingleTopLeft, "LAT: %s", LattoString(BoatData.Latitude.data));
+          UpdateLinef(8,BigSingleTopLeft, "LON: %s", LongtoString(BoatData.Longitude.data));
           DrawGPSPlot(false, BigSingleDisplay, BoatData,  magnification );
       }
       }
@@ -1157,7 +1167,7 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
        Serial.printf(" magification  %f \n",magnification);
       }
       if (CheckButton(BigSingleDisplay)) { // press plot to recenter plot    
-        if (BoatData.Latitude != NMEA0183DoubleNA) {        
+        if (BoatData.Latitude.data != NMEA0183DoubleNA) {        
           DrawGPSPlot(true, BigSingleDisplay, BoatData,  magnification );
           Serial.printf(" reset center anchorwatch %f   %f \n",startposlat,startposlon);
         GFXBorderBoxPrintf(BigSingleDisplay, "");
@@ -1202,8 +1212,9 @@ void Display(int page) {  // setups for alternate pages to be selected by page.
       LocalCopy2.data = BoatData.Variation + DoubleInstdataAdd (BoatData.WindAngleApp,BoatData.MagHeading);// most are instData type, so the data is ".data"  Variation is just a double 
       LocalCopy3=LocalCopy2;   
       UpdateDataTwoSize(true,true,9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %3.1f");
-      
+      //EventTiming("START");
       WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, LocalCopy2);
+      //EventTiming("STOP");EventTiming("Timed Windarrow");
       UpdateDataTwoSize(true,true,9, 8, BottomHalfBigSingleTopRight, LocalCopy3, "gnd %3.1f");
    
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
@@ -1413,7 +1424,7 @@ void setup() {
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
   keyboard(-1);     //reset keyboard display update settings
   Udp.begin(atoi(Current_Settings.UDP_PORT));
-  delay(1000);       // time to admire your user page! 
+  //delay(1000);       // time to admire your user page! 
   Display_Page = Display_Config.Start_Page; 
  
   Serial.printf(" Starting display with JSON set page<%i> \n",Display_Config.Start_Page);
@@ -1438,7 +1449,9 @@ void loop() {
   Display(Display_Page);  //EventTiming("STOP");
   EXTHeartbeat();
   audio.loop(); 
-  
+
+  if (!WIFIGFXBoxdisplaystarted && (WiFi.status() != WL_CONNECTED)){WifiGFXinterrupt(WifiStatus,"NOT CONNECTED\nLooking for\n <%s>\n",Current_Settings.ssid); }
+  //LOG ??
   if ((millis() >= flashinterval)) { 
     flashinterval = millis() + 1000;
     StatusBox.PrintLine = 0; // always start / only use / the top line 0  of this box 
@@ -1458,9 +1471,15 @@ void loop() {
         int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
         BoatData.STW.data, BoatData.SOG.data, BoatData.WaterDepth.data, BoatData.WindSpeedK.data,
         BoatData.COG.data,BoatData.MagHeading.data,
-        BoatData.WindAngleApp.data, BoatData.Latitude, BoatData.Longitude);
+        BoatData.WindAngleApp.data, BoatData.Latitude.data, BoatData.Longitude.data);
   }
+
+  if (WIFIGFXBoxdisplaystarted && (millis() >=  WIFIGFXBoxstartedTime + 10000)) {
+   Display(true,Display_Page); // reset the display after 10 secs of interruption from the WIFIGFX interruption 
+   WIFIGFXBoxdisplaystarted=false;   }  
+  
   // NMEALOG is done in CheckAndUseInputs
+  
   //EventTiming(" loop time touch sample display");
   //vTaskDelay(1);  // Audio is distorted without this?? used in https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/plays%20all%20files%20in%20a%20directory/plays_all_files_in_a_directory.ino
   // //.... (audio.isRunning()){   delay(100);gfx->println("Playing Ships bells"); Serial.println("Waiting for bells to finish!");}
@@ -1800,19 +1819,38 @@ void SD_Setup() {
 }
 //  ************  WIFI support functions *****************
 
+void WifiGFXinterrupt(Button box, const char* fmt, ...){ //quick interrupt of gfx to show WIFI events..
+ static char msg[300] = { '\0' };        // used in message buildup
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  // add checksum?
+  int len = strlen(msg);
+  int lastfont = MasterFont;
+  setFont(8);
+  gfx->setTextBound(box.h + box.bordersize, box.v + box.bordersize, box.width-(2*box.bordersize), box.height-(2*box.bordersize));
+  GFXBorderBoxPrintf(box, msg);
+  gfx->setTextBound(0, 0, 480, 480);
+  setFont(lastfont);
+  WIFIGFXBoxdisplaystarted=true; 
+  WIFIGFXBoxstartedTime = millis();
+}
 
 void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       Serial.println("WiFi connected");
-      gfx->println(" Connected ! ");
+    //  gfx->println(" Connected ! ");
       Serial.print("** Connected.: ");
       IsConnected = true;
-      gfx->println(" Using :");
-      gfx->println(WiFi.SSID());
+    //  gfx->println(" Using :");
+    //  gfx->println(WiFi.SSID());
       Serial.print(" *Running with:  ssid<");
       Serial.print(WiFi.SSID());
       Serial.println(">");
+      WifiGFXinterrupt(WifiStatus,"CONNECTED\n Connected to %s ",WiFi.SSID());
+      delay(1000);
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       IsConnected = false;
@@ -1824,9 +1862,12 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
       Serial.print("The ESP32 has received IP address :");
-      gfx->print("IP: ");
-      gfx->println(WiFi.localIP());
+     // gfx->print("IP: ");
+     // gfx->println(WiFi.localIP());
       Serial.println(WiFi.localIP());
+      sta_ip = WiFi.localIP();
+      WifiGFXinterrupt(WifiStatus,"CONNECTED\n Connected to %s\n IP:%i.%i.%i.%i ",WiFi.SSID(), sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3]);
+      delay(1000);
       break;
   }
 }
@@ -1847,11 +1888,14 @@ void ConnectWiFiusingCurrentSettings() {
   if (result == true) {
     Serial.println("Soft-AP creation success!");
     Serial.print("   ssidAP: ");
+     gfx->println("Soft-AP creation success");
+     gfx->printf("   ssidAP: %s\n",WiFi.softAPSSID());
     Serial.println(WiFi.softAPSSID());    
     Serial.print("   passAP: ");
     Serial.println(Display_Config.APpassword); 
     Serial.print("   AP IP address: ");
     Serial.println(WiFi.softAPIP());
+   // WifiGFXinterrupt(WifiStatus,"Soft-AP creation success!\n ssidAP: %s \n ",WiFi.softAPSSID());
     }
   else {
     Serial.println("Soft-AP creation failed! set this up..");
@@ -1861,7 +1905,7 @@ void ConnectWiFiusingCurrentSettings() {
     Serial.println(WiFi.softAPIP());  
   }
   WiFi.mode(WIFI_AP_STA);
-  // (sucessful!) experiment.. do the WIfI/scan(i) and they get independently stored??
+  // (a sucessful!) experiment.. do the WIfI/scan(i) and they get independently stored??
   NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
   WiFi.disconnect(false); // Do NOT turn off wifi if the network disconnects
   delay(100);
@@ -1875,11 +1919,12 @@ void ConnectWiFiusingCurrentSettings() {
   }
   if (found) { gfx->printf("Found <%s> network!\n", Current_Settings.ssid); }
   WiFi.begin(Current_Settings.ssid, Current_Settings.password);                 //standard wifi start
-  while ((WiFi.status() != WL_CONNECTED) && (millis() <= StartTime + 10000)) {  //wait while it tries..10 seconds max
-    delay(500);
-    gfx->print(".");
-    Serial.print(".");
-  }
+  gfx->printf("will try to connect to :%s\n", Current_Settings.ssid);           // 
+  // while ((WiFi.status() != WL_CONNECTED) && (millis() <= StartTime + 10000)) {  //wait while it tries..10 seconds max
+  //   delay(500);
+  //   gfx->print(".");
+  //   Serial.print(".");
+  // }
 
 }
 

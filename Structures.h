@@ -43,6 +43,7 @@ struct instData {  // struct to hold instrument data AND the time it was updated
   bool displayed;
   bool greyed;
   bool graphed;
+  int source;  // to try an experiment with two GPS to see how they track. 
 };
 
 
@@ -50,15 +51,13 @@ struct instData {  // struct to hold instrument data AND the time it was updated
 struct tBoatData {
   unsigned long DaysSince1970;  // Days since 1970-01-01
 
-  instData SOG, STW, COG, MagHeading, TrueHeading, WaterDepth,
+  instData SOG, STW, COG, Latitude, Longitude,MagHeading, TrueHeading, WaterDepth,
     WindDirectionT, WindDirectionM, WindSpeedK, WindSpeedM, WindAngleApp;
      //instData will be used with NEWUPdate and greys if old
 
-  double SatsInView,Variation, GPSTime, Latitude, Longitude, GPSDate,  // keep GPS stuff in double ..
+  double SatsInView,Variation, GPSTime, GPSDate,  // keep some GPS stuff in double ..
     Altitude, HDOP, GeoidalSeparation, DGPSAge;
     
-//not used .. yet?
-  int GPSQualityIndicator, DGPSReferenceStationID;
   bool MOBActivated;
 
 };

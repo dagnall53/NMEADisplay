@@ -574,7 +574,7 @@ void Startlogfile() {
         int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
         BoatData.STW.data, BoatData.SOG.data, BoatData.WaterDepth.data, BoatData.WindSpeedK.data,
         BoatData.COG.data,BoatData.MagHeading.data,
-        BoatData.WindAngleApp.data, BoatData.Latitude, BoatData.Longitude);*/
+        BoatData.WindAngleApp.data, BoatData.Latitude.data, BoatData.Longitude.data);*/
     writeFile(SD, LogFileName, "NEW LOG data headings\r\nTime ,STW,SOG,Depth,Windspeed,WindAngleApp,COG,MagHeading,Lat,Long \r\n");
     file.close();
     return;

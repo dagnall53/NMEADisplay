@@ -199,8 +199,9 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
       toNewStruct(Field[7], BoatData.SOG);
       toNewStruct(Field[8], BoatData.COG);
     // nmea0183nan (-10million.. so may need extra stuff to prevent silly displays!)
-      BoatData.Latitude = LatLonToDouble(Field[3], Field[4][0]);   // using TL's functions
-      BoatData.Longitude = LatLonToDouble(Field[5], Field[6][0]);  //nb we use +1 on his numbering that omits the command
+
+      BoatData.Latitude.data = LatLonToDouble(Field[3], Field[4][0]);   // using TL's functions that return null value
+      BoatData.Longitude.data = LatLonToDouble(Field[5], Field[6][0]);  //nb we use +1 on his numbering that omits the command
                                                                    //        Serial.println(BoatData.GPSTime); Serial.println(BoatData.Latitude);  Serial.println(BoatData.Longitude);  Serial.println(BoatData.SOG);
       BoatData.GPSTime = NMEA0183GPTimeToSeconds(Field[1]);
       BoatData.GPSDate = atof(Field[9]);  
@@ -630,10 +631,10 @@ void DrawGPSPlot(bool reset, Button button, tBoatData BoatData, double magnifica
   static double startposlat, startposlon;
   double LatD, LongD;  //deltas
   int h, v;
-  if (BoatData.Latitude != NMEA0183DoubleNA) {
+  if (BoatData.Latitude.data != NMEA0183DoubleNA) {
     if (reset) {
-      startposlat = BoatData.Latitude;
-      startposlon = BoatData.Longitude;
+      startposlat = BoatData.Latitude.data;
+      startposlon = BoatData.Longitude.data;
     }
 
     h = button.h + ((button.width) / 2);
@@ -643,11 +644,11 @@ void DrawGPSPlot(bool reset, Button button, tBoatData BoatData, double magnifica
     gfx->drawCircle(h, v, (button.height) / 2, button.BorderColor);
     AddTitleBorderBox(0, button, "Magnification:%4.1f pixel/m", float(magnification) / 111111);
     if (startposlon == 0) {
-      startposlat = BoatData.Latitude;
-      startposlon = BoatData.Longitude;
+      startposlat = BoatData.Latitude.data;
+      startposlon = BoatData.Longitude.data;
     }
-    LongD = h + ((BoatData.Longitude - startposlon) * magnification);
-    LatD = v - ((BoatData.Latitude - startposlat) * magnification);  // negative because display is top left to bottom right!
+    LongD = h + ((BoatData.Longitude.data - startposlon) * magnification);
+    LatD = v - ((BoatData.Latitude.data - startposlat) * magnification);  // negative because display is top left to bottom right!
                                                                      //set limits!! ?
     gfx->fillCircle(LongD, LatD, 4, button.textcol);
   }
