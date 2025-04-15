@@ -30,7 +30,7 @@ Select PSRAM "OPI PSRAM"
 
 #include "Structures.h"
 #include "aux_functions.h"
-
+//#include "SineCos.h"
 #include <Arduino_GFX_Library.h>
 // Original version was for GFX 1.3.1 only. #include "GUITIONESP32-S3-4848S040_GFX_133.h"
 #include "Esp32_4inch.h"  // defines GFX !
@@ -157,7 +157,7 @@ Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 //used for single data display
 // modified all to lift by 30 pixels to allow a common bottom row display (to show logs and get to settings)
 
-Button WifiStatus = {120,120,240,240,5, BLUE, WHITE, BLACK }; // big central box for wifi events to pop up - v3.5
+Button WifiStatus = {60,120,320,240,5, BLUE, WHITE, BLACK }; // big central box for wifi events to pop up - v3.5
 
 Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK }; // used for wind and graph displays
 Button BigSingleTopRight = {240, 0, 240, 90, 5, BLUE, WHITE, BLACK }; //  ''
@@ -177,7 +177,7 @@ Button bottomRightquarter = { 240, 240-15, 240, 240-15, 5, BLUE, WHITE, BLACK };
 
 Button StatusBox =  {0,450,480,29,5,BLUE,WHITE,BLACK};
 
-
+// these were used for initial tests and for volume control - not needed for most people!! .. only used now for Range change in GPS graphic (?)
 Button TopLeftbutton = { 0, 0, 75, 45, 5, BLUE, WHITE, BLACK };
 Button TopRightbutton = { 405, 0, 75, 45, 5, BLUE, WHITE, BLACK };
 Button BottomRightbutton = { 405, 405, 75, 45, 5, BLUE, WHITE, BLACK };
@@ -324,9 +324,14 @@ void PrintJsonFile(const char *filename) {
 void WindArrow2(Button button, instData Speed, instData& Wind) {
  // Serial.printf(" ** DEBUG  speed %f    wind %f ",Speed.data,Wind.data);
   bool recent = (Wind.updated >= millis() - 3000);
-  if (!Wind.displayed) { WindArrowSub(button, Speed, Wind); }
+  if (!Wind.displayed) { //EventTiming("START");
+          WindArrowSub(button, Speed, Wind);
+         // EventTiming("STOP");EventTiming("WIND arrow");
+          }
   if (Wind.greyed) { return; }
+  
   if (!recent && !Wind.greyed) { WindArrowSub(button, Speed, Wind); }
+ 
 }
 
 void WindArrowSub(Button button, instData Speed, instData& wind) {
@@ -383,6 +388,13 @@ Phv translate(Phv center, double angle, int rad) {  // 'full version with full a
   moved.v = center.v - (rad * cos(angle *0.0174533)); // v is minus as this is positive  down in gfx
   return moved;
 }
+
+// Phv translate1(Phv center, int angle, int rad) {
+//   Phv moved;
+//   moved.h = center.h + ((rad * getSine(angle)) / 100);
+//   moved.v = center.v + ((rad * getCosine(angle)) / 100);
+//   return moved;
+// }
 
 
 void DrawCompass(Button button) {
@@ -1206,16 +1218,10 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-      LocalCopy = BoatData.WindAngleApp;  //Duplicate wind angle so it can be shown again in a second box
-
-      LocalCopy2= BoatData.WindAngleApp; // save .. sets all flags to show undisplayed
-      LocalCopy2.data = BoatData.Variation + DoubleInstdataAdd (BoatData.WindAngleApp,BoatData.MagHeading);// most are instData type, so the data is ".data"  Variation is just a double 
-      LocalCopy3=LocalCopy2;   
+      LocalCopy= BoatData.WindAngleGround; //Duplicate wind angle so it can be shown again in a second box
       UpdateDataTwoSize(true,true,9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %3.1f");
-      //EventTiming("START");
-      WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, LocalCopy2);
-      //EventTiming("STOP");EventTiming("Timed Windarrow");
-      UpdateDataTwoSize(true,true,9, 8, BottomHalfBigSingleTopRight, LocalCopy3, "gnd %3.1f");
+      WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, LocalCopy);
+      UpdateDataTwoSize(true,true,9, 8, BottomHalfBigSingleTopRight, BoatData.WindAngleGround, "gnd %3.1f");
    
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(BigSingleDisplay)) { Display_Page = 5; }
@@ -1449,8 +1455,9 @@ void loop() {
   Display(Display_Page);  //EventTiming("STOP");
   EXTHeartbeat();
   audio.loop(); 
-
-  if (!WIFIGFXBoxdisplaystarted && (WiFi.status() != WL_CONNECTED)){WifiGFXinterrupt(WifiStatus,"NOT CONNECTED\nLooking for\n <%s>\n",Current_Settings.ssid); }
+  // only for first 15 seconds do not repeat later if disconnect.. or it gets confusing with the wifievents! 
+  if ((millis() <= 15000) &&!WIFIGFXBoxdisplaystarted && (WiFi.status() != WL_CONNECTED)){
+    MultiLineInButton(8, WifiStatus,"NOT CONNECTED \n Looking for \n <%s>",Current_Settings.ssid); }
   //LOG ??
   if ((millis() >= flashinterval)) { 
     flashinterval = millis() + 1000;
@@ -1820,19 +1827,8 @@ void SD_Setup() {
 //  ************  WIFI support functions *****************
 
 void WifiGFXinterrupt(Button box, const char* fmt, ...){ //quick interrupt of gfx to show WIFI events..
- static char msg[300] = { '\0' };        // used in message buildup
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(msg, 128, fmt, args);
-  va_end(args);
-  // add checksum?
-  int len = strlen(msg);
-  int lastfont = MasterFont;
-  setFont(8);
-  gfx->setTextBound(box.h + box.bordersize, box.v + box.bordersize, box.width-(2*box.bordersize), box.height-(2*box.bordersize));
-  GFXBorderBoxPrintf(box, msg);
-  gfx->setTextBound(0, 0, 480, 480);
-  setFont(lastfont);
+//?? redo this later .. or tidy and send to a char* version of  MultiLineInButton ?? 
+// would like to add centered text to MultiLineInButton 
   WIFIGFXBoxdisplaystarted=true; 
   WIFIGFXBoxstartedTime = millis();
 }
@@ -1849,16 +1845,18 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
       Serial.print(" *Running with:  ssid<");
       Serial.print(WiFi.SSID());
       Serial.println(">");
-      WifiGFXinterrupt(WifiStatus,"CONNECTED\n Connected to %s ",WiFi.SSID());
-      delay(1000);
+      MultiLineInButton(9,WifiStatus,"CONNECTED\nTO <%s> ",WiFi.SSID());
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       IsConnected = false;
       Serial.println("WiFi disconnected");
       Serial.print("WiFi lost Reason: ");
-      Serial.println(info.wifi_sta_disconnected.reason);
+      Serial.println(disconnectreason(info.wifi_sta_disconnected.reason));
       Serial.println("Trying to Reconnect");
       WiFi.begin(Current_Settings.ssid, Current_Settings.password);
+
+      MultiLineInButton(8,WifiStatus,"Disconnected\n REASON:%s\n Retrying:<%s>",disconnectreason(info.wifi_sta_disconnected.reason).c_str(),Current_Settings.ssid);
+      
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
       Serial.print("The ESP32 has received IP address :");
@@ -1866,8 +1864,7 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
      // gfx->println(WiFi.localIP());
       Serial.println(WiFi.localIP());
       sta_ip = WiFi.localIP();
-      WifiGFXinterrupt(WifiStatus,"CONNECTED\n Connected to %s\n IP:%i.%i.%i.%i ",WiFi.SSID(), sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3]);
-      delay(1000);
+      MultiLineInButton(9, WifiStatus,"CONNECTED\n to %s \n (IP:%i.%i.%i.%i) \n",WiFi.SSID(), sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3]);
       break;
   }
 }
@@ -1895,7 +1892,6 @@ void ConnectWiFiusingCurrentSettings() {
     Serial.println(Display_Config.APpassword); 
     Serial.print("   AP IP address: ");
     Serial.println(WiFi.softAPIP());
-   // WifiGFXinterrupt(WifiStatus,"Soft-AP creation success!\n ssidAP: %s \n ",WiFi.softAPSSID());
     }
   else {
     Serial.println("Soft-AP creation failed! set this up..");
@@ -2188,3 +2184,70 @@ char* LongtoString(double data){
 
  return buff; 
 } 
+
+String disconnectreason(int reason){
+  /*
+  https://esp32.com/viewtopic.php?t=349 
+  WIFI_REASON_UNSPECIFIED              = 1,
+WIFI_REASON_AUTH_EXPIRE              = 2,
+WIFI_REASON_AUTH_LEAVE               = 3,
+WIFI_REASON_ASSOC_EXPIRE             = 4,
+WIFI_REASON_ASSOC_TOOMANY            = 5,
+WIFI_REASON_NOT_AUTHED               = 6,
+WIFI_REASON_NOT_ASSOCED              = 7,
+WIFI_REASON_ASSOC_LEAVE              = 8,
+WIFI_REASON_ASSOC_NOT_AUTHED         = 9,
+WIFI_REASON_DISASSOC_PWRCAP_BAD      = 10,
+WIFI_REASON_DISASSOC_SUPCHAN_BAD     = 11,
+WIFI_REASON_IE_INVALID               = 13,
+WIFI_REASON_MIC_FAILURE              = 14,
+WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT   = 15,
+WIFI_REASON_GROUP_KEY_UPDATE_TIMEOUT = 16,
+WIFI_REASON_IE_IN_4WAY_DIFFERS       = 17,
+WIFI_REASON_GROUP_CIPHER_INVALID     = 18,
+WIFI_REASON_PAIRWISE_CIPHER_INVALID  = 19,
+WIFI_REASON_AKMP_INVALID             = 20,
+WIFI_REASON_UNSUPP_RSN_IE_VERSION    = 21,
+WIFI_REASON_INVALID_RSN_IE_CAP       = 22,
+WIFI_REASON_802_1X_AUTH_FAILED       = 23,
+WIFI_REASON_CIPHER_SUITE_REJECTED    = 24,
+
+WIFI_REASON_BEACON_TIMEOUT           = 200,
+WIFI_REASON_NO_AP_FOUND              = 201,
+WIFI_REASON_AUTH_FAIL                = 202,
+WIFI_REASON_ASSOC_FAIL               = 203,
+WIFI_REASON_HANDSHAKE_TIMEOUT        = 204,{*/
+  switch (reason) { 
+    case 1 : return "UNSPECIFIED"; break;
+    case 2 : return "AUTH_EXPIRE"; break;
+    case 3 : return "AUTH_LEAVE"; break;
+    case 4 : return "ASSOC_EXPIRE"; break;
+    case 5 : return "ASSOC_TOOMANY"; break;
+    case 6 : return "NOT_AUTHED"; break;
+    case 7 : return "NOT_ASSOCED"; break;
+    case 8 : return "ASSOC_LEAVE"; break;
+    case 9 : return "ASSOC_NOT_AUTHED"; break;
+    case 10 : return "DISASSOC_PWRCAP_BAD"; break;
+    case 11 : return "DISASSOC_SUPCHAN_BAD"; break;
+    case 13 : return "IE_INVALID"; break;
+    case 14 : return "MIC_FAILURE"; break;
+    case 15 : return "4WAY_HANDSHAKE_TIMEOUT"; break;
+    case 16 : return "GROUP_KEY_UPDATE_TIMEOUT"; break;
+    case 17 : return "IE_IN_4WAY_DIFFERS"; break;
+    case 18 : return "GROUP_CIPHER_INVALID"; break;
+    case 19 : return "PAIRWISE_CIPHER_INVALID"; break;
+    case 20 : return "AKMP_INVALID"; break;
+    case 21 : return "UNSUPP_RSN_IE_VERSION"; break;
+    case 22 : return "INVALID_RSN_IE_CAP"; break;
+    case 23 : return "802_1X_AUTH_FAILED"; break;
+    case 24 : return "CIPHER_SUITE_REJECTED"; break;
+    case 200 : return "BEACON_TIMEOUT"; break;
+    case 201 : return "NO_AP_FOUND"; break;
+    case 202 : return "AUTH_FAIL"; break;
+    case 203 : return "ASSOC_FAIL"; break;
+    case 204 : return "HANDSHAKE_TIMEOUT"; break;
+    default :  return "Unknown"; break;
+  }
+
+return "Unknown";
+}

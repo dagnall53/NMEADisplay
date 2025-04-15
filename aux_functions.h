@@ -37,7 +37,7 @@ int GraphRange( double data, int low, int high, double dmin ,double dmax );
 
 void toNewStruct(char *field, instData &data);
 double DoubleInstdataAdd(instData &data1, instData &data);//returns a double of value data.data +data1.data;
-
+void MultiLineInButton(int font, Button &button,const char *fmt, ...);
 
 
 #endif

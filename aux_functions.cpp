@@ -134,6 +134,18 @@ void toNewStruct(char *field, instData &data) {
   data.graphed = false;
 }
 
+void toNewStruct(double field, instData &data) { // allow update of struct with simple double data
+  data.greyed = true;
+  data.updated = millis();
+  data.lastdata = data.data;
+  data.data = field;
+  if (data.data != NMEA0183DoubleNA) {
+    data.greyed = false;
+  }
+  data.displayed = false;
+  data.graphed = false;
+}
+
 // void toNewStruct(char *field, instData &data) {
 //   if (field == 0) { // check for null data
 //     data.data = NMEA0183DoubleNA;
@@ -186,6 +198,9 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
     case 4:  //mwv
       toNewStruct(Field[1], BoatData.WindAngleApp);
       toNewStruct(Field[3], BoatData.WindSpeedK);
+      // also try to compute Ground wind.. Relative to North
+      toNewStruct((BoatData.Variation + DoubleInstdataAdd (BoatData.WindAngleApp,BoatData.MagHeading)),BoatData.WindAngleGround);
+      
 
       return true;
       break;
@@ -255,7 +270,7 @@ void CommonSubUpdateLinef(uint16_t color, int font, Button &button, const char *
   int typingspaceH, typingspaceW;
   int local;
   local = MasterFont;
-  // can now change font iside this
+  // can now change font inside this function
   setFont(font);
   typingspaceH = button.height - (2 * button.bordersize);
   typingspaceW = button.width - (2 * button.bordersize);
@@ -274,7 +289,7 @@ void CommonSubUpdateLinef(uint16_t color, int font, Button &button, const char *
     }
   }
   //gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
-  gfx->setTextWrap(false);
+  gfx->setTextWrap(true);
   // y = TopLeftYforthisLine(button, button.PrintLine);  //Needed for the text bounds?
   gfx->getTextBounds(msg, 0, 0, &TBx1, &TBy1, &TBw, &TBh);
   // need to clear ??
@@ -313,7 +328,34 @@ void UpdateLinef(int font, Button &button, const char *fmt, ...) {  // Types seq
   int len = strlen(msg);
   CommonSubUpdateLinef(button.textcol, font, button, msg);
 }
+extern   uint32_t WIFIGFXBoxstartedTime;
+extern   bool WIFIGFXBoxdisplaystarted;
 
+void MultiLineInButton(int font, Button &button,const char *fmt, ...){
+  static char msg[300] = { '\0' };
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  static char *token;
+  static const char delimiter = '\n';  // CR Or space, etc.
+   // split (tokenise)  msg at the delimiter
+  char *pch; 
+  button.PrintLine=1;
+  GFXBorderBoxPrintf(button,"");
+  //Serial.print( "Debug multi line..MSG<");Serial.print(msg);  Serial.println( ">");
+  pch=strtok(msg,&delimiter);
+   //Serial.print( "....pch<");Serial.print(pch);Serial.println( ">");
+  
+  while (pch !=NULL) {
+    CommonSubUpdateLinef(button.textcol, font, button, pch);
+    pch=strtok(NULL,&delimiter);
+   // Serial.print( "   inside..pch<");Serial.print(pch);Serial.println( ">");
+    }
+    WIFIGFXBoxdisplaystarted=true; 
+    WIFIGFXBoxstartedTime = millis();
+}
 
 
 

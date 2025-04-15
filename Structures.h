@@ -52,7 +52,7 @@ struct tBoatData {
   unsigned long DaysSince1970;  // Days since 1970-01-01
 
   instData SOG, STW, COG, Latitude, Longitude,MagHeading, TrueHeading, WaterDepth,
-    WindDirectionT, WindDirectionM, WindSpeedK, WindSpeedM, WindAngleApp;
+    WindDirectionT, WindDirectionM, WindSpeedK, WindSpeedM, WindAngleApp, WindAngleGround;
      //instData will be used with NEWUPdate and greys if old
 
   double SatsInView,Variation, GPSTime, GPSDate,  // keep some GPS stuff in double ..
