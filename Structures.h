@@ -64,7 +64,7 @@ struct tBoatData {
 
 struct Button {
   int h, v, width, height, bordersize;
-  uint16_t backcol, textcol, BorderColor;
+  uint16_t BackColor, TextColor, BorderColor;
   int Font;                  //-1 == not forced (not used?)
   bool Keypressed;           //used by keypressed
   unsigned long LastDetect;  //used by keypressed

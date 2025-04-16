@@ -65,7 +65,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.5";
+const char soft_version[] = "Version 3.6";
 bool hasSD;
 
 
@@ -147,8 +147,8 @@ int text_offset = 12;      //offset is not equal to height, as subscripts print 
 int text_char_width = 12;  // useful for monotype? only NOT USED YET! Try gfx->getTextBounds(string, x, y, &x1, &y1, &w, &h);
 
 //****  My displays are based on 'Button' structures to define position, width height, borders and colours.
-// int h, v, width, height, bordersize;  uint16_t backcol, textcol, BorderColor;
-Button CurrentSettingsBox = { 0, 0, 480, 75, 5, BLUE, WHITE, BLACK };  //also used for showing the current settings
+// int h, v, width, height, bordersize;  uint16_t BackColor, TextColor, BorderColor;
+Button CurrentSettingsBox = { 0, 0, 480, 80, 2, BLUE, WHITE, BLACK };  //also used for showing the current settings
 
 Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 
@@ -157,7 +157,7 @@ Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 //used for single data display
 // modified all to lift by 30 pixels to allow a common bottom row display (to show logs and get to settings)
 
-Button WifiStatus = {60,120,320,240,5, BLUE, WHITE, BLACK }; // big central box for wifi events to pop up - v3.5
+Button WifiStatus = {60,180,320,210,5, BLUE, WHITE, BLACK }; // big central box for wifi events to pop up - v3.5
 
 Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK }; // used for wind and graph displays
 Button BigSingleTopRight = {240, 0, 240, 90, 5, BLUE, WHITE, BLACK }; //  ''
@@ -201,17 +201,17 @@ Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };  // big one for e
 Button Switch6 = { 20, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
 Button Switch7 = { 100, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
 
-Button Terminal = { 0, 100, 480, 345, 5, WHITE, BLACK, BLACK };  // inset to try and get printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
+Button Terminal = { 0, 100, 480, 330, 1, WHITE, BLACK, WHITE };  //ALMOST NO BORDER (invisible as == back col) to try and get debug printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
 //for selections
-Button FullTopCenter = { 80, 0, 320, 55, 5, BLUE, WHITE, BLACK };
+Button FullTopCenter = { 80, 0, 320, 50, 5, BLUE, WHITE, BLACK };
 
-Button Full0Center = { 80, 55, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full1Center = { 80, 115, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full2Center = { 80, 175, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full3Center = { 80, 235, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full4Center = { 80, 295, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full5Center = { 80, 355, 320, 55, 5, BLUE, WHITE, BLACK };
-Button Full6Center = { 80, 415, 320, 55, 5, BLUE, WHITE, BLACK };// inteferes with settings box do not use!
+Button Full0Center = { 80, 55, 320, 50, 5, BLUE, WHITE, BLACK };
+Button Full1Center = { 80, 110, 320, 50, 5, BLUE, WHITE, BLACK };
+Button Full2Center = { 80, 165, 320, 50, 5, BLUE, WHITE, BLACK };
+Button Full3Center = { 80, 220, 320, 50, 5, BLUE, WHITE, BLACK };
+Button Full4Center = { 80, 275, 320, 50, 5, BLUE, WHITE, BLACK };
+Button Full5Center = { 80, 330, 320, 50, 5, BLUE, WHITE, BLACK };
+Button Full6Center = { 80, 385, 320, 50, 5, BLUE, WHITE, BLACK };// inteferes with settings box do not use!
 
 
 #define On_Off ? "ON " : "OFF"  // if 1 first case else second (0 or off) same number of chars to try and helps some flashing later
@@ -346,10 +346,10 @@ void WindArrowSub(Button button, instData Speed, instData& wind) {
   rad = (button.height - (2 * button.bordersize)) / 2;  // height used as more likely to be squashed in height
   outer = (rad * 82) / 100;                             //% of full radius (at full height) (COMPASS has .83 as inner circle)
   inner = (rad * 28) / 100;                             //25% USe same settings as pointer
-  DrawMeterPointer(center, lastwind, inner, outer, 2, button.backcol, button.backcol);
+  DrawMeterPointer(center, lastwind, inner, outer, 2, button.BackColor, button.BackColor);
   if (wind.data != NMEA0183DoubleNA) {
     if (wind.updated >= millis() - 3000) {
-      DrawMeterPointer(center, wind.data, inner, outer, 2, button.textcol, BLACK);
+      DrawMeterPointer(center, wind.data, inner, outer, 2, button.TextColor, BLACK);
     } else {
       wind.greyed = true;
       DrawMeterPointer(center, wind.data, inner, outer, 2, LIGHTGREY, LIGHTGREY);
@@ -411,12 +411,12 @@ void DrawCompass(Button button) {
 
   inner = (rad * 28) / 100;  //28% USe same settings as pointer // keep border same as other boxes.. 
   gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
-  gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize, button.width - (2 * button.bordersize), button.height - (2 * button.bordersize),  button.backcol);
-  //gfx->fillRect(x - rad, y - rad, rad * 2, rad * 2, button.backcol);
-  gfx->fillCircle(x, y, rad, button.textcol);   //white
-  gfx->fillCircle(x, y, Rad1, button.backcol);  //bluse
-  gfx->fillCircle(x, y, inner - 1, button.textcol);
-  gfx->fillCircle(x, y, inner - 5, button.backcol);
+  gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize, button.width - (2 * button.bordersize), button.height - (2 * button.bordersize),  button.BackColor);
+  //gfx->fillRect(x - rad, y - rad, rad * 2, rad * 2, button.BackColor);
+  gfx->fillCircle(x, y, rad, button.TextColor);   //white
+  gfx->fillCircle(x, y, Rad1, button.BackColor);  //bluse
+  gfx->fillCircle(x, y, inner - 1, button.TextColor);
+  gfx->fillCircle(x, y, inner - 5, button.BackColor);
 
   //rad =240 example Rad2 is 200 to 208   bar is 200 to 239 wind colours 200 to 220
   // colour segments
@@ -433,14 +433,15 @@ void ShowToplinesettings(MySettings A, String Text) {
   // SETS MasterFont, so cannot use MasterFont directly in last line and have to save it!
   long rssiValue = WiFi.RSSI();
   gfx->setTextSize(1);
-  gfx->setTextColor(CurrentSettingsBox.textcol);
+  gfx->setTextColor(CurrentSettingsBox.TextColor);
   CurrentSettingsBox.PrintLine = 0;
-  UpdateLinef(0,CurrentSettingsBox, "%s:SSID<%s>PWD<%s>UDPPORT<%s>",Text, A.ssid, A.password, A.UDP_PORT);
-
-  UpdateLinef(0,CurrentSettingsBox, "Serial<%s>UDP<%s>ESP<%s>Log<%s>NMEA<%s>",A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off,A.NMEA_log_ON On_Off);
-  //GFXBoxPrintf(0, 0, 1, "%s: Serial<%s> UDP<%s> ESP<%s>", Text, A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off);
+  // 7 is smallest Bold Font 
+  UpdateLinef(7,CurrentSettingsBox, "%s:SSID<%s>PWD<%s>UDPPORT<%s>",Text, A.ssid, A.password, A.UDP_PORT);
   sta_ip = WiFi.localIP();
-  UpdateLinef(0,CurrentSettingsBox, "IP:%i.%i.%i.%i  RSSI %i", sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3], rssiValue);
+  UpdateLinef(7,CurrentSettingsBox, "IP:%i.%i.%i.%i  RSSI %i", sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3], rssiValue);
+  UpdateLinef(7,CurrentSettingsBox, "Ser<%s>UDP<%s>ESP<%s>Log<%s>NMEA<%s>",A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off,A.Log_ON On_Off ,A.NMEA_log_ON On_Off );
+  // UpdateLinef(7,CurrentSettingsBox, "Logger settings Log<%s>NMEA<%s>",A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off,A.NMEA_log_ON On_Off);
+ 
 }
 void ShowToplinesettings(String Text) {
   ShowToplinesettings(Current_Settings, Text);
@@ -609,7 +610,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
        if (CheckButton(FullTopCenter)) { Display_Page = 0; }
        if (CheckButton(Terminal)) {
         Terminal.debugpause = !Terminal.debugpause;
-        // NO.. this clears terminal!  DataChanged = true;
+        DataChanged = true;
       }
       if (CheckButton(Switch6)) {
         Current_Settings.Log_ON = !Current_Settings.Log_ON;
@@ -1102,27 +1103,27 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         slowdown = millis();
         GFXBorderBoxPrintf(BigSingleDisplay, "");
         // do this one once a second.. I have not yet got simplified functions testing if previously displayed and greyed yet
-        gfx->setTextColor(BigSingleDisplay.textcol);
+        gfx->setTextColor(BigSingleDisplay.TextColor);
         BigSingleDisplay.PrintLine = 0;
-        if (BoatData.SatsInView != NMEA0183DoubleNA) {UpdateLinef(8,BigSingleDisplay, "%.0f Satellites in view", BoatData.SatsInView);}
+        if (BoatData.SatsInView != NMEA0183DoubleNA) {UpdateLinef(8,BigSingleDisplay, "Satellites in view %.0f ", BoatData.SatsInView);}
         if (BoatData.GPSTime != NMEA0183DoubleNA) {
-          UpdateLinef(8,BigSingleDisplay, "");
-          UpdateLinef(8,BigSingleDisplay, "Date: %06i ", int(BoatData.GPSDate));
-          UpdateLinef(8,BigSingleDisplay, "");
-          UpdateLinef(8,BigSingleDisplay, "TIME: %02i:%02i:%02i",
+          UpdateLinef(9,BigSingleDisplay, "");
+          UpdateLinef(9,BigSingleDisplay, "Date: %06i ", int(BoatData.GPSDate));
+          UpdateLinef(9,BigSingleDisplay, "");
+          UpdateLinef(9,BigSingleDisplay, "TIME: %02i:%02i:%02i",
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
         }
         if (BoatData.Latitude.data != NMEA0183DoubleNA) {
-          UpdateLinef(8,BigSingleDisplay, "");
-          UpdateLinef(8,BigSingleDisplay, "LAT %s",LattoString(BoatData.Latitude.data));
-          UpdateLinef(8,BigSingleDisplay, "LON %s",LongtoString(BoatData.Longitude.data));
+          UpdateLinef(9,BigSingleDisplay, "");
+          UpdateLinef(9,BigSingleDisplay, "LAT %s",LattoString(BoatData.Latitude.data));
+          UpdateLinef(9,BigSingleDisplay, "LON %s",LongtoString(BoatData.Longitude.data));
         }
 
-        UpdateLinef(8,BigSingleDisplay, "some other data for review during testing :  \n\n");
-        if (LocalCopy.data != NMEA0183DoubleNA){UpdateLinef(8,BigSingleDisplay, "COG: %5.4f", LocalCopy.data);}
-        if (LocalCopy2.data != NMEA0183DoubleNA){UpdateLinef(8,BigSingleDisplay, "SOG: %5.4f", LocalCopy2.data);}
-        if (BoatData.MagHeading.data != NMEA0183DoubleNA){UpdateLinef(8,BigSingleDisplay,"Mag Heading: %5.4f", BoatData.MagHeading);}
-        UpdateLinef(8,BigSingleDisplay, "Variation: %5.4f", BoatData.Variation);
+        UpdateLinef(9,BigSingleDisplay, "some other data for review during wrap testing: 1234567890\nand after 'cr' Wraped");
+        if (LocalCopy.data != NMEA0183DoubleNA){UpdateLinef(9,BigSingleDisplay, "COG: %5.4f", LocalCopy.data);}
+        if (LocalCopy2.data != NMEA0183DoubleNA){UpdateLinef(9,BigSingleDisplay, "SOG: %5.4f", LocalCopy2.data);}
+        if (BoatData.MagHeading.data != NMEA0183DoubleNA){UpdateLinef(9,BigSingleDisplay,"Mag Heading: %5.4f", BoatData.MagHeading);}
+        UpdateLinef(9,BigSingleDisplay, "Variation: %5.4f", BoatData.Variation);
       }
         
       
@@ -1145,15 +1146,15 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         if (BoatData.Latitude.data != NMEA0183DoubleNA) {UpdateLinef(8,BigSingleTopLeft, "LAT: %f", BoatData.Latitude.data);
           UpdateLinef(8,BigSingleTopLeft, "LON: %f", BoatData.Longitude.data);}
 
-         GFXBorderBoxPrintf(BigSingleTopRight,"Quad Display");
-         GFXBorderBoxPrintf(BottomRightbutton,"zoom in");
-         GFXBorderBoxPrintf(BottomLeftbutton,"zoom out");
+         GFXBorderBoxPrintf(BigSingleTopRight,"Show Quad Display");
+         GFXBorderBoxPrintf(BottomRightbutton,"Zoom in");
+         GFXBorderBoxPrintf(BottomLeftbutton,"Zoom out");
          magnification =1111111;  //reset magnification 11111111 = 10 pixels / m == 18m circle. 
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();
         // do this one once a second.. I have not yet got simplified functions testing if previously displayed and greyed yet
-        ///gfx->setTextColor(BigSingleDisplay.textcol);
+        ///gfx->setTextColor(BigSingleDisplay.TextColor);
         BigSingleTopLeft.PrintLine = 0;
        // UpdateLinef(3,BigSingleTopLeft, "%.0f Satellites in view", BoatData.SatsInView);
         if (BoatData.GPSTime != NMEA0183DoubleNA) {
@@ -1457,7 +1458,7 @@ void loop() {
   audio.loop(); 
   // only for first 15 seconds do not repeat later if disconnect.. or it gets confusing with the wifievents! 
   if ((millis() <= 15000) &&!WIFIGFXBoxdisplaystarted && (WiFi.status() != WL_CONNECTED)){
-    MultiLineInButton(8, WifiStatus,"NOT CONNECTED \n Looking for \n <%s>",Current_Settings.ssid); }
+    WifiGFXinterrupt(9, WifiStatus,"...STARTING...\nnot connected\nLooking for\n<%s>",Current_Settings.ssid); }
   //LOG ??
   if ((millis() >= flashinterval)) { 
     flashinterval = millis() + 1000;
@@ -1506,7 +1507,7 @@ void TouchCrosshair(int point, int size, uint16_t colour) {
   gfx->drawFastHLine(ts.points[point].x - size, ts.points[point].y, 2 * size, colour);
 }
 
-// void DisplayCheck(bool invertcheck) {  //used to test colours are as expected while checking new dispolays
+// void DisplayCheck(bool invertcheck) {  //used to test colours are as expected while checking new displays
 //   static unsigned long timedInterval;
 //   static unsigned long updatetiming;
 //   static unsigned long LoopTime;
@@ -1614,13 +1615,16 @@ void UseNMEA(char* buf, int type) {
       }
       
 
-
+                      // 8 is small font and seems to wrap to give a space before second line 
+                      //7 is smallest 
+                      // 0 is 8pt mono thin,
+                      //3 is 8pt mono bold
     if ((Display_Page == -21)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
-      if (type == 2) {UpdateLinef(BLUE,0,Terminal, "UDP:%s", buf);
+      if (type == 2) {UpdateLinef(BLUE,7,Terminal, "UDP:%s", buf); // 7 small enough to avoid line wrap issue? 
       }
-      if (type == 3) {UpdateLinef(RED,0,Terminal, "ESP:%s", buf);
+      if (type == 3) {UpdateLinef(RED,7,Terminal, "ESP:%s", buf);
       }
-      if (type == 1) { UpdateLinef(BLACK,0,Terminal, "Ser:%s", buf); }
+      if (type == 1) { UpdateLinef(BLACK,7,Terminal, "Ser:%s", buf); }
     }
     // now decode it for the displays to use
     pTOKEN = buf;                                               // pToken is used in processPacket to separate out the Data Fields
@@ -1682,38 +1686,6 @@ boolean CompStruct(MySettings A, MySettings B) {  // Does NOT compare the displa
   //Serial.print("Result same = ");Serial.println(same);
   return same;
 }
-
-//*************** Not tidied up yet!! *************************
-// void Writeat(int h, int v, const char* text) {  //Write text at h,v (using fontoffset to use TOP LEFT of text convention)
-//   gfx->setCursor(h, v + (text_offset));         // offset up/down for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
-//   gfx->print(text);
-//   gfx->setCursor(h, v + (text_offset));
-// }
-
-
-// void GetGPSPos(char* str, char* NMEAgpspos, uint8_t sign) {
-//   unsigned short int u = 0, d = 0;
-//   unsigned int minutes;
-//   unsigned char pos, i, j;
-//   for (pos = 0; pos < strlen(NMEAgpspos) && NMEAgpspos[pos] != '.'; pos++)
-//     ;
-//   for (i = 0; i < pos - 2; i++) {
-//     u *= 10;
-//     u += NMEAgpspos[i] - '0';
-//   }
-//   d = (NMEAgpspos[pos - 2] - '0') * 10;
-//   d += (NMEAgpspos[pos - 1] - '0');
-//   for (i = pos + 1, j = 0; i < strlen(NMEAgpspos) && j < 4; i++, j++)  //Only 4 chars
-//   {
-//     d *= 10;
-//     d += NMEAgpspos[i] - '0';
-//   }
-//   minutes = d / 60;
-//   gfx->printf(str, "%d.%04d", (sign ? -1 : 1) * u, minutes);
-// }
-
-
-
 
 
 
@@ -1826,9 +1798,25 @@ void SD_Setup() {
 }
 //  ************  WIFI support functions *****************
 
-void WifiGFXinterrupt(Button box, const char* fmt, ...){ //quick interrupt of gfx to show WIFI events..
-//?? redo this later .. or tidy and send to a char* version of  MultiLineInButton ?? 
-// would like to add centered text to MultiLineInButton 
+void WifiGFXinterrupt(int font, Button &button, const char* fmt, ...){ //quick interrupt of gfx to show WIFI events..
+// version of add centered text, multi line from /void MultiLineInButton(int font, Button &button,const char *fmt, ...)
+  static char msg[300] = { '\0' };
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  static char *token;
+  const char delimiter[2] = "\n";  //  NB when i used  "static const char delimiter = '\n';"  I got big problems .. 
+  char *pch; 
+  GFXBorderBoxPrintf(button,""); // clear the button
+  pch=strtok(msg, delimiter);// split (tokenise)  msg at the delimiter
+  // print each separated line centered... starting from line 1
+  button.PrintLine=1;
+  while (pch !=NULL) {
+    CommonCenteredSubUpdateLinef(button.TextColor, font, button, pch);
+    pch =strtok(NULL,delimiter);
+    }
   WIFIGFXBoxdisplaystarted=true; 
   WIFIGFXBoxstartedTime = millis();
 }
@@ -1845,7 +1833,7 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
       Serial.print(" *Running with:  ssid<");
       Serial.print(WiFi.SSID());
       Serial.println(">");
-      MultiLineInButton(9,WifiStatus,"CONNECTED\nTO <%s> ",WiFi.SSID());
+      WifiGFXinterrupt(9,WifiStatus,"CONNECTED\nTO <%s> ",WiFi.SSID());
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       IsConnected = false;
@@ -1855,7 +1843,7 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
       Serial.println("Trying to Reconnect");
       WiFi.begin(Current_Settings.ssid, Current_Settings.password);
 
-      MultiLineInButton(8,WifiStatus,"Disconnected\n REASON:%s\n Retrying:<%s>",disconnectreason(info.wifi_sta_disconnected.reason).c_str(),Current_Settings.ssid);
+      WifiGFXinterrupt(8,WifiStatus,"Disconnected \n REASON:%s\n Retrying:<%s>",disconnectreason(info.wifi_sta_disconnected.reason).c_str(),Current_Settings.ssid);
       
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
@@ -1864,7 +1852,9 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
      // gfx->println(WiFi.localIP());
       Serial.println(WiFi.localIP());
       sta_ip = WiFi.localIP();
-      MultiLineInButton(9, WifiStatus,"CONNECTED\n to %s \n (IP:%i.%i.%i.%i) \n",WiFi.SSID(), sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3]);
+      WifiGFXinterrupt(9, WifiStatus,"CONNECTED\n to %s \n (IP:%i.%i.%i.%i) \n",WiFi.SSID(), 
+     // sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3]);
+      WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
       break;
   }
 }
