@@ -18,8 +18,8 @@ void UpdateLinef(uint16_t color,int font,Button& button, const char* fmt, ...) ;
 void UpdateDataTwoSize(bool horizCenter, bool vertCenter,int bigfont, int smallfont,Button button, instData &data, const char *fmt);
 
 // Sub function to update (multiple) lines in a button (uses \n to separate lines )
-void CommonCenteredSubUpdateLinef(bool horizCenter, bool vertCenter, uint16_t color, int font, Button &button, const char *msg);
-void CommonCenteredSubUpdateLinef(uint16_t color, int font, Button &button, const char *msg); // default horizontal center only..
+void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t color, int font, Button &button, const char *msg);
+void CommonCenteredSubUpdateLine(uint16_t color, int font, Button &button, const char *msg); // default horizontal center only..
 
 // Adds titles inside or outside button in the border area
 void AddTitleBorderBox(int font,Button button, const char* fmt, ...);

@@ -255,12 +255,12 @@ int TopLeftYforthisLine(Button button, int printline) {
 
 
 // no option for centered.. is equivalent to old CommonSubUpdateLinef
-void CommonCenteredSubUpdateLinef(uint16_t color, int font, Button &button, const char *msg) {
-CommonCenteredSubUpdateLinef(true,false,color,font, button, msg); 
+void CommonCenteredSubUpdateLine(uint16_t color, int font, Button &button, const char *msg) {
+CommonCenteredSubUpdateLine(true,false,color,font, button, msg); 
 }
 
 // I think vertical centering may not be needed?? 
-void CommonCenteredSubUpdateLinef(bool horizCenter, bool vertCenter, uint16_t color, int font, Button &button, const char *msg) {
+void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t color, int font, Button &button, const char *msg) {
   int LinesOfType;
   int16_t x, y, TBx1, TBy1;
   uint16_t TBw1, TBh1;
@@ -272,13 +272,35 @@ void CommonCenteredSubUpdateLinef(bool horizCenter, bool vertCenter, uint16_t co
   typingspaceH = button.height - (2 * button.bordersize);
   typingspaceW = button.width - (2 * button.bordersize);
   LinesOfType = typingspaceH / (text_height + 2);  //assumes textsize 1
-  x = button.h +button.bordersize;                                                  //
-  y = button.v ;                                  // 
-  gfx->getTextBounds(msg, x, y, &TBx1, &TBy1, &TBw1, &TBh1);  // do not forget '& ! Pointer not value!!!
+   // is this taken into acount in TBh1?? drops a line if it thinks it would print outside box?
+  if(horizCenter ||vertCenter ){ gfx->setTextWrap(false);}
+     else{gfx->setTextWrap(true);} 
+  // get bounds as would be printed at top of box.. 
+  // set text bounds first so that can be taken into account !   
+  gfx->setTextBound(button.h + button.bordersize+1, button.v + button.bordersize+1, typingspaceW-2, typingspaceH-2);                               // 
+  gfx->getTextBounds(msg, button.h + button.bordersize+1, button.v + button.bordersize+1, &TBx1, &TBy1, &TBw1, &TBh1);  // do not forget '& ! Pointer not value!!!
+  // FOR debugging line wrapping: use serial input (shows as RED! ) e.g. from Arduino serial monitor
+   int LinesPrinted;
+  LinesPrinted=int(0.5+TBh1/text_offset);
+  // if(color==RED){
+  // Serial.printf("Message is <%s>\n",msg);  
+  // Serial.printf(" SPACE is %i wide\n",typingspaceW) ; 
+  // int LinesPrinted;
+  // LinesPrinted=int(0.5+TBh1/text_offset);
+  // Serial.printf(" test: tbx%i  tby%i  tbw%i  tbh%i   toff %i  Linesadded%i", TBx1, TBy1, TBw1, TBh1, text_offset,LinesPrinted );
+  // }
+  y = button.v + text_offset ;
+  x = button.h +button.bordersize;  
   if (horizCenter) { x = x + ((typingspaceW - (TBw1 )) / 2); } 
-  y= TopLeftYforthisLine(button, button.PrintLine)+text_offset +1; // // puts y cursor on a specific line with 2 pixels of V spacingDown a bit equal to border size.
-  if (vertCenter) { y = text_offset+ button.bordersize+ button.v + ((typingspaceH - (TBh1)) / 2); }          // vertical centering
-                                   
+  y= TopLeftYforthisLine(button, button.PrintLine)+text_offset +1; // // puts y cursor on a specific line 
+  if (vertCenter) { y = text_offset+ button.bordersize+ button.v + ((typingspaceH - (TBh1)) / 2); }  // vertical centering
+  gfx->setCursor(x, y);  
+  gfx->setTextColor(color);
+  gfx->print(msg);
+  button.PrintLine = button.PrintLine +LinesPrinted; 
+  //NOTE TEXT WRAP uses the last variable in the GFXFont setting, which should be roughly twice the character height. 
+  //But often seems to be set larger,
+  // which gives a text wrap of TWO lines..                               
   if (button.PrintLine >= (LinesOfType + 1)) { //clear full print area  if starting again 
     button.screenfull = true;
     if (!button.debugpause) {
@@ -287,17 +309,8 @@ void CommonCenteredSubUpdateLinef(bool horizCenter, bool vertCenter, uint16_t co
       button.screenfull = false;
     }
   }  
-  if(horizCenter ||vertCenter ){ gfx->setTextWrap(false);}
-     else{gfx->setTextWrap(true);} 
-  gfx->setTextBound(button.h + button.bordersize+1, button.v + button.bordersize+1, typingspaceW-2, typingspaceH-2);
- //do NOT allow wrapping if centering.. second line will print at far left of screen ..  
-  // gfx->fillRect(button.h + button.bordersize, TopLeftYforthisLine(button, button.PrintLine) + 1, 
-  // typingspaceW, TBh1 + 3, RED); // button.BackColor);
-  gfx->setCursor(x, y);  
-  gfx->setTextColor(color);
-  gfx->print(msg);
-  if (TBw1 >= typingspaceW){button.PrintLine = button.PrintLine + 2;}// this was longer than a single line !
-  button.PrintLine = button.PrintLine + 1;  //  FOR NEXT LINE (TBh / (text_height + 2)) + 1;
+
+ //  button.PrintLine = button.PrintLine + 1;  //  FOR NEXT LINE (TBh / (text_height + 2)) + 1;
   gfx->setTextBound(0, 0, 480, 480);        //MUST RESET IT
   setFont(local);
 }
@@ -311,7 +324,7 @@ void UpdateLinef(uint16_t color, int font, Button &button, const char *fmt, ...)
   vsnprintf(msg, 300, fmt, args);
   va_end(args);
   int len = strlen(msg);
-  CommonCenteredSubUpdateLinef(false,false, color, font, button, msg);
+  CommonCenteredSubUpdateLine(false,false, color, font, button, msg);
   // was CommonSubUpdateLinef(color, font, button, msg);
 }
 
@@ -325,7 +338,7 @@ void UpdateLinef(int font, Button &button, const char *fmt, ...) {  // Types seq
   vsnprintf(msg, 300, fmt, args);
   va_end(args);
   int len = strlen(msg);
-  CommonCenteredSubUpdateLinef(false,false, button.TextColor, font, button, msg);
+  CommonCenteredSubUpdateLine(false,false, button.TextColor, font, button, msg);
   // was   CommonSubUpdateLinef(button.TextColor, font, button, msg);
 }
 
@@ -485,7 +498,7 @@ void GFXBorderBoxPrintf(Button button, const char *fmt, ...) {
                 button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
   //  int local;
   //local = MasterFont;// DO NOT USE MULTI LINE messages in GFXBorderBoxPrintf!!
-  CommonCenteredSubUpdateLinef(true, true, button.TextColor, MasterFont, button, msg) ;
+  CommonCenteredSubUpdateLine(true, true, button.TextColor, MasterFont, button, msg) ;
  // WAS  WriteinBorderBox(button.h, button.v, button.width, button.height, button.bordersize, button.BackColor, button.TextColor, button.BorderColor, msg);
 }
 

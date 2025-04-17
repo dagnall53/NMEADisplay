@@ -923,7 +923,7 @@ const GFXglyph FreeMonoBold8pt7bGlyphs[] PROGMEM = {
 const GFXfont FreeMonoBold8pt7b PROGMEM = {
   (uint8_t  *)FreeMonoBold8pt7bBitmaps,
   (GFXglyph *)FreeMonoBold8pt7bGlyphs,
-  0x20, 0x7E, 25 };
+  0x20, 0x7E, 16 };
 
 // Approx. 1455 bytes
 
@@ -2432,7 +2432,7 @@ const GFXglyph FreeMonoBold27pt7bGlyphs[] PROGMEM = {
 const GFXfont FreeMonoBold27pt7b PROGMEM = {
   (uint8_t  *)FreeMonoBold27pt7bBitmaps,
   (GFXglyph *)FreeMonoBold27pt7bGlyphs,
-  0x20, 0x7E, 85 };
+  0x20, 0x7E, 56 };
 
 // Approx. 9398 bytes
 

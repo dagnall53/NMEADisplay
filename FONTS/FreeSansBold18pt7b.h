@@ -488,6 +488,6 @@ const GFXglyph FreeSansBold18pt7bGlyphs[] PROGMEM = {
 const GFXfont FreeSansBold18pt7b PROGMEM = {
   (uint8_t  *)FreeSansBold18pt7bBitmaps,
   (GFXglyph *)FreeSansBold18pt7bGlyphs,
-  0x20, 0x7E, 57 };
+  0x20, 0x7E, 36 };
 
 // Approx. 5327 bytes

@@ -65,7 +65,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.6";
+const char soft_version[] = "Version 3.7";
 bool hasSD;
 
 
@@ -201,7 +201,7 @@ Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };  // big one for e
 Button Switch6 = { 20, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
 Button Switch7 = { 100, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
 
-Button Terminal = { 0, 100, 480, 330, 1, WHITE, BLACK, WHITE };  //ALMOST NO BORDER (invisible as == back col) to try and get debug printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
+Button Terminal = { 0, 100, 480, 330, 5, WHITE, BLACK, WHITE };  //BORDER invisible as == background col) to try and help debug printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
 //for selections
 Button FullTopCenter = { 80, 0, 320, 50, 5, BLUE, WHITE, BLACK };
 
@@ -1620,11 +1620,11 @@ void UseNMEA(char* buf, int type) {
                       // 0 is 8pt mono thin,
                       //3 is 8pt mono bold
     if ((Display_Page == -21)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
-      if (type == 2) {UpdateLinef(BLUE,7,Terminal, "UDP:%s", buf); // 7 small enough to avoid line wrap issue? 
+      if (type == 2) {UpdateLinef(BLUE,8,Terminal, "UDP:%s", buf); // 7 small enough to avoid line wrap issue? 
       }
-      if (type == 3) {UpdateLinef(RED,7,Terminal, "ESP:%s", buf);
+      if (type == 3) {UpdateLinef(BLACK,8,Terminal, "ESP:%s", buf);
       }
-      if (type == 1) { UpdateLinef(BLACK,7,Terminal, "Ser:%s", buf); }
+      if (type == 1) { UpdateLinef(RED,8,Terminal, "Ser:%s", buf); }
     }
     // now decode it for the displays to use
     pTOKEN = buf;                                               // pToken is used in processPacket to separate out the Data Fields
@@ -1814,7 +1814,7 @@ void WifiGFXinterrupt(int font, Button &button, const char* fmt, ...){ //quick i
   // print each separated line centered... starting from line 1
   button.PrintLine=1;
   while (pch !=NULL) {
-    CommonCenteredSubUpdateLinef(button.TextColor, font, button, pch);
+    CommonCenteredSubUpdateLine(button.TextColor, font, button, pch);
     pch =strtok(NULL,delimiter);
     }
   WIFIGFXBoxdisplaystarted=true; 
