@@ -346,7 +346,7 @@ void UpdateLinef(int font, Button &button, const char *fmt, ...) {  // Types seq
 
 
 
-void Sub_for_UpdateTwoSize(bool horizCenter, bool vertCenter, bool erase, int bigfont, int smallfont, Button button, instData &data, const char *fmt, ...) {  // TWO font print. separates at decimal point Centers text in space GREYS if data is OLD
+void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool erase, int bigfont, int smallfont, Button button, instData &data, const char *fmt, ...) {  // TWO font print. separates at decimal point Centers text in space GREYS if data is OLD
   static char msg[300] = { '\0' };
   char digits[30];
   char decimal[30];
@@ -356,14 +356,13 @@ void Sub_for_UpdateTwoSize(bool horizCenter, bool vertCenter, bool erase, int bi
   // calculate new offsets to just center on original box - minimum redraw of blank
   int16_t x, y, TBx1, TBy1, TBx2, TBy2;
   uint16_t TBw1, TBh1, TBw2, TBh2;
-
   int typingspaceH, typingspaceW;
   bool recent = (data.updated >= millis() - 6000);
   //Serial.printf(" ** DEBUG 1 in NEW Update Data %f \n",data.data);
   ////// buttton width and height are for the OVERALL box.
   typingspaceH = button.height - (2 * button.bordersize);
   typingspaceW = button.width - (2 * button.bordersize);
-  gfx->setTextSize(1);  // used in message buildup
+  // SetTextsize now set in used in message buildup
   va_list args;         // extract the fmt..
   va_start(args, fmt);
   vsnprintf(msg, 300, fmt, args);
@@ -383,7 +382,7 @@ void Sub_for_UpdateTwoSize(bool horizCenter, bool vertCenter, bool erase, int bi
   }
   setFont(bigfont);                                              // here so the text_offset is correct for bigger font
   x = button.h;                                                  //+ button.bordersize;
-  y = button.v + (text_offset);                                  // bigger font for front half
+  y = button.v + (magnify* text_offset);      // allow for magnify !! bigger font for front half
   gfx->getTextBounds(digits, x, y, &TBx1, &TBy1, &TBw1, &TBh1);  // do not forget '& ! Pointer not value!!!
   //Serial.printf("  *** DEBUG text_offset %i  and y%i  TBy1 %i \n",text_offset,y, TBy1); //Serial.print(digits);Serial.print(decimal);Serial.println(">");  //debugcheck for font too big - causes crashes?
   setFont(smallfont);                                                    // smaller for second part after decimal point
@@ -425,66 +424,51 @@ void Sub_for_UpdateTwoSize(bool horizCenter, bool vertCenter, bool erase, int bi
   gfx->setTextBound(0, 0, 480, 480);  //MUST reset it !
 }
 
-
 void UpdateDataTwoSize(bool horizCenter, bool vertCenter, int bigfont, int smallfont, Button button, instData &data, const char *fmt) {
   if (data.data == NMEA0183DoubleNA) { return; }
 
   bool recent = (data.updated >= millis() - 6000);
   if (data.greyed) { return; }
   if (!data.displayed) {
+    gfx->setTextSize(1);
     //  Serial.printf(" in UpdateDataTwoSize bigfont %i  smallfont %i    data %f  format %s",bigfont,smallfont,               data.data,fmt);
-    Sub_for_UpdateTwoSize(horizCenter, vertCenter, true, bigfont, smallfont, button, data, fmt, data.lastdata);
-    Sub_for_UpdateTwoSize(horizCenter, vertCenter, false, bigfont, smallfont, button, data, fmt, data.data);
+    Sub_for_UpdateTwoSize(1,horizCenter, vertCenter, true, bigfont, smallfont, button, data, fmt, data.lastdata);
+    Sub_for_UpdateTwoSize(1,horizCenter, vertCenter, false, bigfont, smallfont, button, data, fmt, data.data);
     data.displayed = true;  //reset to false inside toNewStruct
     return;
   }
   if (!recent && !data.greyed) {
-    Sub_for_UpdateTwoSize(horizCenter, vertCenter, true, bigfont, smallfont, button, data, fmt, data.lastdata);
-    Sub_for_UpdateTwoSize(horizCenter, vertCenter, false, bigfont, smallfont, button, data, fmt, data.data);
+    gfx->setTextSize(1);
+    Sub_for_UpdateTwoSize(1,horizCenter, vertCenter, true, bigfont, smallfont, button, data, fmt, data.lastdata);
+    Sub_for_UpdateTwoSize(1,horizCenter, vertCenter, false, bigfont, smallfont, button, data, fmt, data.data);
     data.displayed = true;  //reset to false inside toNewStruct
   }
 }
 
 
 
-//USED BY GFXBorderBoxPrintf
-void WriteinBorderBox(int h, int v, int width, int height, int bordersize,
-                      uint16_t backgroundcol, uint16_t TextColor, uint16_t BorderColor, const char *TEXT) {  //Write text in filled box of text height at h,v (using fontoffset to use TOP LEFT of text convention)
-  int16_t x, y, TBx1, TBy1;
-  uint16_t TBw, TBh;
-  // gfx->setTextSize(textsize);
-  x = h + bordersize;
-  y = v + bordersize + (text_offset);                        //initial Top Left positioning for print text
-  gfx->getTextBounds(TEXT, x, y, &TBx1, &TBy1, &TBw, &TBh);  // do not forget '& ! Pointer not value!!!
-  //Serial.printf(" Text bounds planned print (x%i y%i)  W:%i H:%i TB_X %i  TB_Y %i \n",x,y, TBw,TBh,TBx1,TBy1);
-  //gfx->fillRect(TBx1 , TBy1 , TBw , TBh , WHITE); delay(100); // visulize what the data is!
-  // move to center is  add (width-2*bordersize-TBw)/2 ?
-  //move vertical is add (height -2*bordersize-TBh)/2
-  gfx->fillRect(h, v, width, height, BorderColor);  // width and height are for the OVERALL box.
-  gfx->fillRect(h + bordersize, v + bordersize, width - (2 * bordersize), height - (2 * bordersize), backgroundcol);
-  gfx->setTextColor(TextColor);
+void UpdateDataTwoSize(int magnify, bool horizCenter, bool vertCenter, int bigfont, int smallfont, Button button, instData &data, const char *fmt) {
+  if (data.data == NMEA0183DoubleNA) { return; }
 
-  // offset up/down by OFFSET (!) for GFXFONTS that start at Bottom left. Standard fonts start at TOP LEFT
-  x = h + bordersize;
-  y = v + bordersize + (text_offset);
-  x = x + ((width - TBw - (2 * bordersize)) / 2);   //try horizontal centering
-  y = y + ((height - TBh - (2 * bordersize)) / 2);  //try vertical centering
-  gfx->setCursor(x, y);
-  gfx->print(TEXT);
-  //reset font ...
-  gfx->setTextSize(1);
+  bool recent = (data.updated >= millis() - 6000);
+  if (data.greyed) { return; }
+  if (!data.displayed) {
+    gfx->setTextSize(magnify);
+    //  Serial.printf(" in UpdateDataTwoSize bigfont %i  smallfont %i    data %f  format %s",bigfont,smallfont,               data.data,fmt);
+    Sub_for_UpdateTwoSize(magnify,horizCenter, vertCenter, true, bigfont, smallfont, button, data, fmt, data.lastdata);
+    Sub_for_UpdateTwoSize(magnify,horizCenter, vertCenter, false, bigfont, smallfont, button, data, fmt, data.data);
+    data.displayed = true;  //reset to false inside toNewStruct
+    gfx->setTextSize(1);
+    return;
+  }
+  if (!recent && !data.greyed) {
+    gfx->setTextSize(magnify);
+    Sub_for_UpdateTwoSize(magnify,horizCenter, vertCenter, true, bigfont, smallfont, button, data, fmt, data.lastdata);
+    Sub_for_UpdateTwoSize(magnify,horizCenter, vertCenter, false, bigfont, smallfont, button, data, fmt, data.data);
+    data.displayed = true;  //reset to false inside toNewStruct
+    gfx->setTextSize(1);
+  }
 }
-
-// void GFXBorderBoxPrintf(int h, int v, int width, int height, int bordersize,
-//                         uint16_t backgroundcol, uint16_t TextColor, uint16_t BorderColor, const char *fmt, ...) {  //Print in a box.(h,v,width,height,textsize,bordersize,backgroundcol,TextColor,BorderColor, const char* fmt, ...)
-//   static char msg[300] = { '\0' };                                                                               // used in message buildup
-//   va_list args;
-//   va_start(args, fmt);
-//   vsnprintf(msg, 300, fmt, args);
-//   va_end(args);
-//   int len = strlen(msg);
-//   WriteinBorderBox(h, v, width, height, bordersize, backgroundcol, TextColor, BorderColor, msg);
-// }
 
 void GFXBorderBoxPrintf(Button button, const char *fmt, ...) {
   static char msg[300] = { '\0' };  // used in message buildup

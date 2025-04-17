@@ -178,6 +178,7 @@ void keyboard(int type) {
    DrawKey(2,5, 3,30,"MEM");
   gfx->drawRoundRect((90*KBD_size)+ Keyboard_X, Keyboard_Y + (90*KBD_size), 60*KBD_size, 25*KBD_size, 3, WHITE);
   setFont(0);
+  gfx->setTextSize(1);
 }
 
 

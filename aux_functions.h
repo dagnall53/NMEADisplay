@@ -16,6 +16,8 @@ void UpdateLinef(uint16_t color,int font,Button& button, const char* fmt, ...) ;
 
 // Special 'update' for instruments.. Gives two size display, Digits in big, decimal and efverything after in small font
 void UpdateDataTwoSize(bool horizCenter, bool vertCenter,int bigfont, int smallfont,Button button, instData &data, const char *fmt);
+// for even bigger, magnify the font  
+void UpdateDataTwoSize(int magnify,bool horizCenter, bool vertCenter,int bigfont, int smallfont,Button button, instData &data, const char *fmt);
 
 // Sub function to update (multiple) lines in a button (uses \n to separate lines )
 void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t color, int font, Button &button, const char *msg);

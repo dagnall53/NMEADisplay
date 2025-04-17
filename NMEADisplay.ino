@@ -50,6 +50,8 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 #include "FONTS/FreeSansBold60pt7b.h"
 
 
+
+
 //For SD card (see display page -98 for test)
 // allow comments in the JSON FILE
 #define ARDUINOJSON_ENABLE_COMMENTS 1
@@ -65,15 +67,15 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.7";
+const char soft_version[] = "Version 3.8";
 bool hasSD;
 
 
 
-//************JSON SETUP STUFF to get setup parameters from the SD card to make it easy for user to change 
+//************JSON SETUP STUFF to get setup parameters from the SD card to make it easy for user to change
 // READ https://arduinojson.org/?utm_source=meta&utm_medium=library.properties
 // *********************************************************************************************************
-const char *Setupfilename = "/config.txt";  // <- SD library uses 8.3 filenames
+const char* Setupfilename = "/config.txt";  // <- SD library uses 8.3 filenames
 
 
 
@@ -99,8 +101,8 @@ char nmea_EXT[BufferLength];  // buffer for ESP_now received data
 bool EspNowIsRunning = false;
 char* pTOKEN;
 // assists for wifigfx interrupt  box that shows status..  to help turn it off after a time
-  uint32_t WIFIGFXBoxstartedTime;
-  bool WIFIGFXBoxdisplaystarted;
+uint32_t WIFIGFXBoxstartedTime;
+bool WIFIGFXBoxdisplaystarted;
 //********** All boat data (instrument readings) are stored as double in a single structure:
 
 tBoatData BoatData;  // BoatData values, int double etc
@@ -120,13 +122,13 @@ int file_num = 0;
 // MySettings (see structures.h) are the settings for the Display:
 // If the structure is changed, be sure to change the Key (first figure) so that new defaults and struct can be set.
 //                                                                                    LOG off NMEAlog Off
-MySettings Default_Settings = { 17, "GUESTBOAT", "12345678", "2002", false, true, true,false,false };
+MySettings Default_Settings = { 17, "GUESTBOAT", "12345678", "2002", false, true, true, false, false };
 /*  char Mag_Var[15]; // got to save double variable as a string! east is positive
   int Start_Page ;
   char PanelName[25];
   char APpassword[25]; */
-JSONCONFIG Default_JSON ={"0.5",4,"nmeadisplay","12345678"};
-JSONCONFIG Display_Config;  
+JSONCONFIG Default_JSON = { "0.5", 4, "nmeadisplay", "12345678" };
+JSONCONFIG Display_Config;
 int Display_Page = 4;  //set last in setup(), but here for clarity?
 MySettings Saved_Settings;
 MySettings Current_Settings;
@@ -157,25 +159,25 @@ Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 //used for single data display
 // modified all to lift by 30 pixels to allow a common bottom row display (to show logs and get to settings)
 
-Button WifiStatus = {60,180,320,210,5, BLUE, WHITE, BLACK }; // big central box for wifi events to pop up - v3.5
+Button WifiStatus = { 60, 180, 320, 210, 5, BLUE, WHITE, BLACK };  // big central box for wifi events to pop up - v3.5
 
-Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK }; // used for wind and graph displays
-Button BigSingleTopRight = {240, 0, 240, 90, 5, BLUE, WHITE, BLACK }; //  ''
-Button BigSingleTopLeft = {0, 0, 240, 90, 5, BLUE, WHITE, BLACK };    //  ''
-Button TopHalfBigSingleTopRight = {240, 0, 240, 45, 5, BLUE, WHITE, BLACK }; //  ''
-Button BottomHalfBigSingleTopRight = {240, 45, 240, 45, 5, BLUE, WHITE, BLACK }; //  ''
+Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK };              // used for wind and graph displays
+Button BigSingleTopRight = { 240, 0, 240, 90, 5, BLUE, WHITE, BLACK };             //  ''
+Button BigSingleTopLeft = { 0, 0, 240, 90, 5, BLUE, WHITE, BLACK };                //  ''
+Button TopHalfBigSingleTopRight = { 240, 0, 240, 45, 5, BLUE, WHITE, BLACK };      //  ''
+Button BottomHalfBigSingleTopRight = { 240, 45, 240, 45, 5, BLUE, WHITE, BLACK };  //  ''
 //used for nmea RMC /GPS display // was only three lines to start!
 Button Threelines0 = { 20, 30, 440, 80, 5, BLUE, WHITE, BLACK };
 Button Threelines1 = { 20, 130, 440, 80, 5, BLUE, WHITE, BLACK };
 Button Threelines2 = { 20, 230, 440, 80, 5, BLUE, WHITE, BLACK };
 Button Threelines3 = { 20, 330, 440, 80, 5, BLUE, WHITE, BLACK };
-// for the quarter screens on the main page 
-Button topLeftquarter =    { 0, 0, 240, 240-15, 5, BLUE, WHITE, BLACK };     //h  reduced by 15 to give 30 space at the bottom
-Button bottomLeftquarter = { 0, 240-15, 240, 240-15, 5, BLUE, WHITE, BLACK };
-Button topRightquarter = { 240, 0, 240, 240-15, 5, BLUE, WHITE, BLACK };
-Button bottomRightquarter = { 240, 240-15, 240, 240-15, 5, BLUE, WHITE, BLACK };
+// for the quarter screens on the main page
+Button topLeftquarter = { 0, 0, 240, 240 - 15, 5, BLUE, WHITE, BLACK };  //h  reduced by 15 to give 30 space at the bottom
+Button bottomLeftquarter = { 0, 240 - 15, 240, 240 - 15, 5, BLUE, WHITE, BLACK };
+Button topRightquarter = { 240, 0, 240, 240 - 15, 5, BLUE, WHITE, BLACK };
+Button bottomRightquarter = { 240, 240 - 15, 240, 240 - 15, 5, BLUE, WHITE, BLACK };
 
-Button StatusBox =  {0,450,480,29,5,BLUE,WHITE,BLACK};
+Button StatusBox = { 0, 450, 480, 29, 5, BLUE, WHITE, BLACK };
 
 // these were used for initial tests and for volume control - not needed for most people!! .. only used now for Range change in GPS graphic (?)
 Button TopLeftbutton = { 0, 0, 75, 45, 5, BLUE, WHITE, BLACK };
@@ -196,7 +198,7 @@ Button Switch1 = { 20, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
 Button Switch2 = { 100, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
 Button Switch3 = { 180, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
 Button Switch5 = { 260, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
-Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };  // big one for eeprom update 
+Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };  // big one for eeprom update
 //switches at line 60
 Button Switch6 = { 20, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
 Button Switch7 = { 100, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
@@ -211,99 +213,112 @@ Button Full2Center = { 80, 165, 320, 50, 5, BLUE, WHITE, BLACK };
 Button Full3Center = { 80, 220, 320, 50, 5, BLUE, WHITE, BLACK };
 Button Full4Center = { 80, 275, 320, 50, 5, BLUE, WHITE, BLACK };
 Button Full5Center = { 80, 330, 320, 50, 5, BLUE, WHITE, BLACK };
-Button Full6Center = { 80, 385, 320, 50, 5, BLUE, WHITE, BLACK };// inteferes with settings box do not use!
+Button Full6Center = { 80, 385, 320, 50, 5, BLUE, WHITE, BLACK };  // inteferes with settings box do not use!
 
 
 #define On_Off ? "ON " : "OFF"  // if 1 first case else second (0 or off) same number of chars to try and helps some flashing later
 
 
 
-bool LoadConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings) {
+bool LoadConfiguration(const char* filename, JSONCONFIG& config, MySettings& settings) {
   // Open file for reading
-  if (!SD.exists(filename)){Serial.printf(" Json file %s did not exist\n Using defaults\n",filename); 
-     SaveConfiguration(filename,Default_JSON,Default_Settings);
-     config=Default_JSON;settings=Default_Settings;
-     return false;}
-  File file = SD.open(filename,FILE_READ);
-  if (!file) {Serial.println(F("**Failed to read JSON file")); return false;}
+  if (!SD.exists(filename)) {
+    Serial.printf(" Json file %s did not exist\n Using defaults\n", filename);
+    SaveConfiguration(filename, Default_JSON, Default_Settings);
+    config = Default_JSON;
+    settings = Default_Settings;
+    return false;
+  }
+  File file = SD.open(filename, FILE_READ);
+  if (!file) {
+    Serial.println(F("**Failed to read JSON file"));
+    return false;
+  }
   // Allocate a temporary JsonDocument
   char temp[15];
   JsonDocument doc;
   // Deserialize the JSON document
   DeserializationError error = deserializeJson(doc, file);
-  if (error)  {Serial.println(F("**Failed to read JSON file")); return false;}
+  if (error) {
+    Serial.println(F("**Failed to read JSON file"));
+    return false;
+  }
   // Copy values (or defaults) from the JsonDocument to the config / settings
-  if (doc["Start_Page"]==0){return false;}  //secondary backup in case the file is present (passes error) but zeroed!
+  if (doc["Start_Page"] == 0) { return false; }  //secondary backup in case the file is present (passes error) but zeroed!
 
-  config.Start_Page = doc["Start_Page"] | 4; // 4 is default page int - no problem...
+  config.Start_Page = doc["Start_Page"] | 4;  // 4 is default page int - no problem...
 
-  strlcpy(temp,doc["Mag_Var"] | "1.15",sizeof(temp));
-  BoatData.Variation = atof(temp); //  (+ = easterly) Positive: If the magnetic north is to the east of true north, the declination is positive (or easterly). 
+  strlcpy(temp, doc["Mag_Var"] | "1.15", sizeof(temp));
+  BoatData.Variation = atof(temp);  //  (+ = easterly) Positive: If the magnetic north is to the east of true north, the declination is positive (or easterly).
 
-  strlcpy(config.PanelName,                  // User selectable 
+  strlcpy(config.PanelName,                  // User selectable
           doc["PanelName"] | "NMEADISPLAY",  // <- and default in case Json is corrupt / missing !
-          sizeof(config.PanelName)); 
-  strlcpy(config.APpassword,                  // User selectable 
+          sizeof(config.PanelName));
+  strlcpy(config.APpassword,               // User selectable
           doc["APpassword"] | "12345678",  // <- and default in case Json is corrupt / missing !
-          sizeof(config.APpassword));         
-       
+          sizeof(config.APpassword));
+
   // only change settings if we have read the file! else we will use the EEPROM settings
   if (!error)
-  strlcpy(settings.ssid,                  // <- destination
-          doc["ssid"] | "GuestBoat",  // <- source and default in case Json is corrupt!
-          sizeof(settings.ssid));         // <- destination's capacity
-  strlcpy(settings.password,                  // <- destination
-          doc["password"] | "12345678",  // <- source and default 
-          sizeof(settings.password));         // <- destination's capacity   
-  strlcpy(settings.UDP_PORT,                  // <- destination
-          doc["UDP_PORT"] | "2000",  // <- source and default. 
-          sizeof(settings.UDP_PORT));         // <- destination's capacity                
+    strlcpy(settings.ssid,               // <- destination
+            doc["ssid"] | "GuestBoat",   // <- source and default in case Json is corrupt!
+            sizeof(settings.ssid));      // <- destination's capacity
+  strlcpy(settings.password,             // <- destination
+          doc["password"] | "12345678",  // <- source and default
+          sizeof(settings.password));    // <- destination's capacity
+  strlcpy(settings.UDP_PORT,             // <- destination
+          doc["UDP_PORT"] | "2000",      // <- source and default.
+          sizeof(settings.UDP_PORT));    // <- destination's capacity
   // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
-  if (!error) {return true;}
+  if (!error) { return true; }
   return false;
 }
 
 
-void SaveConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings) {
+void SaveConfiguration(const char* filename, JSONCONFIG& config, MySettings& settings) {
   // Delete existing file, otherwise the configuration is appended to the file
   SD.remove(filename);
   char buff[15];
   // Open file for writing
   File file = SD.open(filename, FILE_WRITE);
-  if (!file) {Serial.println(F("JSON: Failed to create SD file"));return;}
+  if (!file) {
+    Serial.println(F("JSON: Failed to create SD file"));
+    return;
+  }
   // Allocate a temporary JsonDocument
   JsonDocument doc;
   // Set the values in the JSON file.. // NOT ALL ARE read yet!!
-  //modify how the display works   
-  doc["Start_Page"]=config.Start_Page;
-  Serial.print("save magvar:");Serial.printf("%5.3f",BoatData.Variation);
-  snprintf(buff,sizeof(buff),"%5.3f",BoatData.Variation);
-  doc["Mag_Var"]=buff;
-  doc["PanelName"]=config.PanelName;
-  doc["APpassword"]=config.APpassword;
-  //now the settings WIFI etc.. 
-  doc["ssid"]=settings.ssid; 
-  doc["password"]=settings.password;
-  doc["UDP_PORT"]=settings.UDP_PORT;
-  doc["Serial"]=settings.Serial_on;
-  doc["UDP"]=settings.UDP_ON;
-  doc["ESP"]=settings.ESP_NOW_ON;
-  doc["LOG"]=settings.Log_ON;
-  doc["NMEALOG"]=settings.NMEA_log_ON;
+  //modify how the display works
+  doc["Start_Page"] = config.Start_Page;
+  Serial.print("save magvar:");
+  Serial.printf("%5.3f", BoatData.Variation);
+  snprintf(buff, sizeof(buff), "%5.3f", BoatData.Variation);
+  doc["Mag_Var"] = buff;
+  doc["PanelName"] = config.PanelName;
+  doc["APpassword"] = config.APpassword;
+  //now the settings WIFI etc..
+  doc["ssid"] = settings.ssid;
+  doc["password"] = settings.password;
+  doc["UDP_PORT"] = settings.UDP_PORT;
+  doc["Serial"] = settings.Serial_on;
+  doc["UDP"] = settings.UDP_ON;
+  doc["ESP"] = settings.ESP_NOW_ON;
+  doc["LOG"] = settings.Log_ON;
+  doc["NMEALOG"] = settings.NMEA_log_ON;
   // Serialize JSON to file
-  if (serializeJsonPretty(doc, file) == 0) { // use 'pretty format' with line feeds
+  if (serializeJsonPretty(doc, file) == 0) {  // use 'pretty format' with line feeds
     Serial.println(F("JSON: Failed to write to SD file"));
   }
-  // Close the file, but print serial as a check 
+  // Close the file, but print serial as a check
   file.close();
   PrintJsonFile(filename);
 }
 
 
-void PrintJsonFile(const char *filename) {
+void PrintJsonFile(const char* filename) {
   // Open file for reading
-  File file = SD.open(filename,FILE_READ );
+  File file = SD.open(filename, FILE_READ);
   Serial.println(" PRINT JSON SETUP ");
   if (!file) {
     Serial.println(F("Failed to read file"));
@@ -322,16 +337,15 @@ void PrintJsonFile(const char *filename) {
 //****************  GRAPHICS STUFF ************************
 // Draw the compass pointer at an angle in degrees
 void WindArrow2(Button button, instData Speed, instData& Wind) {
- // Serial.printf(" ** DEBUG  speed %f    wind %f ",Speed.data,Wind.data);
+  // Serial.printf(" ** DEBUG  speed %f    wind %f ",Speed.data,Wind.data);
   bool recent = (Wind.updated >= millis() - 3000);
-  if (!Wind.displayed) { //EventTiming("START");
-          WindArrowSub(button, Speed, Wind);
-         // EventTiming("STOP");EventTiming("WIND arrow");
-          }
+  if (!Wind.displayed) {  //EventTiming("START");
+    WindArrowSub(button, Speed, Wind);
+    // EventTiming("STOP");EventTiming("WIND arrow");
+  }
   if (Wind.greyed) { return; }
-  
+
   if (!recent && !Wind.greyed) { WindArrowSub(button, Speed, Wind); }
- 
 }
 
 void WindArrowSub(Button button, instData Speed, instData& wind) {
@@ -339,7 +353,7 @@ void WindArrowSub(Button button, instData Speed, instData& wind) {
   bool recent = (wind.updated >= millis() - 3000);
   Phv center;
   int rad, outer, inner;
-  static int  lastfont;
+  static int lastfont;
   static double lastwind;
   center.h = button.h + button.width / 2;
   center.v = button.v + button.height / 2;
@@ -360,9 +374,9 @@ void WindArrowSub(Button button, instData Speed, instData& wind) {
   lastfont = MasterFont;
   if (Speed.data != NMEA0183DoubleNA) {
     if (rad <= 130) {
-      UpdateDataTwoSize(true,true,8, 7, button, Speed, "%2.0fkt");
+      UpdateDataTwoSize(true, true, 8, 7, button, Speed, "%2.0fkt");
     } else {
-      UpdateDataTwoSize(true,true,10, 9, button, Speed, "%2.0fkt");
+      UpdateDataTwoSize(true, true, 10, 9, button, Speed, "%2.0fkt");
     }
   }
 
@@ -384,8 +398,8 @@ void DrawMeterPointer(Phv center, double wind, int inner, int outer, int linewid
 
 Phv translate(Phv center, double angle, int rad) {  // 'full version with full accuracy cos and sin
   Phv moved;
-  moved.h = center.h + (rad * sin(angle *0.0174533));
-  moved.v = center.v - (rad * cos(angle *0.0174533)); // v is minus as this is positive  down in gfx
+  moved.h = center.h + (rad * sin(angle * 0.0174533));
+  moved.v = center.v - (rad * cos(angle * 0.0174533));  // v is minus as this is positive  down in gfx
   return moved;
 }
 
@@ -409,9 +423,9 @@ void DrawCompass(Button button) {
   Rad3 = rad * 0.91;  //220
   Rad4 = rad * 0.94;
 
-  inner = (rad * 28) / 100;  //28% USe same settings as pointer // keep border same as other boxes.. 
+  inner = (rad * 28) / 100;                                                            //28% USe same settings as pointer // keep border same as other boxes..
   gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
-  gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize, button.width - (2 * button.bordersize), button.height - (2 * button.bordersize),  button.BackColor);
+  gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize, button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
   //gfx->fillRect(x - rad, y - rad, rad * 2, rad * 2, button.BackColor);
   gfx->fillCircle(x, y, rad, button.TextColor);   //white
   gfx->fillCircle(x, y, Rad1, button.BackColor);  //bluse
@@ -435,29 +449,28 @@ void ShowToplinesettings(MySettings A, String Text) {
   gfx->setTextSize(1);
   gfx->setTextColor(CurrentSettingsBox.TextColor);
   CurrentSettingsBox.PrintLine = 0;
-  // 7 is smallest Bold Font 
-  UpdateLinef(7,CurrentSettingsBox, "%s:SSID<%s>PWD<%s>UDPPORT<%s>",Text, A.ssid, A.password, A.UDP_PORT);
+  // 7 is smallest Bold Font
+  UpdateLinef(7, CurrentSettingsBox, "%s:SSID<%s>PWD<%s>UDPPORT<%s>", Text, A.ssid, A.password, A.UDP_PORT);
   sta_ip = WiFi.localIP();
-  UpdateLinef(7,CurrentSettingsBox, "IP:%i.%i.%i.%i  RSSI %i", sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3], rssiValue);
-  UpdateLinef(7,CurrentSettingsBox, "Ser<%s>UDP<%s>ESP<%s>Log<%s>NMEA<%s>",A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off,A.Log_ON On_Off ,A.NMEA_log_ON On_Off );
+  UpdateLinef(7, CurrentSettingsBox, "IP:%i.%i.%i.%i  RSSI %i", sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3], rssiValue);
+  UpdateLinef(7, CurrentSettingsBox, "Ser<%s>UDP<%s>ESP<%s>Log<%s>NMEA<%s>", A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off, A.Log_ON On_Off, A.NMEA_log_ON On_Off);
   // UpdateLinef(7,CurrentSettingsBox, "Logger settings Log<%s>NMEA<%s>",A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off,A.NMEA_log_ON On_Off);
- 
 }
 void ShowToplinesettings(String Text) {
   ShowToplinesettings(Current_Settings, Text);
 }
 
 //***************************   DISPLAY .. The main place where the pages are described ****************
-void Display( int page){
-  Display(false, page); 
+void Display(int page) {
+  Display(false, page);
 }
 
 void Display(bool reset, int page) {  // setups for alternate pages to be selected by page.
 
-  static double startposlat,startposlon;
-  double LatD,LongD; //deltas
+  static double startposlat, startposlon;
+  double LatD, LongD;  //deltas
   double wind_gnd;
-  int magnification,h,v;
+  int magnification, h, v;
 
   static int LastPageselected;
   static bool DataChanged;
@@ -469,27 +482,26 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
   static unsigned int slowdown, timer2;
   //static float wind, SOG, Depth;
   float temp, oldtemp;
-  static instData LocalCopy,LocalCopy2,LocalCopy3;
+  static instData LocalCopy, LocalCopy2, LocalCopy3;
 
   static int fontlocal;
   static int FileIndex, Playing;  // static to hold after selection and before pressing play!
   static int V_offset;            // used in the audio file selection to sort print area
   char Tempchar[30];
   //String tempstring;
- // int FS = 1;  // for font size test
- // int tempint;
+  // int FS = 1;  // for font size test
+  // int tempint;
   if (page != LastPageselected) { RunSetup = true; }
-  if (reset){ RunSetup = true; }
+  if (reset) { RunSetup = true; }
   //generic setup stuff for ALL pages
   if (RunSetup) {
     gfx->fillScreen(BLUE);
     gfx->setTextColor(WHITE);
-    setFont(3);   
-    GFXBorderBoxPrintf(StatusBox,""); // common to all pages 
-
+    setFont(3);
+    GFXBorderBoxPrintf(StatusBox, "");  // common to all pages
   }
   // add any other generic stuff here
-   if (CheckButton(StatusBox)){ Display_Page = 0; }    // go to settings
+  if (CheckButton(StatusBox)) { Display_Page = 0; }  // go to settings
   // Now specific stuff for each page
 
   switch (page) {  // just show the logos on the sd card top page
@@ -551,7 +563,6 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         fontlocal = fontlocal + 1;
         if (fontlocal > 10) { fontlocal = 0; }
         GFXBorderBoxPrintf(CurrentSettingsBox, "Font size %i", fontlocal);
-      
       }
 
 
@@ -560,11 +571,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
     case -20:  // Experimental / extra stuff
       if (RunSetup || DataChanged) {
-
         ShowToplinesettings("Now");
         setFont(3);
-        // GFXBorderBoxPrintf(TopLeftbutton, "Page-");
-        // GFXBorderBoxPrintf(TopRightbutton, "Page+");
         setFont(3);
         GFXBorderBoxPrintf(Full0Center, "-Test JPegs-");
         GFXBorderBoxPrintf(Full1Center, "Check SD /Audio");
@@ -583,32 +591,29 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       //  if (CheckButton(Full3Center)) { Display_Page = 4; }
       //   if (CheckButton(Full4Center)) { Display_Page = -10; }
       if (CheckButton(Full5Center)) { Display_Page = 0; }
-
       break;
-    case -21:  // Secondary "Log and debug "
-     if (RunSetup ){GFXBorderBoxPrintf(Terminal, "");}// only for setup, not changed data
-    
-     if (RunSetup || DataChanged) {
+
+    case -21:                                              // Secondary "Log and debug "
+      if (RunSetup) { GFXBorderBoxPrintf(Terminal, ""); }  // only for setup, not changed data
+      if (RunSetup || DataChanged) {
         setFont(3);
         GFXBorderBoxPrintf(FullTopCenter, "Instrument Data / NMEA Logging");
         GFXBorderBoxPrintf(Switch6, Current_Settings.Log_ON On_Off);
-        AddTitleBorderBox(0,Switch6, "Inst LOG");
+        AddTitleBorderBox(0, Switch6, "Inst LOG");
         GFXBorderBoxPrintf(Switch7, Current_Settings.NMEA_log_ON On_Off);
-        AddTitleBorderBox(0,Switch7, "NMEA LOG");
+        AddTitleBorderBox(0, Switch7, "NMEA LOG");
         if (!Terminal.debugpause) {
-          AddTitleBorderBox(0,Terminal, "TERMINAL");
+          AddTitleBorderBox(0, Terminal, "TERMINAL");
         } else {
-          AddTitleBorderBox(0,Terminal, "-Paused-");
+          AddTitleBorderBox(0, Terminal, "-Paused-");
         }
-
-        
         DataChanged = false;
       }
-      if (millis() > slowdown + 500) {
-        slowdown = millis();
-      }
-       if (CheckButton(FullTopCenter)) { Display_Page = 0; }
-       if (CheckButton(Terminal)) {
+      // if (millis() > slowdown + 500) {
+      //   slowdown = millis();
+      // }
+      if (CheckButton(FullTopCenter)) { Display_Page = 0; }
+      if (CheckButton(Terminal)) {
         Terminal.debugpause = !Terminal.debugpause;
         DataChanged = true;
       }
@@ -623,18 +628,15 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         if (Current_Settings.NMEA_log_ON) { StartNMEAlogfile(); }
         DataChanged = true;
       };
-
       break;
-
-
 
     case -10:  // a test page for fonts
       if (RunSetup || DataChanged) {
         gfx->fillScreen(BLUE);
         setFont(3);
-       // GFXBorderBoxPrintf(Full0Center, "-Font test -");
-        GFXBorderBoxPrintf(BottomLeftbutton,"Smaller");
-        GFXBorderBoxPrintf(BottomRightbutton,"Larger");
+        // GFXBorderBoxPrintf(Full0Center, "-Font test -");
+        GFXBorderBoxPrintf(BottomLeftbutton, "Smaller");
+        GFXBorderBoxPrintf(BottomRightbutton, "Larger");
       }
       // if (millis() > slowdown + 5000) {
       //   slowdown = millis();
@@ -652,24 +654,29 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         Fontname.toCharArray(Tempchar, 30, 0);
         int FontHt;
         setFont(fontlocal);
-        FontHt=text_height;
+        FontHt = text_height;
         setFont(3);
-        GFXBorderBoxPrintf(CurrentSettingsBox, "FONT:%i name%s height<%i>", fontlocal, Tempchar,FontHt);
+        GFXBorderBoxPrintf(CurrentSettingsBox, "FONT:%i name%s height<%i>", fontlocal, Tempchar, FontHt);
         setFont(fontlocal);
         GFXBorderBoxPrintf(FontBox, "Test %4.2f", temp);
         DataChanged = false;
       }
       if (CheckButton(Full0Center)) { Display_Page = 0; }
 
-      if (CheckButton(BottomLeftbutton)) { fontlocal = fontlocal - 1; DataChanged = true;}
-      if (CheckButton(BottomRightbutton)) { fontlocal = fontlocal + 1; DataChanged = true;}
+      if (CheckButton(BottomLeftbutton)) {
+        fontlocal = fontlocal - 1;
+        DataChanged = true;
+      }
+      if (CheckButton(BottomRightbutton)) {
+        fontlocal = fontlocal + 1;
+        DataChanged = true;
+      }
       break;
 
     case -9:  // Play with the audio ..NOTE  Needs the resistors resoldered to connect to the audio chip on the Guitron (mains relay type) version!!
       if (RunSetup || DataChanged) {
         setFont(4);
         gfx->setTextColor(WHITE, BLUE);
-        gfx->setTextSize(1);
         if (volume > 21) { volume = 21; };
         GFXBorderBoxPrintf(TOPButton, "Main Menu");
         GFXBorderBoxPrintf(SecondRowButton, "PLAY Audio vol %i", volume);
@@ -738,7 +745,6 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
       if (RunSetup || DataChanged) {
         setFont(4);
-        
         if (IsConnected) {
           GFXBorderBoxPrintf(TOPButton, "Connected<%s>", Current_Settings.ssid);
         } else {
@@ -784,8 +790,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         wifissidpointer = ((ts.points[0].y - 200) / text_height) - 1;
         int str_len = WiFi.SSID(wifissidpointer).length() + 1;
         char result[str_len];
-      //  Serial.printf(" touched at %i  equates to %i ? %s ", ts.points[0].y, wifissidpointer, WiFi.SSID(wifissidpointer));
-      //  Serial.printf("  result str_len%i   sizeof settings.ssid%i \n", str_len, sizeof(Current_Settings.ssid));
+        //  Serial.printf(" touched at %i  equates to %i ? %s ", ts.points[0].y, wifissidpointer, WiFi.SSID(wifissidpointer));
+        //  Serial.printf("  result str_len%i   sizeof settings.ssid%i \n", str_len, sizeof(Current_Settings.ssid));
         if (str_len <= sizeof(Current_Settings.ssid)) {                                       // check small enough for our ssid register array!
           WiFi.SSID(wifissidpointer).toCharArray(result, sizeof(Current_Settings.ssid) - 1);  // I like to keep a spare space!
           if (str_len == 1) {
@@ -803,7 +809,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         DataChanged = true;
       }  // do the scan again
       if (CheckButton(SecondRowButton)) {
-       // Serial.printf(" * Debug wifissidpointer=%i \n",wifissidpointer);
+        // Serial.printf(" * Debug wifissidpointer=%i \n",wifissidpointer);
         if ((NetworksFound >= 1) && (wifissidpointer <= NetworksFound)) {
           WiFi.SSID(wifissidpointer).toCharArray(Current_Settings.ssid, sizeof(Current_Settings.ssid) - 1);
           Serial.printf("Update ssid to <%s> \n", Current_Settings.ssid);
@@ -814,10 +820,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         }
       }
       if (CheckButton(TOPButton)) { Display_Page = -1; }
-
       break;
 
-    case -4: // Keyboard setting od UDP port - note keyboard (2) numbers start 
+    case -4:  // Keyboard setting of UDP port - note keyboard (2) numbers start
       if (RunSetup) {
         GFXBorderBoxPrintf(TOPButton, "Current <%s>", Current_Settings.UDP_PORT);
         GFXBorderBoxPrintf(Full0Center, "Set UDP PORT");
@@ -830,7 +835,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(TOPButton)) { Display_Page = -1; }
       break;
 
-    case -3: // keyboard setting of Password
+    case -3:  // keyboard setting of Password
       if (RunSetup) {
         GFXBorderBoxPrintf(TOPButton, "Current <%s>", Current_Settings.password);
         GFXBorderBoxPrintf(Full0Center, "Set Password");
@@ -844,11 +849,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
       break;
 
-    case -2:   //Keyboard set of SSID
+    case -2:  //Keyboard set of SSID
       if (RunSetup) {
         GFXBorderBoxPrintf(Full0Center, "Set SSID");
         GFXBorderBoxPrintf(TopRightbutton, "Scan");
-        AddTitleBorderBox(0,TopRightbutton, "WiFi");
+        AddTitleBorderBox(0, TopRightbutton, "WiFi");
         keyboard(-1);  //reset
         Use_Keyboard(Current_Settings.ssid, sizeof(Current_Settings.ssid));
         keyboard(1);
@@ -867,34 +872,28 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         EEPROM_READ();
         ShowToplinesettings(Saved_Settings, "EEPROM");
         setFont(4);
-        //gfx->setCursor(180, 180);
         GFXBorderBoxPrintf(SecondRowButton, "SSID <%s>", Current_Settings.ssid);
-        AddTitleBorderBox(0,SecondRowButton, "Current Setting");
+        AddTitleBorderBox(0, SecondRowButton, "Current Setting");
         GFXBorderBoxPrintf(ThirdRowButton, "Password <%s>", Current_Settings.password);
-        AddTitleBorderBox(0,ThirdRowButton, "Current Setting");
+        AddTitleBorderBox(0, ThirdRowButton, "Current Setting");
         GFXBorderBoxPrintf(FourthRowButton, "UDP Port <%s>", Current_Settings.UDP_PORT);
-        AddTitleBorderBox(0,FourthRowButton, "Current Setting");
+        AddTitleBorderBox(0, FourthRowButton, "Current Setting");
         GFXBorderBoxPrintf(Switch1, Current_Settings.Serial_on On_Off);  //A.Serial_on On_Off,  A.UDP_ON On_Off, A.ESP_NOW_ON On_Off
-        AddTitleBorderBox(0,Switch1, "Serial");
+        AddTitleBorderBox(0, Switch1, "Serial");
         GFXBorderBoxPrintf(Switch2, Current_Settings.UDP_ON On_Off);
-        AddTitleBorderBox(0,Switch2, "UDP");
+        AddTitleBorderBox(0, Switch2, "UDP");
         GFXBorderBoxPrintf(Switch3, Current_Settings.ESP_NOW_ON On_Off);
-        AddTitleBorderBox(0,Switch3, "ESP-Now");
-       // GFXBorderBoxPrintf(Switch5, Current_Settings.Log_ON On_Off);
-       // AddTitleBorderBox(0,Switch5, "Log");
-       Serial.printf(" Compare Saved and Current <%s> \n",CompStruct(Saved_Settings,Current_Settings)? "-same-" :"UPDATE");
-        GFXBorderBoxPrintf(Switch4,  CompStruct(Saved_Settings,Current_Settings)? "-same-" :"UPDATE");
-        AddTitleBorderBox(0,Switch4, "EEPROM");
+        AddTitleBorderBox(0, Switch3, "ESP-Now");
+        Serial.printf(" Compare Saved and Current <%s> \n", CompStruct(Saved_Settings, Current_Settings) ? "-same-" : "UPDATE");
+        GFXBorderBoxPrintf(Switch4, CompStruct(Saved_Settings, Current_Settings) ? "-same-" : "UPDATE");
+        AddTitleBorderBox(0, Switch4, "EEPROM");
         GFXBorderBoxPrintf(Full5Center, "Logger and Debug");
         setFont(3);
         DataChanged = false;
-        //while (ts.sTouched{yield(); Serial.println("yeilding -1");}
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();
       }
-
-
       //runsetup to repopulate the text in the boxes!
       if (CheckButton(Switch1)) {
         Current_Settings.Serial_on = !Current_Settings.Serial_on;
@@ -908,14 +907,13 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         Current_Settings.ESP_NOW_ON = !Current_Settings.ESP_NOW_ON;
         DataChanged = true;
       };
- 
+
       if (CheckButton(Switch4)) {
-        EEPROM_WRITE(Display_Config,Current_Settings);
+        EEPROM_WRITE(Display_Config, Current_Settings);
         delay(50);
-       // Display_Page = 0;
+        // Display_Page = 0;
         DataChanged = true;
       };
-
 
       if (CheckButton(TOPButton)) { Display_Page = 0; }
       //if (CheckButton(Full0Center)) { Display_Page = 0; }
@@ -923,12 +921,10 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(ThirdRowButton)) { Display_Page = -3; };
       if (CheckButton(FourthRowButton)) { Display_Page = -4; };
       if (CheckButton(Full5Center)) { Display_Page = -21; };
-     
-
       break;
+
     case 0:  // main settings
       if (RunSetup) {
-
         ShowToplinesettings("Now");
         setFont(3);
         GFXBorderBoxPrintf(Full0Center, "-Experimental-");
@@ -937,7 +933,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(Full3Center, "Debug + LOG");
         GFXBorderBoxPrintf(Full4Center, "GPS Display");
         GFXBorderBoxPrintf(Full5Center, "Save / Reset ");
-        GFXBorderBoxPrintf(Full6Center, "Panel Name<%s>",Display_Config.PanelName );
+        GFXBorderBoxPrintf(Full6Center, "Panel Name<%s>", Display_Config.PanelName);
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
@@ -946,18 +942,14 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(Full1Center)) { Display_Page = -1; }
       if (CheckButton(Full2Center)) { Display_Page = 4; }
       if (CheckButton(Full3Center)) { Display_Page = -21; }
-      if (CheckButton(Full4Center)) { Display_Page = 9; }  
+      if (CheckButton(Full4Center)) { Display_Page = 9; }
       if (CheckButton(Full5Center)) {
         //Display_Page = 4;
-        EEPROM_WRITE(Display_Config,Current_Settings);
+        EEPROM_WRITE(Display_Config, Current_Settings);
         delay(50);
         ESP.restart();
       }
-
       break;
-
-
-
 
     case 4:  // Quad display
       if (RunSetup) {
@@ -965,16 +957,16 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         gfx->fillScreen(BLACK);
         // DrawCompass(360, 120, 120);
         DrawCompass(topRightquarter);
-        AddTitleInsideBox(8,3,topRightquarter, "WIND APP ");
+        AddTitleInsideBox(8, 3, topRightquarter, "WIND APP ");
         GFXBorderBoxPrintf(topLeftquarter, "");
-        AddTitleInsideBox(9,3,topLeftquarter, "STW ");
-        AddTitleInsideBox(9,2, topLeftquarter, " Kts"); //font,position 
+        AddTitleInsideBox(9, 3, topLeftquarter, "STW ");
+        AddTitleInsideBox(9, 2, topLeftquarter, " Kts");  //font,position
         GFXBorderBoxPrintf(bottomLeftquarter, "");
-        AddTitleInsideBox(9,3,bottomLeftquarter, "DEPTH ");
-        AddTitleInsideBox(9,2, bottomLeftquarter, " Meters"); //font,position 
+        AddTitleInsideBox(9, 3, bottomLeftquarter, "DEPTH ");
+        AddTitleInsideBox(9, 2, bottomLeftquarter, " Meters");  //font,position
         GFXBorderBoxPrintf(bottomRightquarter, "");
-        AddTitleInsideBox(9,3,bottomRightquarter, "SOG ");
-        AddTitleInsideBox(9,2, bottomRightquarter, " Kts"); //font,position 
+        AddTitleInsideBox(9, 3, bottomRightquarter, "SOG ");
+        AddTitleInsideBox(9, 2, bottomRightquarter, " Kts");  //font,position
         delay(500);
       }
       if (millis() > slowdown + 300) {
@@ -982,15 +974,15 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         setFont(10);  // note: all the 'updates' now check for new data else return immediately
       }
       WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp);
-      UpdateDataTwoSize(true,true,13, 11, topLeftquarter, BoatData.STW, "%3.1f");
-      UpdateDataTwoSize(true,true,13, 11, bottomLeftquarter, BoatData.WaterDepth, "%4.1f");
-      UpdateDataTwoSize(true,true,13, 11, bottomRightquarter, BoatData.SOG, "%3.1f");
+      UpdateDataTwoSize(true, true, 13, 11, topLeftquarter, BoatData.STW, "%3.1f");
+      UpdateDataTwoSize(true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%4.1f");
+      UpdateDataTwoSize(true, true, 13, 11, bottomRightquarter, BoatData.SOG, "%3.1f");
       // }
       if (CheckButton(topLeftquarter)) { Display_Page = 6; }      //stw
       if (CheckButton(bottomLeftquarter)) { Display_Page = 7; }   //depth
       if (CheckButton(topRightquarter)) { Display_Page = 5; }     // Wind
       if (CheckButton(bottomRightquarter)) { Display_Page = 8; }  //SOG
-     
+
       break;
 
     case 5:  // wind instrument
@@ -998,92 +990,165 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         setFont(10);
         GFXBorderBoxPrintf(BigSingleDisplay, "");
         GFXBorderBoxPrintf(BigSingleTopRight, "");
-        AddTitleInsideBox(8,2,BigSingleTopRight, " deg");
+        AddTitleInsideBox(8, 2, BigSingleTopRight, " deg");
         DrawCompass(BigSingleDisplay);
-        AddTitleInsideBox(8,3,BigSingleDisplay, "WIND Apparent ");
+        AddTitleInsideBox(8, 3, BigSingleDisplay, "WIND Apparent ");
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
       LocalCopy = BoatData.WindAngleApp;  //Duplicate wind angle so it can be shown again in a second box
       WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngleApp);
-      UpdateDataTwoSize(true,true,12, 10, BigSingleTopRight, LocalCopy, "%3.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, LocalCopy, "%3.1f");
       if (CheckButton(BigSingleDisplay)) { Display_Page = 15; }
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
-        
       break;
-    case 6:  //Speed Through WATER GRAPH
+
+    case 6:  //STW Speed Through WATER GRAPH
       if (RunSetup) {
         setFont(10);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
         GFXBorderBoxPrintf(BigSingleTopLeft, "");
-        AddTitleInsideBox(8,3,BigSingleTopRight, "STW");
-        AddTitleInsideBox(8,2,BigSingleTopRight, "Kts");
-        AddTitleInsideBox(8,3,BigSingleTopLeft, "SOG");
-        AddTitleInsideBox(8,2,BigSingleTopLeft, "Kts");
+        AddTitleInsideBox(8, 3, BigSingleTopRight, "STW");
+        AddTitleInsideBox(8, 2, BigSingleTopRight, "Kts");
+        AddTitleInsideBox(8, 3, BigSingleTopLeft, "SOG");
+        AddTitleInsideBox(8, 2, BigSingleTopLeft, "Kts");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        LocalCopy = BoatData.STW;
+        //LocalCopy = BoatData.STW;
       }
       LocalCopy = BoatData.STW;
-      DrawGraph( BigSingleDisplay, LocalCopy, 0, 10,9,"STW Graph ","Kts");
-      UpdateDataTwoSize(true,true,12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
-      UpdateDataTwoSize(true,true,12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
-
-
-      //  if (CheckButton(Full0Center)) { Display_Page = 4; }
+      DrawGraph(BigSingleDisplay, LocalCopy, 0, 10, 9, "STW Graph ", "Kts");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 16; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 8; }
-      if (CheckButton(bottomLeftquarter)) { Display_Page = 9; }
-      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }    
+      //if (CheckButton(bottomLeftquarter)) { Display_Page = 9; }
+      //if (CheckButton(bottomRightquarter)) { Display_Page = 4; }
 
       break;
+
+    case 16:  //STW large
+      if (RunSetup) {
+        setFont(10);
+        GFXBorderBoxPrintf(BigSingleTopRight, "");
+        GFXBorderBoxPrintf(BigSingleTopLeft, "");
+        AddTitleInsideBox(8, 3, BigSingleTopRight, "STW");
+        AddTitleInsideBox(8, 2, BigSingleTopRight, "Kts");
+        AddTitleInsideBox(8, 3, BigSingleDisplay, "STW");
+        AddTitleInsideBox(8, 2, BigSingleDisplay, "Kts");
+        AddTitleInsideBox(8, 3, BigSingleTopLeft, "SOG");
+        AddTitleInsideBox(8, 2, BigSingleTopLeft, "Kts");
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        //LocalCopy = BoatData.STW;
+      }
+      LocalCopy = BoatData.STW;
+      //DrawGraph( BigSingleDisplay, LocalCopy, 0, 10,9,"STW Graph ","Kts");
+      UpdateDataTwoSize(3,true, true, 13, 12, BigSingleDisplay, LocalCopy, "%2.1f"); // note magnify 3!!
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
+
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 6; }
+      //        TouchCrosshair(20); quarters select big screens
+      if (CheckButton(BigSingleTopLeft)) { Display_Page = 8; }
+      break;
+
     case 7:  // Depth
       if (RunSetup) {
         setFont(11);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
-        AddTitleInsideBox(8,3,BigSingleTopRight, "Depth");
-        AddTitleInsideBox(8,2,BigSingleTopRight, " m");
+        AddTitleInsideBox(8, 3, BigSingleTopRight, "Depth");
+        AddTitleInsideBox(8, 2, BigSingleTopRight, " m");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
         //AddTitleInsideBox(9,3,BigSingleDisplay, "Fathmometer 30m");
-        LocalCopy = BoatData.WaterDepth;  //NOTE: need local copy or else we can only disply this data ONCE per page 
+        // LocalCopy = BoatData.WaterDepth;  //NOTE: need local copy or else we can only disply this data ONCE per page
       }
       LocalCopy = BoatData.WaterDepth;  //
-      DrawGraph( BigSingleDisplay, LocalCopy, 30, 0,9,"Fathmometer 30m ","m");
-      UpdateDataTwoSize(true,true,12, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1f");
+      DrawGraph(BigSingleDisplay, LocalCopy, 30, 0, 9, "Fathmometer 30m ", "m");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1f");
 
       if (CheckButton(BigSingleTopRight)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
-      if (CheckButton(BigSingleDisplay)) { Display_Page = 11; }   
-
-
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 11; }
       break;
-    case 8:  //SOG  graph
+
+    case 11:  // Depth different range
       if (RunSetup) {
+        setFont(10);
+        GFXBorderBoxPrintf(BigSingleTopRight, "");
+        AddTitleInsideBox(8, 1, BigSingleTopRight, "Depth");
+        AddTitleInsideBox(8, 2, BigSingleDisplay, "m");
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
+      }
+      LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
+      DrawGraph(BigSingleDisplay, LocalCopy, 10, 0, 8, "Fathmometer 10m ", "m");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1f");
+
+      //        TouchCrosshair(20); quarters select big screens
+      if (CheckButton(topLeftquarter)) { Display_Page = 4; }
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 7; }
+      if (CheckButton(topRightquarter)) { Display_Page = 4; }
+      break;
+
+    case 8:  //SOG  graph
+      if (RunSetup || DataChanged) {
         setFont(11);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
         GFXBorderBoxPrintf(BigSingleTopLeft, "");
-        AddTitleInsideBox(8,3,BigSingleTopRight, "STW");
-        AddTitleInsideBox(8,2,BigSingleTopRight, "Kts");
-        AddTitleInsideBox(8,3,BigSingleTopLeft, "SOG");
-        AddTitleInsideBox(8,2,BigSingleTopLeft, "Kts");
+        AddTitleInsideBox(8, 3, BigSingleTopRight, "STW");
+        AddTitleInsideBox(8, 2, BigSingleTopRight, "Kts");
+        AddTitleInsideBox(8, 3, BigSingleTopLeft, "SOG");
+        AddTitleInsideBox(8, 2, BigSingleTopLeft, "Kts");
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        // LocalCopy = BoatData.SOG;
+        DataChanged = false;
+      }
+      // if (millis() > slowdown + 500) {
+      //   slowdown = millis();
+      // }
+      LocalCopy = BoatData.SOG;
+      DrawGraph(BigSingleDisplay, LocalCopy, 0, 10, 9, "SOG Graph ", "kts");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
+
+      //if (CheckButton(Full0Center)) { Display_Page = 4; }
+      //        TouchCrosshair(20); quarters select big screens
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 18; }  //18 is BIG SOG
+      //if (CheckButton(bottomLeftquarter)) { Display_Page = 9; }
+      if (CheckButton(BigSingleTopRight)) { Display_Page = 6; }
+      if (CheckButton(BigSingleTopLeft)) { Display_Page = 4; }
+      break;
+
+    case 18:  //BIG SOG  
+      if (RunSetup || DataChanged) {
+        setFont(11);
+        GFXBorderBoxPrintf(BigSingleTopRight, "");
+        GFXBorderBoxPrintf(BigSingleTopLeft, "");
+        AddTitleInsideBox(8, 3, BigSingleTopRight, "STW");
+        AddTitleInsideBox(8, 2, BigSingleTopRight, "Kts");
+        AddTitleInsideBox(8, 3, BigSingleTopLeft, "SOG");
+        AddTitleInsideBox(8, 2, BigSingleTopLeft, "Kts");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
         LocalCopy = BoatData.SOG;
+        DataChanged = false;
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
       LocalCopy = BoatData.SOG;
-      DrawGraph( BigSingleDisplay, LocalCopy, 0, 10,9,"SOG Graph ","kts");
-      UpdateDataTwoSize(true,true,12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
-      UpdateDataTwoSize(true,true,12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
+      //DrawGraph( BigSingleDisplay, LocalCopy, 0, 10,9,"SOG ","kts");
+      UpdateDataTwoSize(3, true, true, 13, 12, BigSingleDisplay, LocalCopy, "%2.1f");//note magnify 3 
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
 
       //if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
-      //if (CheckButton(topLeftquarter)) { Display_Page = 4; }   
-      if (CheckButton(bottomLeftquarter)) { Display_Page = 9; }
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 8; }  //18 is BIG SOG
+      //if (CheckButton(bottomLeftquarter)) { Display_Page = 9; }
       if (CheckButton(BigSingleTopRight)) { Display_Page = 6; }
-      if (CheckButton(bottomRightquarter)) { Display_Page = 4; }    
+      if (CheckButton(BigSingleTopLeft)) { Display_Page = 4; }
       break;
 
     case 9:  // GPS page
@@ -1092,141 +1157,124 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(BigSingleDisplay, "");
         GFXBorderBoxPrintf(TopHalfBigSingleTopRight, "");
         GFXBorderBoxPrintf(BottomHalfBigSingleTopRight, "");
-        GFXBorderBoxPrintf(BigSingleTopLeft,"Click for graphic");
+        GFXBorderBoxPrintf(BigSingleTopLeft, "Click for graphic");
         setFont(10);
       }
       LocalCopy = BoatData.COG;
       LocalCopy2 = BoatData.SOG;
-      UpdateDataTwoSize(true,true,9, 8, TopHalfBigSingleTopRight, BoatData.SOG, "SOG: %3.1f kt");
-      UpdateDataTwoSize(true,true,9, 8, BottomHalfBigSingleTopRight, BoatData.COG, "COG: %4.1f d");
+      UpdateDataTwoSize(true, true, 9, 8, TopHalfBigSingleTopRight, BoatData.SOG, "SOG: %3.1f kt");
+      UpdateDataTwoSize(true, true, 9, 8, BottomHalfBigSingleTopRight, BoatData.COG, "COG: %4.1f d");
       if (millis() > slowdown + 1000) {
         slowdown = millis();
         GFXBorderBoxPrintf(BigSingleDisplay, "");
         // do this one once a second.. I have not yet got simplified functions testing if previously displayed and greyed yet
         gfx->setTextColor(BigSingleDisplay.TextColor);
         BigSingleDisplay.PrintLine = 0;
-        if (BoatData.SatsInView != NMEA0183DoubleNA) {UpdateLinef(8,BigSingleDisplay, "Satellites in view %.0f ", BoatData.SatsInView);}
+        if (BoatData.SatsInView != NMEA0183DoubleNA) { UpdateLinef(8, BigSingleDisplay, "Satellites in view %.0f ", BoatData.SatsInView); }
         if (BoatData.GPSTime != NMEA0183DoubleNA) {
-          UpdateLinef(9,BigSingleDisplay, "");
-          UpdateLinef(9,BigSingleDisplay, "Date: %06i ", int(BoatData.GPSDate));
-          UpdateLinef(9,BigSingleDisplay, "");
-          UpdateLinef(9,BigSingleDisplay, "TIME: %02i:%02i:%02i",
+          UpdateLinef(9, BigSingleDisplay, "");
+          UpdateLinef(9, BigSingleDisplay, "Date: %06i ", int(BoatData.GPSDate));
+          UpdateLinef(9, BigSingleDisplay, "");
+          UpdateLinef(9, BigSingleDisplay, "TIME: %02i:%02i:%02i",
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
         }
         if (BoatData.Latitude.data != NMEA0183DoubleNA) {
-          UpdateLinef(9,BigSingleDisplay, "");
-          UpdateLinef(9,BigSingleDisplay, "LAT %s",LattoString(BoatData.Latitude.data));
-          UpdateLinef(9,BigSingleDisplay, "LON %s",LongtoString(BoatData.Longitude.data));
+          UpdateLinef(9, BigSingleDisplay, "");
+          UpdateLinef(9, BigSingleDisplay, "LAT %s", LattoString(BoatData.Latitude.data));
+          UpdateLinef(9, BigSingleDisplay, "LON %s", LongtoString(BoatData.Longitude.data));
         }
 
-        UpdateLinef(9,BigSingleDisplay, "some other data for review during wrap testing: 1234567890\nand after 'cr' Wraped");
-        if (LocalCopy.data != NMEA0183DoubleNA){UpdateLinef(9,BigSingleDisplay, "COG: %5.4f", LocalCopy.data);}
-        if (LocalCopy2.data != NMEA0183DoubleNA){UpdateLinef(9,BigSingleDisplay, "SOG: %5.4f", LocalCopy2.data);}
-        if (BoatData.MagHeading.data != NMEA0183DoubleNA){UpdateLinef(9,BigSingleDisplay,"Mag Heading: %5.4f", BoatData.MagHeading);}
-        UpdateLinef(9,BigSingleDisplay, "Variation: %5.4f", BoatData.Variation);
+        UpdateLinef(9, BigSingleDisplay, "some other data for review during wrap testing: 1234567890\nand after 'cr' Wraped");
+        if (LocalCopy.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "COG: %5.4f", LocalCopy.data); }
+        if (LocalCopy2.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "SOG: %5.4f", LocalCopy2.data); }
+        if (BoatData.MagHeading.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "Mag Heading: %5.4f", BoatData.MagHeading); }
+        UpdateLinef(9, BigSingleDisplay, "Variation: %5.4f", BoatData.Variation);
       }
-        
-      
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 10; }
       //if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }  //Loop to the main settings page
-    
-
       break;
-     case 10:  // GPS page 2 sort of anchor watch
+
+    case 10:  // GPS page 2 sort of anchor watch
       static double magnification;
-      if (RunSetup) {
+      if (RunSetup || DataChanged) {
         setFont(8);
-         GFXBorderBoxPrintf(BigSingleDisplay, "");
-         GFXBorderBoxPrintf(BigSingleTopLeft,"");
-                 if (BoatData.GPSTime != NMEA0183DoubleNA) {
-          UpdateLinef(8,BigSingleTopLeft, "Date: %06i ", int(BoatData.GPSDate));
-          UpdateLinef(8,BigSingleTopLeft, "TIME: %02i:%02i:%02i",
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
+        GFXBorderBoxPrintf(BigSingleTopLeft, "");
+        if (BoatData.GPSTime != NMEA0183DoubleNA) {
+          UpdateLinef(8, BigSingleTopLeft, "Date: %06i ", int(BoatData.GPSDate));
+          UpdateLinef(8, BigSingleTopLeft, "TIME: %02i:%02i:%02i",
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
         }
-        if (BoatData.Latitude.data != NMEA0183DoubleNA) {UpdateLinef(8,BigSingleTopLeft, "LAT: %f", BoatData.Latitude.data);
-          UpdateLinef(8,BigSingleTopLeft, "LON: %f", BoatData.Longitude.data);}
+        if (BoatData.Latitude.data != NMEA0183DoubleNA) {
+          UpdateLinef(8, BigSingleTopLeft, "LAT: %f", BoatData.Latitude.data);
+          UpdateLinef(8, BigSingleTopLeft, "LON: %f", BoatData.Longitude.data);
+        }
 
-         GFXBorderBoxPrintf(BigSingleTopRight,"Show Quad Display");
-         GFXBorderBoxPrintf(BottomRightbutton,"Zoom in");
-         GFXBorderBoxPrintf(BottomLeftbutton,"Zoom out");
-         magnification =1111111;  //reset magnification 11111111 = 10 pixels / m == 18m circle. 
+        GFXBorderBoxPrintf(BigSingleTopRight, "Show Quad Display");
+        GFXBorderBoxPrintf(BottomRightbutton, "Zoom in");
+        GFXBorderBoxPrintf(BottomLeftbutton, "Zoom out");
+        magnification = 1111111;  //reset magnification 11111111 = 10 pixels / m == 18m circle.
+        DataChanged = false;
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();
         // do this one once a second.. I have not yet got simplified functions testing if previously displayed and greyed yet
         ///gfx->setTextColor(BigSingleDisplay.TextColor);
         BigSingleTopLeft.PrintLine = 0;
-       // UpdateLinef(3,BigSingleTopLeft, "%.0f Satellites in view", BoatData.SatsInView);
+        // UpdateLinef(3,BigSingleTopLeft, "%.0f Satellites in view", BoatData.SatsInView);
         if (BoatData.GPSTime != NMEA0183DoubleNA) {
-          UpdateLinef(8,BigSingleTopLeft, "Date: %06i ", int(BoatData.GPSDate));
-          UpdateLinef(8,BigSingleTopLeft, "TIME: %02i:%02i:%02i",
+          UpdateLinef(8, BigSingleTopLeft, "Date: %06i ", int(BoatData.GPSDate));
+          UpdateLinef(8, BigSingleTopLeft, "TIME: %02i:%02i:%02i",
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
         }
         if (BoatData.Latitude.data != NMEA0183DoubleNA) {
-          UpdateLinef(8,BigSingleTopLeft, "LAT: %s", LattoString(BoatData.Latitude.data));
-          UpdateLinef(8,BigSingleTopLeft, "LON: %s", LongtoString(BoatData.Longitude.data));
-          DrawGPSPlot(false, BigSingleDisplay, BoatData,  magnification );
-      }
+          UpdateLinef(8, BigSingleTopLeft, "LAT: %s", LattoString(BoatData.Latitude.data));
+          UpdateLinef(8, BigSingleTopLeft, "LON: %s", LongtoString(BoatData.Longitude.data));
+          DrawGPSPlot(false, BigSingleDisplay, BoatData, magnification);
+        }
       }
       if (CheckButton(topLeftquarter)) { Display_Page = 9; }
       if (CheckButton(BigSingleTopRight)) { Display_Page = 4; }
-        
+
       if (CheckButton(BottomRightbutton)) {
-        magnification = magnification*1.5;
-         Serial.printf(" magification  %f \n",magnification);
+        magnification = magnification * 1.5;
+        Serial.printf(" magification  %f \n", magnification);
       }
       if (CheckButton(BottomLeftbutton)) {
-       magnification = magnification/1.5;
-       Serial.printf(" magification  %f \n",magnification);
+        magnification = magnification / 1.5;
+        Serial.printf(" magification  %f \n", magnification);
       }
-      if (CheckButton(BigSingleDisplay)) { // press plot to recenter plot    
-        if (BoatData.Latitude.data != NMEA0183DoubleNA) {        
-          DrawGPSPlot(true, BigSingleDisplay, BoatData,  magnification );
-          Serial.printf(" reset center anchorwatch %f   %f \n",startposlat,startposlon);
-        GFXBorderBoxPrintf(BigSingleDisplay, "");
-        GFXBorderBoxPrintf(BottomRightbutton,"zoom in");
-        GFXBorderBoxPrintf(BottomLeftbutton,"zoom out");}
-      }  
+      if (CheckButton(BigSingleDisplay)) {  // press plot to recenter plot
+        if (BoatData.Latitude.data != NMEA0183DoubleNA) {
+          DrawGPSPlot(true, BigSingleDisplay, BoatData, magnification);
+          Serial.printf(" reset center anchorwatch %f   %f \n", startposlat, startposlon);
+          GFXBorderBoxPrintf(BigSingleDisplay, "");
+          GFXBorderBoxPrintf(BottomRightbutton, "zoom in");
+          GFXBorderBoxPrintf(BottomLeftbutton, "zoom out");
+        }
+        DataChanged = true;
+      }
       break;
 
-    case 11:  // Depth different range
-      if (RunSetup) {
-        setFont(10);
-        GFXBorderBoxPrintf(BigSingleTopRight, "");
-        AddTitleInsideBox(8,1,BigSingleTopRight, "Depth");
-        AddTitleInsideBox(8,2,BigSingleDisplay, "m");
-        GFXBorderBoxPrintf(BigSingleDisplay, "");
-        LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-      }
-      LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-      DrawGraph( BigSingleDisplay, LocalCopy, 10, 0,8,"Fathmometer 10m ","m");
-      UpdateDataTwoSize(true,true,12, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1f");
-      
-      //        TouchCrosshair(20); quarters select big screens
-      if (CheckButton(topLeftquarter)) { Display_Page = 4; }
-      if (CheckButton(BigSingleDisplay)) { Display_Page = 7; }
-      if (CheckButton(topRightquarter)) { Display_Page = 4; }
-      break;
-         case 15:  // wind instrument TRUE Ground ref - experimental
+    case 15:  // wind instrument TRUE Ground ref - experimental
       if (RunSetup) {
         setFont(10);
         GFXBorderBoxPrintf(BigSingleDisplay, "");
         GFXBorderBoxPrintf(BigSingleTopRight, "");
-        AddTitleInsideBox(8,2,BigSingleTopRight, " deg");
+        AddTitleInsideBox(8, 2, BigSingleTopRight, " deg");
         DrawCompass(BigSingleDisplay);
-        AddTitleInsideBox(8,3,BigSingleDisplay, "WIND ground ");
+        AddTitleInsideBox(8, 3, BigSingleDisplay, "WIND ground ");
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-      LocalCopy= BoatData.WindAngleGround; //Duplicate wind angle so it can be shown again in a second box
-      UpdateDataTwoSize(true,true,9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %3.1f");
+      LocalCopy = BoatData.WindAngleGround;  //Duplicate wind angle so it can be shown again in a second box
+      UpdateDataTwoSize(true, true, 9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %3.1f");
       WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, LocalCopy);
-      UpdateDataTwoSize(true,true,9, 8, BottomHalfBigSingleTopRight, BoatData.WindAngleGround, "gnd %3.1f");
-   
+      UpdateDataTwoSize(true, true, 9, 8, BottomHalfBigSingleTopRight, BoatData.WindAngleGround, "gnd %3.1f");
+
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(BigSingleDisplay)) { Display_Page = 5; }
- 
       break;
     default:
       Display_Page = 0;
@@ -1236,13 +1284,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
   RunSetup = false;
 }
 
-void setFont(int fontinput) { //fonts 3..12 are FreeMonoBold in sizes incrementing by 1.5
-                              //Notes: May remove some later to save program mem space?
-                              // used : 0,1,2,4 for keyboard
-                              //      : 0,3,4,8,10,11 in main 
-
+void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes incrementing by 1.5
+                               //Notes: May remove some later to save program mem space?
+                               // used : 0,1,2,4 for keyboard
+                               //      : 0,3,4,8,10,11 in main
   MasterFont = fontinput;
-  gfx->setTextSize(1);
   switch (fontinput) {  //select font and automatically set height/offset based on character '['
     // set the heights and offset to print [ in boxes. Heights in pixels are NOT the point heights!
     case 0:  // SMALL 8pt
@@ -1309,7 +1355,7 @@ void setFont(int fontinput) { //fonts 3..12 are FreeMonoBold in sizes incrementi
       Fontname = "FreeSansBold8pt7b";
       gfx->setFont(&FreeSansBold8pt7b);
       text_height = (FreeSansBold8pt7bGlyphs[0x38].height) + 1;
-      text_offset = -(FreeSansBold8pt7bGlyphs[0x38].yOffset);
+      text_offset = -(FreeSansBold8pt7bGlyphs[0x38].yOffset);  // yAdvance is the last variable.. and the one that affects the extra lf on wrap.
       text_char_width = 12;
       break;
     case 9:  //SANS BOLD 12 pt
@@ -1349,6 +1395,7 @@ void setFont(int fontinput) { //fonts 3..12 are FreeMonoBold in sizes incrementi
       break;
 
 
+
     default:
       Fontname = "FreeMono8pt7b";
       gfx->setFont(&FreeMono8pt7b);
@@ -1369,23 +1416,23 @@ void setup() {
   ts.begin();
   Serial.println("ts has begun");
   ts.setRotation(ROTATION_INVERTED);
-  // guitron sets GFX_BL 38 
+  // guitron sets GFX_BL 38
   Serial.println("GFX_BL set");
- #ifdef GFX_BL 
-  pinMode(GFX_BL, OUTPUT);  
+#ifdef GFX_BL
+  pinMode(GFX_BL, OUTPUT);
   digitalWrite(GFX_BL, HIGH);
- #endif
-   // Init Display
+#endif
+  // Init Display
   gfx->begin();
   //if GFX> 1.3.1 try and do this as the invert colours write 21h or 20h to 0Dh has been lost from the structure!
   gfx->invertDisplay(false);
   gfx->fillScreen(BLUE);
   gfx->setTextBound(0, 0, 480, 480);
-  gfx->setTextColor(WHITE); 
+  gfx->setTextColor(WHITE);
   setFont(4);
   gfx->setCursor(40, 120);
   gfx->println(F("***Display Started***"));
- 
+
   SD_Setup();
 
   Audio_setup();
@@ -1396,11 +1443,15 @@ void setup() {
   // JSON READ will Overwrite EEPROM settings!
   //      But will update JSON IF the Data is changed (I have a JSON save in EEPROM WRITE)
   //Serial.println(F("Loading JSON configuration..."));
-  if (LoadConfiguration(Setupfilename, Display_Config,Current_Settings)){Serial.println("USING JSON");}
-  else {Display_Config=Default_JSON; Serial.println(" USING EEPROM, display to defaults");}
-  // set up anything BoatData from the configs 
+  if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {
+    Serial.println("USING JSON");
+  } else {
+    Display_Config = Default_JSON;
+    Serial.println(" USING EEPROM, display to defaults");
+  }
+  // set up anything BoatData from the configs
   //Serial.print("now.. magvar:");Serial.println(BoatData.Variation);
- 
+
   gfx->setCursor(40, 120);
   gfx->setTextColor(WHITE);
   gfx->setTextBound(0, 0, 480, 480);
@@ -1408,21 +1459,21 @@ void setup() {
   gfx->println(F("Starting SD Card"));
   gfx->setCursor(140, 140);
   gfx->println(soft_version);
-  // flash User selected logo and setup audio if SD present 
-  if  (hasSD){
- // // flash logo
+  // flash User selected logo and setup audio if SD present
+  if (hasSD) {
+    // // flash logo
     // Serial.printf("display <%s> \n",Display_Config.StartLogo);
     jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
-    // jpegDraw(StartLogo, jpegDrawCallback, true /* useBigEndian */,
-          0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
-    gfx->setCursor(140,140);
+             // jpegDraw(StartLogo, jpegDrawCallback, true /* useBigEndian */,
+             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+    gfx->setCursor(140, 140);
     gfx->println(soft_version);
-    }
+  }
 
   // Create configuration file
   //Serial.println(F("Saving configuration..."));
   //SaveConfiguration(Setupfilename, Display_Config,Current_Settings);
-    // Dump config file
+  // Dump config file
   Serial.println(F("Printing  JSON config file..."));
   PrintJsonFile(Setupfilename);
 
@@ -1431,11 +1482,11 @@ void setup() {
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
   keyboard(-1);     //reset keyboard display update settings
   Udp.begin(atoi(Current_Settings.UDP_PORT));
-  //delay(1000);       // time to admire your user page! 
-  Display_Page = Display_Config.Start_Page; 
- 
-  Serial.printf(" Starting display with JSON set page<%i> \n",Display_Config.Start_Page);
-   // select first page from the JSON. to show or use non defined page to start with default
+  //delay(1000);       // time to admire your user page!
+  Display_Page = Display_Config.Start_Page;
+
+  Serial.printf(" Starting display with JSON set page<%i> \n", Display_Config.Start_Page);
+  // select first page from the JSON. to show or use non defined page to start with default
   gfx->setTextBound(0, 0, 480, 480);
   gfx->setTextColor(WHITE);
   // gfx->setTextBound(0, 0, 480, 480); //reset or it wil cause issues later in other prints?
@@ -1455,22 +1506,27 @@ void loop() {
   CheckAndUseInputs();
   Display(Display_Page);  //EventTiming("STOP");
   EXTHeartbeat();
-  audio.loop(); 
-  // only for first 15 seconds do not repeat later if disconnect.. or it gets confusing with the wifievents! 
-  if ((millis() <= 15000) &&!WIFIGFXBoxdisplaystarted && (WiFi.status() != WL_CONNECTED)){
-    WifiGFXinterrupt(9, WifiStatus,"...STARTING...\nnot connected\nLooking for\n<%s>",Current_Settings.ssid); }
+  audio.loop();
+  // only for first 15 seconds do not repeat later if disconnect.. or it gets confusing with the wifievents!
+  if ((millis() <= 15000) && !WIFIGFXBoxdisplaystarted && (WiFi.status() != WL_CONNECTED)) {
+    WifiGFXinterrupt(9, WifiStatus, "...STARTING...\nnot connected\nLooking for\n<%s>", Current_Settings.ssid);
+  }
   //LOG ??
-  if ((millis() >= flashinterval)) { 
+  if ((millis() >= flashinterval)) {
     flashinterval = millis() + 1000;
-    StatusBox.PrintLine = 0; // always start / only use / the top line 0  of this box 
-  if  (Current_Settings.Log_ON || Current_Settings.NMEA_log_ON){
-    flash=!flash;  
-    if (flash) {UpdateLinef(3,StatusBox,"Page:%i  Log Status     NMEA     click for settings",Display_Page);
-      }   else { UpdateLinef(3,StatusBox,"Page:%i  Log Status %s NMEA %s click for settings",Display_Page,
-              Current_Settings.Log_ON On_Off ,Current_Settings.NMEA_log_ON On_Off ); }
-   }else
-   { UpdateLinef(3,StatusBox,"Page:%i  Log Status %s NMEA %s click for settings",Display_Page,
-              Current_Settings.Log_ON On_Off ,Current_Settings.NMEA_log_ON On_Off ); }
+    StatusBox.PrintLine = 0;  // always start / only use / the top line 0  of this box
+    if (Current_Settings.Log_ON || Current_Settings.NMEA_log_ON) {
+      flash = !flash;
+      if (flash) {
+        UpdateLinef(3, StatusBox, "Page:%i  Log Status     NMEA     click for settings", Display_Page);
+      } else {
+        UpdateLinef(3, StatusBox, "Page:%i  Log Status %s NMEA %s click for settings", Display_Page,
+                    Current_Settings.Log_ON On_Off, Current_Settings.NMEA_log_ON On_Off);
+      }
+    } else {
+      UpdateLinef(3, StatusBox, "Page:%i  Log Status %s NMEA %s click for settings", Display_Page,
+                  Current_Settings.Log_ON On_Off, Current_Settings.NMEA_log_ON On_Off);
+    }
   }
 
   if ((Current_Settings.Log_ON) && (millis() >= LogInterval)) {
@@ -1478,16 +1534,17 @@ void loop() {
     LOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f ,%4.0f ,%f ,%f \r\n",
         int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
         BoatData.STW.data, BoatData.SOG.data, BoatData.WaterDepth.data, BoatData.WindSpeedK.data,
-        BoatData.COG.data,BoatData.MagHeading.data,
+        BoatData.COG.data, BoatData.MagHeading.data,
         BoatData.WindAngleApp.data, BoatData.Latitude.data, BoatData.Longitude.data);
   }
 
-  if (WIFIGFXBoxdisplaystarted && (millis() >=  WIFIGFXBoxstartedTime + 10000)) {
-   Display(true,Display_Page); // reset the display after 10 secs of interruption from the WIFIGFX interruption 
-   WIFIGFXBoxdisplaystarted=false;   }  
-  
+  if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000)) {
+    Display(true, Display_Page);  // reset the display after 10 secs of interruption from the WIFIGFX interruption
+    WIFIGFXBoxdisplaystarted = false;
+  }
+
   // NMEALOG is done in CheckAndUseInputs
-  
+
   //EventTiming(" loop time touch sample display");
   //vTaskDelay(1);  // Audio is distorted without this?? used in https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/plays%20all%20files%20in%20a%20directory/plays_all_files_in_a_directory.ino
   // //.... (audio.isRunning()){   delay(100);gfx->println("Playing Ships bells"); Serial.println("Waiting for bells to finish!");}
@@ -1608,23 +1665,25 @@ void UseNMEA(char* buf, int type) {
   if (buf[0] != 0) {
     // print serial version if on the wifi page terminal window page.
     // data log raw NMEA and when and where it came from.
-    if (Current_Settings.NMEA_log_ON){
-      if (type == 1) {NMEALOG("%.3f SER:%s",float(millis())/1000, buf);}
-      if (type == 2) {NMEALOG("%.3f UDP:%s",float(millis())/1000, buf);}
-      if (type == 3) {NMEALOG("%.3f ESP:%s",float(millis())/1000, buf);}
-      }
-      
+    if (Current_Settings.NMEA_log_ON) {
+      if (type == 1) { NMEALOG("%.3f SER:%s", float(millis()) / 1000, buf); }
+      if (type == 2) { NMEALOG("%.3f UDP:%s", float(millis()) / 1000, buf); }
+      if (type == 3) { NMEALOG("%.3f ESP:%s", float(millis()) / 1000, buf); }
+    }
 
-                      // 8 is small font and seems to wrap to give a space before second line 
-                      //7 is smallest 
-                      // 0 is 8pt mono thin,
-                      //3 is 8pt mono bold
+
+    // 8 is snasBold8pt small font and seems to wrap to give a space before the second line
+    // 7 is smallest
+    // 0 is 8pt mono thin,
+    //3 is 8pt mono bold
     if ((Display_Page == -21)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
-      if (type == 2) {UpdateLinef(BLUE,8,Terminal, "UDP:%s", buf); // 7 small enough to avoid line wrap issue? 
+      if (type == 2) {
+        UpdateLinef(BLUE, 8, Terminal, "UDP:%s", buf);  // 7 small enough to avoid line wrap issue?
       }
-      if (type == 3) {UpdateLinef(BLACK,8,Terminal, "ESP:%s", buf);
+      if (type == 3) {
+        UpdateLinef(BLACK, 8, Terminal, "ESP:%s", buf);
       }
-      if (type == 1) { UpdateLinef(RED,8,Terminal, "Ser:%s", buf); }
+      if (type == 1) { UpdateLinef(RED, 8, Terminal, "Ser:%s", buf); }
     }
     // now decode it for the displays to use
     pTOKEN = buf;                                               // pToken is used in processPacket to separate out the Data Fields
@@ -1635,7 +1694,7 @@ void UseNMEA(char* buf, int type) {
 }
 
 //*********** EEPROM functions *********
-void EEPROM_WRITE(JSONCONFIG B,MySettings A) {
+void EEPROM_WRITE(JSONCONFIG B, MySettings A) {
   // save my current settings
   // ALWAYS Write the Default display page!  may change this later and save separately?!!
   Serial.printf("SAVING EEPROM\n key:%i \n", A.EpromKEY);
@@ -1644,7 +1703,7 @@ void EEPROM_WRITE(JSONCONFIG B,MySettings A) {
   EEPROM.commit();
   delay(50);
   //NEW also save as a JSON on the SD card SD card will overwrite current settings on setup..
-  SaveConfiguration(Setupfilename, B,A);
+  SaveConfiguration(Setupfilename, B, A);
 }
 void EEPROM_READ() {
   int key;
@@ -1652,7 +1711,7 @@ void EEPROM_READ() {
   Serial.print("READING EEPROM ");
   gfx->println(" EEPROM READING ");
   EEPROM.get(1, key);
- // Serial.printf(" read %i  default %i \n", key, Default_Settings.EpromKEY);
+  // Serial.printf(" read %i  default %i \n", key, Default_Settings.EpromKEY);
   if (key == Default_Settings.EpromKEY) {
     EEPROM.get(10, Saved_Settings);
     Serial.println("EEPROM Key OK");
@@ -1661,7 +1720,7 @@ void EEPROM_READ() {
     Saved_Settings = Default_Settings;
     gfx->println("Using DEFAULTS");
     Serial.println("Using DEFAULTS");
-    EEPROM_WRITE(Default_JSON,Default_Settings);
+    EEPROM_WRITE(Default_JSON, Default_Settings);
   }
 }
 
@@ -1670,19 +1729,19 @@ boolean CompStruct(MySettings A, MySettings B) {  // Does NOT compare the displa
   bool same = true;
   // have to check each variable individually
   //if (A.EpromKEY == B.EpromKEY) { same = true; }
-  
+
   if (A.UDP_ON != B.UDP_ON) { same = false; }
   if (A.ESP_NOW_ON != B.ESP_NOW_ON) { same = false; }
   if (A.Serial_on != B.Serial_on) { same = false; }
-  if (A.Log_ON != B.Log_ON) { same = false; } 
+  if (A.Log_ON != B.Log_ON) { same = false; }
   if (A.NMEA_log_ON != B.NMEA_log_ON) { same = false; }
 
   //Serial.print(" DEBUG ");Serial.print(A.ssid); Serial.print(" and ");Serial.println(B.ssid);
   // these are char strings, so need strcmp to compare ...if strcmp==0 they are equal
-  if (strcmp(A.UDP_PORT,B.UDP_PORT) != 0) { same = false; }
-  if (strcmp(A.ssid,B.ssid) != 0) { same = false; }
-  if (strcmp(A.password,B.password) != 0) { same = false; }
-  
+  if (strcmp(A.UDP_PORT, B.UDP_PORT) != 0) { same = false; }
+  if (strcmp(A.ssid, B.ssid) != 0) { same = false; }
+  if (strcmp(A.password, B.password) != 0) { same = false; }
+
   //Serial.print("Result same = ");Serial.println(same);
   return same;
 }
@@ -1764,8 +1823,8 @@ void SD_Setup() {
     gfx->println("NO SD Card");
     return;
   } else {
-    hasSD = true; // picture is run in setup, after load config
-     }
+    hasSD = true;  // picture is run in setup, after load config
+  }
 
   uint8_t cardType = SD.cardType();
 
@@ -1798,26 +1857,26 @@ void SD_Setup() {
 }
 //  ************  WIFI support functions *****************
 
-void WifiGFXinterrupt(int font, Button &button, const char* fmt, ...){ //quick interrupt of gfx to show WIFI events..
-// version of add centered text, multi line from /void MultiLineInButton(int font, Button &button,const char *fmt, ...)
+void WifiGFXinterrupt(int font, Button& button, const char* fmt, ...) {  //quick interrupt of gfx to show WIFI events..
+                                                                         // version of add centered text, multi line from /void MultiLineInButton(int font, Button &button,const char *fmt, ...)
   static char msg[300] = { '\0' };
   va_list args;
   va_start(args, fmt);
   vsnprintf(msg, 128, fmt, args);
   va_end(args);
   int len = strlen(msg);
-  static char *token;
-  const char delimiter[2] = "\n";  //  NB when i used  "static const char delimiter = '\n';"  I got big problems .. 
-  char *pch; 
-  GFXBorderBoxPrintf(button,""); // clear the button
-  pch=strtok(msg, delimiter);// split (tokenise)  msg at the delimiter
+  static char* token;
+  const char delimiter[2] = "\n";  //  NB when i used  "static const char delimiter = '\n';"  I got big problems ..
+  char* pch;
+  GFXBorderBoxPrintf(button, "");  // clear the button
+  pch = strtok(msg, delimiter);    // split (tokenise)  msg at the delimiter
   // print each separated line centered... starting from line 1
-  button.PrintLine=1;
-  while (pch !=NULL) {
+  button.PrintLine = 1;
+  while (pch != NULL) {
     CommonCenteredSubUpdateLine(button.TextColor, font, button, pch);
-    pch =strtok(NULL,delimiter);
-    }
-  WIFIGFXBoxdisplaystarted=true; 
+    pch = strtok(NULL, delimiter);
+  }
+  WIFIGFXBoxdisplaystarted = true;
   WIFIGFXBoxstartedTime = millis();
 }
 
@@ -1825,15 +1884,15 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       Serial.println("WiFi connected");
-    //  gfx->println(" Connected ! ");
+      //  gfx->println(" Connected ! ");
       Serial.print("** Connected.: ");
       IsConnected = true;
-    //  gfx->println(" Using :");
-    //  gfx->println(WiFi.SSID());
+      //  gfx->println(" Using :");
+      //  gfx->println(WiFi.SSID());
       Serial.print(" *Running with:  ssid<");
       Serial.print(WiFi.SSID());
       Serial.println(">");
-      WifiGFXinterrupt(9,WifiStatus,"CONNECTED\nTO <%s> ",WiFi.SSID());
+      WifiGFXinterrupt(9, WifiStatus, "CONNECTED\nTO <%s> ", WiFi.SSID());
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       IsConnected = false;
@@ -1843,18 +1902,18 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
       Serial.println("Trying to Reconnect");
       WiFi.begin(Current_Settings.ssid, Current_Settings.password);
 
-      WifiGFXinterrupt(8,WifiStatus,"Disconnected \n REASON:%s\n Retrying:<%s>",disconnectreason(info.wifi_sta_disconnected.reason).c_str(),Current_Settings.ssid);
-      
+      WifiGFXinterrupt(8, WifiStatus, "Disconnected \n REASON:%s\n Retrying:<%s>", disconnectreason(info.wifi_sta_disconnected.reason).c_str(), Current_Settings.ssid);
+
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
       Serial.print("The ESP32 has received IP address :");
-     // gfx->print("IP: ");
-     // gfx->println(WiFi.localIP());
+      // gfx->print("IP: ");
+      // gfx->println(WiFi.localIP());
       Serial.println(WiFi.localIP());
       sta_ip = WiFi.localIP();
-      WifiGFXinterrupt(9, WifiStatus,"CONNECTED\n to %s \n (IP:%i.%i.%i.%i) \n",WiFi.SSID(), 
-     // sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3]);
-      WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
+      WifiGFXinterrupt(9, WifiStatus, "CONNECTED\n to %s \n (IP:%i.%i.%i.%i) \n", WiFi.SSID(),
+                       // sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3]);
+                       WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
       break;
   }
 }
@@ -1863,55 +1922,60 @@ void ConnectWiFiusingCurrentSettings() {
   bool result;
   uint32_t StartTime = millis();
   gfx->println("Setting up WiFi");
-  WiFi.disconnect(false,true); // clean the persistent memory in case someone else set it !! eg ESPHOME!!  
+  WiFi.disconnect(false, true);  // clean the persistent memory in case someone else set it !! eg ESPHOME!!
   delay(100);
   WiFi.persistent(false);
-    WiFi.mode(WIFI_AP_STA);
+  WiFi.mode(WIFI_AP_STA);
   WiFi.onEvent(wifiEvent);  // Register the event handler
   // start the display's AP - potentially with NULL pasword
-  if (( String(Display_Config.APpassword) == "NULL" ) ||(String(Display_Config.APpassword) == "null" ) || (String(Display_Config.APpassword) == "" )){result=WiFi.softAP(Display_Config.PanelName); delay(5); }  
-  else { result = WiFi.softAP(Display_Config.PanelName, Display_Config.APpassword);}
-  delay(5);  
+  if ((String(Display_Config.APpassword) == "NULL") || (String(Display_Config.APpassword) == "null") || (String(Display_Config.APpassword) == "")) {
+    result = WiFi.softAP(Display_Config.PanelName);
+    delay(5);
+  } else {
+    result = WiFi.softAP(Display_Config.PanelName, Display_Config.APpassword);
+  }
+  delay(5);
   if (result == true) {
     Serial.println("Soft-AP creation success!");
     Serial.print("   ssidAP: ");
-     gfx->println("Soft-AP creation success");
-     gfx->printf("   ssidAP: %s\n",WiFi.softAPSSID());
-    Serial.println(WiFi.softAPSSID());    
+    gfx->println("Soft-AP creation success");
+    gfx->printf("   ssidAP: %s\n", WiFi.softAPSSID());
+    Serial.println(WiFi.softAPSSID());
     Serial.print("   passAP: ");
-    Serial.println(Display_Config.APpassword); 
+    Serial.println(Display_Config.APpassword);
     Serial.print("   AP IP address: ");
     Serial.println(WiFi.softAPIP());
-    }
-  else {
+  } else {
     Serial.println("Soft-AP creation failed! set this up..");
-     Serial.print("   ssidAP: ");
-    Serial.println(WiFi.softAPSSID()); 
-        Serial.print("   AP IP address: ");
-    Serial.println(WiFi.softAPIP());  
+    Serial.print("   ssidAP: ");
+    Serial.println(WiFi.softAPSSID());
+    Serial.print("   AP IP address: ");
+    Serial.println(WiFi.softAPIP());
   }
   WiFi.mode(WIFI_AP_STA);
   // (a sucessful!) experiment.. do the WIfI/scan(i) and they get independently stored??
   NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
-  WiFi.disconnect(false); // Do NOT turn off wifi if the network disconnects
+  WiFi.disconnect(false);  // Do NOT turn off wifi if the network disconnects
   delay(100);
   gfx->printf(" Scan found <%i> networks\n", NetworksFound);
   Serial.printf(" Scan found <%i> networks:\n", NetworksFound);
   bool found = false;
   for (int i = 0; i < NetworksFound; ++i) {
-     if (WiFi.SSID(i).length() <= 25){ Serial.printf(" <%s> \n", WiFi.SSID(i));}
-     else {Serial.printf(" <name too long> \n");}
+    if (WiFi.SSID(i).length() <= 25) {
+      Serial.printf(" <%s> \n", WiFi.SSID(i));
+    } else {
+      Serial.printf(" <name too long> \n");
+    }
     if (WiFi.SSID(i) == Current_Settings.ssid) { found = true; }
   }
   if (found) { gfx->printf("Found <%s> network!\n", Current_Settings.ssid); }
-  WiFi.begin(Current_Settings.ssid, Current_Settings.password);                 //standard wifi start
-  gfx->printf("will try to connect to :%s\n", Current_Settings.ssid);           // 
+  WiFi.begin(Current_Settings.ssid, Current_Settings.password);        //standard wifi start
+  gfx->printf("will try to connect to :%s\n", Current_Settings.ssid);  //
   // while ((WiFi.status() != WL_CONNECTED) && (millis() <= StartTime + 10000)) {  //wait while it tries..10 seconds max
   //   delay(500);
   //   gfx->print(".");
   //   Serial.print(".");
   // }
-
 }
 
 bool Test_Serial_1() {  // UART0 port P1
@@ -2002,16 +2066,19 @@ void UDPSEND(const char* buf) {                              // this is the one 
 //************ Music stuff  Purely to explore if the ESP32 has any spare capacity while doing display etc!
 //***
 
-//*****   AUDIO ****  STRICTLY experimental - needs three resistors moving to wire in the Is2 audio chip! 
+//*****   AUDIO ****  STRICTLY experimental - needs three resistors moving to wire in the Is2 audio chip!
 void Audio_setup() {
-  if (!hasSD){ Serial.println("Audio setup FAILED - no SD");return;}
+  if (!hasSD) {
+    Serial.println("Audio setup FAILED - no SD");
+    return;
+  }
   Serial.println("Audio setup");
   delay(200);
   audio.setPinout(I2S_BCLK, I2S_LRCK, I2S_DOUT);
   audio.setVolume(15);  // 0...21
   if (audio.connecttoFS(SD, "/StartSound.mp3")) {
     delay(10);
-    if (audio.isRunning()) {  Serial.println("StartSound.mp3"); }
+    if (audio.isRunning()) { Serial.println("StartSound.mp3"); }
     while (audio.isRunning()) {
       audio.loop();
       vTaskDelay(1);
@@ -2150,32 +2217,32 @@ void EventTiming(String input, int number) {  // Event timing, Usage START, STOP
   }
 }
 
-char* LattoString(double data){
+char* LattoString(double data) {
   static char buff[25];
   double pos;
-  pos=data;
+  pos = data;
   int degrees = int(pos);
-  float minutes = (pos-degrees) *60;
+  float minutes = (pos - degrees) * 60;
   bool direction;
-  direction = (pos>=0);
-  snprintf(buff,sizeof(buff),"%2ideg %6.3fmin %s",abs(degrees),abs(minutes),direction? "N":"S");
+  direction = (pos >= 0);
+  snprintf(buff, sizeof(buff), "%2ideg %6.3fmin %s", abs(degrees), abs(minutes), direction ? "N" : "S");
 
- return buff; 
-} 
-char* LongtoString(double data){
+  return buff;
+}
+char* LongtoString(double data) {
   static char buff[25];
   double pos;
-  pos=data;
+  pos = data;
   int degrees = int(pos);
-  float minutes = (pos-degrees) *60;
+  float minutes = (pos - degrees) * 60;
   bool direction;
-  direction = (pos>=0);
-  snprintf(buff,sizeof(buff),"%3ideg %6.3fmin %s",abs(degrees),abs(minutes),direction? "E":"W");
+  direction = (pos >= 0);
+  snprintf(buff, sizeof(buff), "%3ideg %6.3fmin %s", abs(degrees), abs(minutes), direction ? "E" : "W");
 
- return buff; 
-} 
+  return buff;
+}
 
-String disconnectreason(int reason){
+String disconnectreason(int reason) {
   /*
   https://esp32.com/viewtopic.php?t=349 
   WIFI_REASON_UNSPECIFIED              = 1,
@@ -2207,37 +2274,37 @@ WIFI_REASON_NO_AP_FOUND              = 201,
 WIFI_REASON_AUTH_FAIL                = 202,
 WIFI_REASON_ASSOC_FAIL               = 203,
 WIFI_REASON_HANDSHAKE_TIMEOUT        = 204,{*/
-  switch (reason) { 
-    case 1 : return "UNSPECIFIED"; break;
-    case 2 : return "AUTH_EXPIRE"; break;
-    case 3 : return "AUTH_LEAVE"; break;
-    case 4 : return "ASSOC_EXPIRE"; break;
-    case 5 : return "ASSOC_TOOMANY"; break;
-    case 6 : return "NOT_AUTHED"; break;
-    case 7 : return "NOT_ASSOCED"; break;
-    case 8 : return "ASSOC_LEAVE"; break;
-    case 9 : return "ASSOC_NOT_AUTHED"; break;
-    case 10 : return "DISASSOC_PWRCAP_BAD"; break;
-    case 11 : return "DISASSOC_SUPCHAN_BAD"; break;
-    case 13 : return "IE_INVALID"; break;
-    case 14 : return "MIC_FAILURE"; break;
-    case 15 : return "4WAY_HANDSHAKE_TIMEOUT"; break;
-    case 16 : return "GROUP_KEY_UPDATE_TIMEOUT"; break;
-    case 17 : return "IE_IN_4WAY_DIFFERS"; break;
-    case 18 : return "GROUP_CIPHER_INVALID"; break;
-    case 19 : return "PAIRWISE_CIPHER_INVALID"; break;
-    case 20 : return "AKMP_INVALID"; break;
-    case 21 : return "UNSUPP_RSN_IE_VERSION"; break;
-    case 22 : return "INVALID_RSN_IE_CAP"; break;
-    case 23 : return "802_1X_AUTH_FAILED"; break;
-    case 24 : return "CIPHER_SUITE_REJECTED"; break;
-    case 200 : return "BEACON_TIMEOUT"; break;
-    case 201 : return "NO_AP_FOUND"; break;
-    case 202 : return "AUTH_FAIL"; break;
-    case 203 : return "ASSOC_FAIL"; break;
-    case 204 : return "HANDSHAKE_TIMEOUT"; break;
-    default :  return "Unknown"; break;
+  switch (reason) {
+    case 1: return "UNSPECIFIED"; break;
+    case 2: return "AUTH_EXPIRE"; break;
+    case 3: return "AUTH_LEAVE"; break;
+    case 4: return "ASSOC_EXPIRE"; break;
+    case 5: return "ASSOC_TOOMANY"; break;
+    case 6: return "NOT_AUTHED"; break;
+    case 7: return "NOT_ASSOCED"; break;
+    case 8: return "ASSOC_LEAVE"; break;
+    case 9: return "ASSOC_NOT_AUTHED"; break;
+    case 10: return "DISASSOC_PWRCAP_BAD"; break;
+    case 11: return "DISASSOC_SUPCHAN_BAD"; break;
+    case 13: return "IE_INVALID"; break;
+    case 14: return "MIC_FAILURE"; break;
+    case 15: return "4WAY_HANDSHAKE_TIMEOUT"; break;
+    case 16: return "GROUP_KEY_UPDATE_TIMEOUT"; break;
+    case 17: return "IE_IN_4WAY_DIFFERS"; break;
+    case 18: return "GROUP_CIPHER_INVALID"; break;
+    case 19: return "PAIRWISE_CIPHER_INVALID"; break;
+    case 20: return "AKMP_INVALID"; break;
+    case 21: return "UNSUPP_RSN_IE_VERSION"; break;
+    case 22: return "INVALID_RSN_IE_CAP"; break;
+    case 23: return "802_1X_AUTH_FAILED"; break;
+    case 24: return "CIPHER_SUITE_REJECTED"; break;
+    case 200: return "BEACON_TIMEOUT"; break;
+    case 201: return "NO_AP_FOUND"; break;
+    case 202: return "AUTH_FAIL"; break;
+    case 203: return "ASSOC_FAIL"; break;
+    case 204: return "HANDSHAKE_TIMEOUT"; break;
+    default: return "Unknown"; break;
   }
 
-return "Unknown";
+  return "Unknown";
 }
