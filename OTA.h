@@ -27,9 +27,10 @@
   index.htm is the default index (works on subfolders as well)
 
   upload the contents of SdRoot to the root of the SDcard and access the editor by going to 
-  http://NMEADisplay.local/edit
-  To retrieve the contents of SDcard, visit http://NMEADisplay.local/list?dir=/
+  http://nmeadisplay.local/edit
+  To retrieve the contents of SDcard, visit http://nmeadisplay.local/list?dir=/
       dir is the argument that needs to be passed to the function PrintDirectory via HTTP Get request.
+  NB  in my version nmeadisplay is settable in the config.txt, so you may need to access 192.168.4.1 if accessing the AP.. 
 
 */
 
@@ -69,7 +70,7 @@ File uploadFile;
 // So I can modify the Display Panel Name! but also so that OTA works even without SD card present
 //
 
-// Slightly more flexible way of defining page.. allows if statements ..if required.. 
+// Slightly more flexible way of defining page.. allows if statements ..required for changed displayname.. 
 String html_Question() {
   String st = "<!DOCTYPE html>\r\n";
   st += "<html><head>";
@@ -194,7 +195,7 @@ void handleRoot() {
 
 bool loadFromSdCard(String path) {
   String dataType = "text/plain";
-  //  previous version used just this html from SD card.
+  //  previous version used just startws.htm  html from SD card.
   if (path.endsWith("/")) {  // send our local version with modified path!
     handleRoot();
     return true;

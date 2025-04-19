@@ -352,76 +352,88 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
   char decimal[30];
   static char *token;
   const char delimiter[2] = ".";  // Or space, etc.
-  //Serial.printf("h %i v %i TEXT %i  Background %i \n",button.h,button.v, button.TextColor,button.BackColor);
-  // calculate new offsets to just center on original box - minimum redraw of blank
-  int16_t x, y, TBx1, TBy1, TBx2, TBy2;
-  uint16_t TBw1, TBh1, TBw2, TBh2;
+  int16_t x, y, TBx1, TBy1, TBx2, TBy2,TBx3, TBy3;
+  uint16_t TBw1, TBh1, TBw2, TBh2,TBw3, TBh3;
   int typingspaceH, typingspaceW;
   bool recent = (data.updated >= millis() - 6000);
-  //Serial.printf(" ** DEBUG 1 in NEW Update Data %f \n",data.data);
-  ////// buttton width and height are for the OVERALL box.
-  typingspaceH = button.height - (2 * button.bordersize);
-  typingspaceW = button.width - (2 * button.bordersize);
-  // SetTextsize now set in used in message buildup
+  ////// buttton width and height are for the OVERALL box. subtract border!
+  typingspaceH = button.height - (2 * button.bordersize) ;
+  typingspaceW = button.width - (2 * button.bordersize) ;  // small one pixel inset 
+  if(horizCenter ||vertCenter ){ gfx->setTextWrap(false);}
+     else{gfx->setTextWrap(true);} 
+  // SetTextsize (magnify) is now set in used in message buildup
   va_list args;         // extract the fmt..
   va_start(args, fmt);
   vsnprintf(msg, 300, fmt, args);
   va_end(args);
   int len = strlen(msg);
-  // split msg at the decimal point .. so  must have decimal point!
+  // split msg at the decimal point .. so must have decimal point!
+  // if (typingspaceW >=300){
+  // Serial.printf("** Debug Msg is <%s> typingspacew=%i ",msg,typingspaceW);}
+
   if (strcspn(msg, delimiter) != strlen(msg)) {
     token = strtok(msg, delimiter);
     strcpy(digits, token);
     token = strtok(NULL, delimiter);
     strcpy(decimal, delimiter);
-    decimal[1] = 0;  // add dp to the decimal and the critical null so the strcat works !!
-    strcat(decimal, token);
+    decimal[1] = 0;  // add dp to the decimal delimiter and the critical null so the strcat works !! (not re0uqired now const char delimiter[2] = "."; )
+    strcat(decimal, token);  // Concatenate (add) the decimals to the dp..  
   } else {
-    strcpy(digits, msg);
+    strcpy(digits, msg);  // missing dp, so just put the whole message in 'digits'.
     decimal[0] = 0;
   }
   setFont(bigfont);                                              // here so the text_offset is correct for bigger font
-  x = button.h;                                                  //+ button.bordersize;
-  y = button.v + (magnify* text_offset);      // allow for magnify !! bigger font for front half
-  gfx->getTextBounds(digits, x, y, &TBx1, &TBy1, &TBw1, &TBh1);  // do not forget '& ! Pointer not value!!!
-  //Serial.printf("  *** DEBUG text_offset %i  and y%i  TBy1 %i \n",text_offset,y, TBy1); //Serial.print(digits);Serial.print(decimal);Serial.println(">");  //debugcheck for font too big - causes crashes?
-  setFont(smallfont);                                                    // smaller for second part after decimal point
-  gfx->getTextBounds(decimal, x + TBw1, y, &TBx2, &TBy2, &TBw2, &TBh2);  // width of smaller stuff
-  gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
-  if (((TBw1 + TBw2) >= typingspaceW) || ((TBh1) >= typingspaceH)) {
-    // Serial.print("***DEBUG <");
-    // Serial.print(msg);
-    // Serial.print("> became <");
-    // Serial.print(digits);
-    // Serial.print(decimal);
-    // Serial.println("> and was too big to print in box");
+  x = button.h + button.bordersize;  //starting point left..                            
+  y = button.v + button.bordersize + (magnify* text_offset) ;      // starting bpoint 'down' allow for magnify !! bigger font for front half
+  //gfx->setTextBound(button.h + button.bordersize+1, button.v + button.bordersize+1, typingspaceW-2, typingspaceH-2); 
+  gfx->setTextBound(0, 0, 480, 480);  // test.. set a full (width) text bound to be certain that the get does not take into account any 'wrap'  
+  
+  gfx->getTextBounds(digits, 0,0, &TBx1, &TBy1, &TBw1, &TBh1);  // get text bound for digits (does 0,0 give different width? - NO  
+  setFont(smallfont);
+  gfx->getTextBounds(decimal, TBw1,0, &TBx2, &TBy2, &TBw2, &TBh2);  // get text bounds for decimal 
+
+
+
+// if (typingspaceW >=300){
+//   Serial.printf("digits<%s>:decimal<%s> Total %i tbx1: %i tbx2: %i   TBW1: %i TBW2: %i  \n",digits,decimal,TBw1+TBw2,TBx1,TBx2, TBw1, TBw2);
+//   }
+  if (((TBw1 + TBw2) >= typingspaceW) || (TBh1 >= typingspaceH)) { // too big!!
+    if ((TBw1 <= typingspaceW) && (TBh1 <= typingspaceH)){//just print digits not decimals
+     TBw2=0;
+     decimal[0]=0;decimal[1]=0;
+    }
+    else{  // Serial.print("***DEBUG <"); Serial.print(msg);Serial.print("> became <");Serial.print(digits);
+           // Serial.print(decimal);Serial.println("> and was too big to print in box");
     gfx->setTextBound(0, 0, 480, 480);
     data.displayed = true;
     return;
+    }
   }
-  //Serial.print("will print <");Serial.print(digits);Serial.print(decimal);Serial.println(">");  //debug
   setFont(bigfont);                                                   // here so the text_offset is correct for bigger font
-  if (horizCenter) { x = x + ((typingspaceW - (TBw1 + TBw2)) / 2); }  //try for horizontal / vertical centering
-  if (vertCenter) { y = y + ((typingspaceH - (TBh1)) / 2); }          // vertical centering
-  y = y + button.bordersize;                                          // Down a bit equal to border size.. give a bit of border to print
-  //box erase
-  //gfx->fillRect(TBx2 , y - (text_offset), TBw2+TBw1 , TBh2, button.BackColor);
-  //gfx->fillRect(x , y - (text_offset), (TBw1), TBh1, RED);//button.BackColor);  //RED); visualise in debug by changing colour ! where the text will be plus a bit
+
+  if (horizCenter) { x = button.h + button.bordersize + ((typingspaceW - (TBw1 + TBw2)) / 2) - TBx1; }  //try for horizontal / vertical centering
+  if (vertCenter) { y = button.v + button.bordersize+ (magnify* text_offset) + ((typingspaceH - (TBh1)) / 2); }          // vertical centering
+  //Serial.print("will print <");Serial.print(digits);Serial.print(decimal);Serial.println(">");  //debug
+                                        // Down a bit equal to border size.. give a bit of border to print
+  //box erase was used before I 'background printed' the previous data. but useful fo rvisualising the tbx1 etc,,, 
+  //gfx->fillRect(TBx1 , TBy1, TBw2+TBw1 , TBh2, RED);//button.BackColor);
+  //gfx->fillRect(x , y - (text_offset), (TBw1), TBh1, );//button.BackColor);  //RED); visualise in debug by changing colour ! where the text will be plus a bit
   if (erase) {
     gfx->setTextColor(button.BackColor);
   } else {
     gfx->setTextColor(button.TextColor);
   }
-  gfx->setCursor(x, y);
-  if (!recent) {
-    gfx->setTextColor(DARKGREY);
-    data.greyed = true;
-  }
+  gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);  
+  gfx->setCursor(x-TBx1, y);
+  if (!recent) { gfx->setTextColor(DARKGREY); data.greyed = true; }
+ 
   gfx->print(digits);
-  setFont(smallfont);
-  gfx->print(decimal);
+  if (TBw2 != 0){
+      setFont(smallfont);
+      gfx->print(decimal);
+      }
   gfx->setTextColor(button.TextColor);
-  gfx->setTextBound(0, 0, 480, 480);  //MUST reset it !
+  gfx->setTextBound(0, 0, 480, 480);  //MUST reset it for other functions that do not set it themselves!
 }
 
 void UpdateDataTwoSize(bool horizCenter, bool vertCenter, int bigfont, int smallfont, Button button, instData &data, const char *fmt) {

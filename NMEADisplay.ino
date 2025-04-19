@@ -48,7 +48,9 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 #include "FONTS/FreeSansBold27pt7b.h"
 #include "FONTS/FreeSansBold40pt7b.h"
 #include "FONTS/FreeSansBold60pt7b.h"
-
+#include "FONTS/FreeMonoBoldOblique27pt7b.h"
+#include "FONTS/FreeMonoBoldOblique40pt7b.h"
+#include "FONTS/FreeMonoBoldOblique60pt7b.h"
 
 
 
@@ -67,7 +69,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.8";
+const char soft_version[] = "Version 3.91";
 bool hasSD;
 
 
@@ -161,7 +163,7 @@ Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 
 Button WifiStatus = { 60, 180, 320, 210, 5, BLUE, WHITE, BLACK };  // big central box for wifi events to pop up - v3.5
 
-Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK };              // used for wind and graph displays
+Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLUE };              // used for wind and graph displays
 Button BigSingleTopRight = { 240, 0, 240, 90, 5, BLUE, WHITE, BLACK };             //  ''
 Button BigSingleTopLeft = { 0, 0, 240, 90, 5, BLUE, WHITE, BLACK };                //  ''
 Button TopHalfBigSingleTopRight = { 240, 0, 240, 45, 5, BLUE, WHITE, BLACK };      //  ''
@@ -221,7 +223,7 @@ Button Full6Center = { 80, 385, 320, 50, 5, BLUE, WHITE, BLACK };  // inteferes 
 
 
 bool LoadConfiguration(const char* filename, JSONCONFIG& config, MySettings& settings) {
-  // Open file for reading
+  // Open SD file for reading
   if (!SD.exists(filename)) {
     Serial.printf(" Json file %s did not exist\n Using defaults\n", filename);
     SaveConfiguration(filename, Default_JSON, Default_Settings);
@@ -974,9 +976,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         setFont(10);  // note: all the 'updates' now check for new data else return immediately
       }
       WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp);
-      UpdateDataTwoSize(true, true, 13, 11, topLeftquarter, BoatData.STW, "%3.1f");
-      UpdateDataTwoSize(true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%4.1f");
-      UpdateDataTwoSize(true, true, 13, 11, bottomRightquarter, BoatData.SOG, "%3.1f");
+      UpdateDataTwoSize(true, true, 13, 11, topLeftquarter, BoatData.STW, "%.1f");
+      UpdateDataTwoSize(true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%.1f");
+      UpdateDataTwoSize(true, true, 13, 11, bottomRightquarter, BoatData.SOG, "%.1f");
       // }
       if (CheckButton(topLeftquarter)) { Display_Page = 6; }      //stw
       if (CheckButton(bottomLeftquarter)) { Display_Page = 7; }   //depth
@@ -999,7 +1001,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       }
       LocalCopy = BoatData.WindAngleApp;  //Duplicate wind angle so it can be shown again in a second box
       WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngleApp);
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, LocalCopy, "%3.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, LocalCopy, "%.1f");
       if (CheckButton(BigSingleDisplay)) { Display_Page = 15; }
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       break;
@@ -1018,8 +1020,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       }
       LocalCopy = BoatData.STW;
       DrawGraph(BigSingleDisplay, LocalCopy, 0, 10, 9, "STW Graph ", "Kts");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
       if (CheckButton(BigSingleDisplay)) { Display_Page = 16; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 8; }
@@ -1044,16 +1046,16 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       }
       LocalCopy = BoatData.STW;
       //DrawGraph( BigSingleDisplay, LocalCopy, 0, 10,9,"STW Graph ","Kts");
-      UpdateDataTwoSize(3,true, true, 13, 12, BigSingleDisplay, LocalCopy, "%2.1f"); // note magnify 3!!
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
+      UpdateDataTwoSize(3,true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f"); // note magnify 3!!
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
 
       if (CheckButton(BigSingleDisplay)) { Display_Page = 6; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 8; }
       break;
 
-    case 7:  // Depth
+    case 7:  // Depth  (fathmometer 30)  (circulate 7/11/17)
       if (RunSetup) {
         setFont(11);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
@@ -1065,7 +1067,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       }
       LocalCopy = BoatData.WaterDepth;  //
       DrawGraph(BigSingleDisplay, LocalCopy, 30, 0, 9, "Fathmometer 30m ", "m");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
 
       if (CheckButton(BigSingleTopRight)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
@@ -1073,23 +1075,42 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(BigSingleDisplay)) { Display_Page = 11; }
       break;
 
-    case 11:  // Depth different range
+    case 11:  // Depth (fathmometer 1 0) different range
       if (RunSetup) {
         setFont(10);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
-        AddTitleInsideBox(8, 1, BigSingleTopRight, "Depth");
-        AddTitleInsideBox(8, 2, BigSingleDisplay, "m");
+        AddTitleInsideBox(8, 1, BigSingleTopRight, "Depth"); 
+        AddTitleInsideBox(8, 2, BigSingleTopRight, "m");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
         LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
       }
       LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-      DrawGraph(BigSingleDisplay, LocalCopy, 10, 0, 8, "Fathmometer 10m ", "m");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%4.1f");
+      DrawGraph(BigSingleDisplay, LocalCopy, 10, 0, 9, "Fathmometer 10m ", "m");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
 
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
+      if (CheckButton(BigSingleDisplay)) { Display_Page = 17; }
+      if (CheckButton(topRightquarter)) { Display_Page = 7; }
+      break;
+
+    case 17:  // Depth (big digital) 
+      if (RunSetup) {
+        setFont(10);
+        GFXBorderBoxPrintf(BigSingleTopRight, "");
+        AddTitleInsideBox(8, 1, BigSingleTopRight, "Depth");
+        AddTitleInsideBox(8, 2, BigSingleTopRight, "m");
+        GFXBorderBoxPrintf(BigSingleDisplay, ""); 
+        AddTitleInsideBox(10, 2, BigSingleDisplay, "m");
+        
+        LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
+      }
+      LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");  // nb %4.1 will give leading printing space- giving formatting issues!
+      UpdateDataTwoSize(4,true, true, 12, 10, BigSingleDisplay, LocalCopy, "%.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
+      if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(BigSingleDisplay)) { Display_Page = 7; }
-      if (CheckButton(topRightquarter)) { Display_Page = 4; }
+      //if (CheckButton(topRightquarter)) { Display_Page = 4; }
       break;
 
     case 8:  //SOG  graph
@@ -1110,8 +1131,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       // }
       LocalCopy = BoatData.SOG;
       DrawGraph(BigSingleDisplay, LocalCopy, 0, 10, 9, "SOG Graph ", "kts");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
 
       //if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
@@ -1139,9 +1160,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       }
       LocalCopy = BoatData.SOG;
       //DrawGraph( BigSingleDisplay, LocalCopy, 0, 10,9,"SOG ","kts");
-      UpdateDataTwoSize(3, true, true, 13, 12, BigSingleDisplay, LocalCopy, "%2.1f");//note magnify 3 
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%2.1f");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%2.1f");
+      UpdateDataTwoSize(3, true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f");//note magnify 3 
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
 
       //if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
@@ -1162,8 +1183,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       }
       LocalCopy = BoatData.COG;
       LocalCopy2 = BoatData.SOG;
-      UpdateDataTwoSize(true, true, 9, 8, TopHalfBigSingleTopRight, BoatData.SOG, "SOG: %3.1f kt");
-      UpdateDataTwoSize(true, true, 9, 8, BottomHalfBigSingleTopRight, BoatData.COG, "COG: %4.1f d");
+      UpdateDataTwoSize(true, true, 9, 8, TopHalfBigSingleTopRight, BoatData.SOG, "SOG: %.1f kt");
+      UpdateDataTwoSize(true, true, 9, 8, BottomHalfBigSingleTopRight, BoatData.COG, "COG: %.1f d");
       if (millis() > slowdown + 1000) {
         slowdown = millis();
         GFXBorderBoxPrintf(BigSingleDisplay, "");
@@ -1187,8 +1208,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         UpdateLinef(9, BigSingleDisplay, "some other data for review during wrap testing: 1234567890\nand after 'cr' Wraped");
         if (LocalCopy.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "COG: %5.4f", LocalCopy.data); }
         if (LocalCopy2.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "SOG: %5.4f", LocalCopy2.data); }
-        if (BoatData.MagHeading.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "Mag Heading: %5.4f", BoatData.MagHeading); }
-        UpdateLinef(9, BigSingleDisplay, "Variation: %5.4f", BoatData.Variation);
+        if (BoatData.MagHeading.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "Mag Heading: %.4f", BoatData.MagHeading); }
+        UpdateLinef(9, BigSingleDisplay, "Variation: %.4f", BoatData.Variation);
       }
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 10; }
       //if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }  //Loop to the main settings page
@@ -1269,9 +1290,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         slowdown = millis();
       }
       LocalCopy = BoatData.WindAngleGround;  //Duplicate wind angle so it can be shown again in a second box
-      UpdateDataTwoSize(true, true, 9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %3.1f");
+      UpdateDataTwoSize(true, true, 9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %.1f");
       WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, LocalCopy);
-      UpdateDataTwoSize(true, true, 9, 8, BottomHalfBigSingleTopRight, BoatData.WindAngleGround, "gnd %3.1f");
+      UpdateDataTwoSize(true, true, 9, 8, BottomHalfBigSingleTopRight, BoatData.WindAngleGround, "gnd %.1f");
 
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(BigSingleDisplay)) { Display_Page = 5; }
@@ -1386,6 +1407,7 @@ void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes increment
       text_offset = -(FreeSansBold40pt7bGlyphs[0x38].yOffset);
       text_char_width = 12;
       break;
+     
     case 13:  //sans BOLD 60 pt
       Fontname = "FreeSansBold60pt7b";
       gfx->setFont(&FreeSansBold60pt7b);
@@ -1393,7 +1415,27 @@ void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes increment
       text_offset = -(FreeSansBold60pt7bGlyphs[0x38].yOffset);
       text_char_width = 12;
       break;
-
+      case 21:  //Mono oblique BOLD 27 pt
+      Fontname = "FreeMonoBoldOblique27pt7b";
+      gfx->setFont(&FreeMonoBoldOblique27pt7b);
+      text_height = (FreeMonoBoldOblique27pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeMonoBoldOblique27pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
+    case 22:  //Mono oblique BOLD 40 pt
+      Fontname = "FreeMonoBoldOblique40pt7b";
+      gfx->setFont(&FreeMonoBoldOblique40pt7b);
+      text_height = (FreeMonoBoldOblique40pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeMonoBoldOblique40pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
+          case 23:  //Mono oblique BOLD 60 pt
+      Fontname = "FreeMonoBoldOblique60pt7b";
+      gfx->setFont(&FreeMonoBoldOblique60pt7b);
+      text_height = (FreeMonoBoldOblique60pt7bGlyphs[0x38].height) + 1;
+      text_offset = -(FreeMonoBoldOblique60pt7bGlyphs[0x38].yOffset);
+      text_char_width = 12;
+      break;
 
 
     default:
@@ -1769,6 +1811,8 @@ void sendAdvicef(const char* fmt, ...) {  //complete object type suitable for ho
 
 
 //****           SD and image functions  include #include "JpegFunc.h"
+
+
 static int jpegDrawCallback(JPEGDRAW* pDraw) {
   // Serial.printf("Draw pos = %d,%d. size = %d x %d\n", pDraw->x, pDraw->y, pDraw->iWidth, pDraw->iHeight);
   gfx->draw16bitBeRGBBitmap(pDraw->x, pDraw->y, pDraw->pPixels, pDraw->iWidth, pDraw->iHeight);
