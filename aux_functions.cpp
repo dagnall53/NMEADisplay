@@ -411,7 +411,7 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
   }
   setFont(bigfont);                                                   // here so the text_offset is correct for bigger font
 
-  if (horizCenter) { x = button.h + button.bordersize + ((typingspaceW - (TBw1 + TBw2)) / 2) - TBx1; }  //try for horizontal / vertical centering
+  if (horizCenter) { x = button.h + button.bordersize + ((typingspaceW - (TBw1 + TBw2)) / 2) ; }  //try for horizontal / vertical centering
   if (vertCenter) { y = button.v + button.bordersize+ (magnify* text_offset) + ((typingspaceH - (TBh1)) / 2); }          // vertical centering
   //Serial.print("will print <");Serial.print(digits);Serial.print(decimal);Serial.println(">");  //debug
                                         // Down a bit equal to border size.. give a bit of border to print
@@ -424,7 +424,9 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
     gfx->setTextColor(button.TextColor);
   }
   gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);  
-  gfx->setCursor(x-TBx1, y);
+  gfx->setCursor(x-TBx1, y);  // NOTE TBx1 is normally zero for most fonts, but some print with offsets that will be noted by this result. 
+                              // they therefore print further to the right( by TBX1) than expected. Subtracting this offset corrects for the error and 
+                              // better centers the text. This is most noticable with large (magnified) fonts.  
   if (!recent) { gfx->setTextColor(DARKGREY); data.greyed = true; }
  
   gfx->print(digits);

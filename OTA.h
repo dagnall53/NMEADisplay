@@ -478,6 +478,7 @@ void SetupOTA() {
         gfx->setTextColor(WHITE);
         gfx->fillScreen(BLUE);
         gfx->setCursor(0, 40);
+        gfx->setTextWrap(true);
         gfx->printf("Update: %s\n", upload.filename.c_str());
         Serial.printf("Update: %s\n", upload.filename.c_str());
         Serial.printf("   current size: %u   total size %u\n", upload.currentSize, upload.totalSize);
