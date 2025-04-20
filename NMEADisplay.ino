@@ -69,7 +69,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.91";
+const char soft_version[] = "Version 3.92";
 bool hasSD;
 
 
@@ -161,9 +161,9 @@ Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 //used for single data display
 // modified all to lift by 30 pixels to allow a common bottom row display (to show logs and get to settings)
 
-Button WifiStatus = { 60, 180, 320, 210, 5, BLUE, WHITE, BLACK };  // big central box for wifi events to pop up - v3.5
+Button WifiStatus = { 60, 180, 360, 120, 5, BLUE, WHITE, BLACK };  // big central box for wifi events to pop up - v3.5
 
-Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLUE };              // used for wind and graph displays
+Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK };              // used for wind and graph displays
 Button BigSingleTopRight = { 240, 0, 240, 90, 5, BLUE, WHITE, BLACK };             //  ''
 Button BigSingleTopLeft = { 0, 0, 240, 90, 5, BLUE, WHITE, BLACK };                //  ''
 Button TopHalfBigSingleTopRight = { 240, 0, 240, 45, 5, BLUE, WHITE, BLACK };      //  ''
@@ -964,8 +964,10 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(9, 3, topLeftquarter, "STW ");
         AddTitleInsideBox(9, 2, topLeftquarter, " Kts");  //font,position
         GFXBorderBoxPrintf(bottomLeftquarter, "");
-        AddTitleInsideBox(9, 3, bottomLeftquarter, "DEPTH ");
-        AddTitleInsideBox(9, 2, bottomLeftquarter, " Meters");  //font,position
+        AddTitleInsideBox(9, 3, bottomLeftquarter, "DEPTH");
+        AddTitleInsideBox(9, 2, bottomLeftquarter, "Meters");  //font,position
+        // AddTitleInsideBox(9, 1, bottomLeftquarter, "pos1"); // for box printing tests!
+        // AddTitleInsideBox(9, 4, bottomLeftquarter, "pos4");  //font,position
         GFXBorderBoxPrintf(bottomRightquarter, "");
         AddTitleInsideBox(9, 3, bottomRightquarter, "SOG ");
         AddTitleInsideBox(9, 2, bottomRightquarter, " Kts");  //font,position

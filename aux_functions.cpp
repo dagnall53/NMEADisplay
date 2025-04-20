@@ -276,9 +276,12 @@ void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t col
   if(horizCenter ||vertCenter ){ gfx->setTextWrap(false);}
      else{gfx->setTextWrap(true);} 
   // get bounds as would be printed at top of box.. 
-  // set text bounds first so that can be taken into account !   
-  gfx->setTextBound(button.h + button.bordersize+1, button.v + button.bordersize+1, typingspaceW-2, typingspaceH-2);                               // 
-  gfx->getTextBounds(msg, button.h + button.bordersize+1, button.v + button.bordersize+1, &TBx1, &TBy1, &TBw1, &TBh1);  // do not forget '& ! Pointer not value!!!
+  // set text bounds first so that can be taken into account ! Use same zero starts as in Sub_for_UpdateTwoSize
+  gfx->setTextBound(0, 0, 480, 480);                         // so that TBx1 can be simply obtained and used in better h centering
+  gfx->getTextBounds(msg, 0,0, &TBx1, &TBy1, &TBw1, &TBh1);  // do not forget '&' using pointers not values!!!
+          
+  // gfx->setTextBound(button.h + button.bordersize+1, button.v + button.bordersize+1, typingspaceW-2, typingspaceH-2);                               // 
+  // gfx->getTextBounds(msg, button.h + button.bordersize+1, button.v + button.bordersize+1, &TBx1, &TBy1, &TBw1, &TBh1);  // do not forget '&' using pointers not values!!!
   // FOR debugging line wrapping: use serial input (shows as RED! ) e.g. from Arduino serial monitor
    int LinesPrinted;
   LinesPrinted=int(0.5+TBh1/text_offset);
@@ -289,9 +292,10 @@ void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t col
   // LinesPrinted=int(0.5+TBh1/text_offset);
   // Serial.printf(" test: tbx%i  tby%i  tbw%i  tbh%i   toff %i  Linesadded%i", TBx1, TBy1, TBw1, TBh1, text_offset,LinesPrinted );
   // }
+  gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);                               // 
   y = button.v + text_offset ;
   x = button.h +button.bordersize;  
-  if (horizCenter) { x = x + ((typingspaceW - (TBw1 )) / 2); } 
+  if (horizCenter) { x = x + ((typingspaceW - (TBw1 )) / 2)-TBx1; } // subtract any start text offset 
   y= TopLeftYforthisLine(button, button.PrintLine)+text_offset +1; // // puts y cursor on a specific line 
   if (vertCenter) { y = text_offset+ button.bordersize+ button.v + ((typingspaceH - (TBh1)) / 2); }  // vertical centering
   gfx->setCursor(x, y);  
@@ -357,8 +361,8 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
   int typingspaceH, typingspaceW;
   bool recent = (data.updated >= millis() - 6000);
   ////// buttton width and height are for the OVERALL box. subtract border!
-  typingspaceH = button.height - (2 * button.bordersize) ;
-  typingspaceW = button.width - (2 * button.bordersize) ;  // small one pixel inset 
+  typingspaceH = button.height - (2 * button.bordersize) -2;
+  typingspaceW = button.width - (2 * button.bordersize) -2 ;  // small one pixel inset 
   if(horizCenter ||vertCenter ){ gfx->setTextWrap(false);}
      else{gfx->setTextWrap(true);} 
   // SetTextsize (magnify) is now set in used in message buildup
@@ -383,22 +387,19 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
     decimal[0] = 0;
   }
   setFont(bigfont);                                              // here so the text_offset is correct for bigger font
-  x = button.h + button.bordersize;  //starting point left..                            
-  y = button.v + button.bordersize + (magnify* text_offset) ;      // starting bpoint 'down' allow for magnify !! bigger font for front half
+  x = button.h + button.bordersize +1;  //starting point left..                            
+  y = button.v + button.bordersize + 1+ (magnify* text_offset) ;      // starting bpoint 'down' allow for magnify !! bigger font for front half
   //gfx->setTextBound(button.h + button.bordersize+1, button.v + button.bordersize+1, typingspaceW-2, typingspaceH-2); 
   gfx->setTextBound(0, 0, 480, 480);  // test.. set a full (width) text bound to be certain that the get does not take into account any 'wrap'  
   
-  gfx->getTextBounds(digits, 0,0, &TBx1, &TBy1, &TBw1, &TBh1);  // get text bound for digits (does 0,0 give different width? - NO  
+  gfx->getTextBounds(digits, 0,0, &TBx1, &TBy1, &TBw1, &TBh1);  // get text bound for digits use 0,0 for start to ensure we get a usable TBx1 and TBx2 later  
   setFont(smallfont);
-  gfx->getTextBounds(decimal, TBw1,0, &TBx2, &TBy2, &TBw2, &TBh2);  // get text bounds for decimal 
-
-
-
+  gfx->getTextBounds(decimal, 0,0, &TBx2, &TBy2, &TBw2, &TBh2);  // get text bounds for decimal 
 // if (typingspaceW >=300){
-//   Serial.printf("digits<%s>:decimal<%s> Total %i tbx1: %i tbx2: %i   TBW1: %i TBW2: %i  \n",digits,decimal,TBw1+TBw2,TBx1,TBx2, TBw1, TBw2);
+//   Serial.printf("digits<%s>:decimal<%s> Total %i tbx1: %i tbx2: %i   TBW1: %i TBW2: %i  ",digits,decimal,TBw1+TBw2,TBx1,TBx2, TBw1, TBw2);
 //   }
   if (((TBw1 + TBw2) >= typingspaceW) || (TBh1 >= typingspaceH)) { // too big!!
-    if ((TBw1 <= typingspaceW) && (TBh1 <= typingspaceH)){//just print digits not decimals
+    if ((TBw1 <= typingspaceW) && (TBh1 <= typingspaceH)){         //just print digits not decimals
      TBw2=0;
      decimal[0]=0;decimal[1]=0;
     }
@@ -409,34 +410,30 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
     return;
     }
   }
-  setFont(bigfont);                                                   // here so the text_offset is correct for bigger font
-
-  if (horizCenter) { x = button.h + button.bordersize + ((typingspaceW - (TBw1 + TBw2)) / 2) ; }  //try for horizontal / vertical centering
+  setFont(bigfont);                                                   // Reset to big font for Digits..
+  if (horizCenter) { x = button.h + button.bordersize + ((typingspaceW - (TBw1 + TBw2)) / 2) ; }  //offset to horizontal center
   if (vertCenter) { y = button.v + button.bordersize+ (magnify* text_offset) + ((typingspaceH - (TBh1)) / 2); }          // vertical centering
-  //Serial.print("will print <");Serial.print(digits);Serial.print(decimal);Serial.println(">");  //debug
-                                        // Down a bit equal to border size.. give a bit of border to print
-  //box erase was used before I 'background printed' the previous data. but useful fo rvisualising the tbx1 etc,,, 
-  //gfx->fillRect(TBx1 , TBy1, TBw2+TBw1 , TBh2, RED);//button.BackColor);
-  //gfx->fillRect(x , y - (text_offset), (TBw1), TBh1, );//button.BackColor);  //RED); visualise in debug by changing colour ! where the text will be plus a bit
   if (erase) {
     gfx->setTextColor(button.BackColor);
   } else {
     gfx->setTextColor(button.TextColor);
   }
   gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);  
-  gfx->setCursor(x-TBx1, y);  // NOTE TBx1 is normally zero for most fonts, but some print with offsets that will be noted by this result. 
-                              // they therefore print further to the right( by TBX1) than expected. Subtracting this offset corrects for the error and 
-                              // better centers the text. This is most noticable with large (magnified) fonts.  
   if (!recent) { gfx->setTextColor(DARKGREY); data.greyed = true; }
- 
+  x = x-TBx1;                   // NOTE TBx1 is normally zero for most fonts, but some print with offsets that will be corrected by TBx1. 
+  gfx->setCursor(x, y);  
   gfx->print(digits);
+  x = gfx->getCursorX();
   if (TBw2 != 0){
       setFont(smallfont);
+      gfx->setCursor((x-TBx2),y);  // Set decimals start position based on where Digits ended and allow for any font start offset TBx2
       gfx->print(decimal);
       }
   gfx->setTextColor(button.TextColor);
   gfx->setTextBound(0, 0, 480, 480);  //MUST reset it for other functions that do not set it themselves!
 }
+
+
 
 void UpdateDataTwoSize(bool horizCenter, bool vertCenter, int bigfont, int smallfont, Button button, instData &data, const char *fmt) {
   if (data.data == NMEA0183DoubleNA) { return; }
@@ -538,7 +535,7 @@ void AddTitleInsideBox(int font, int pos, Button button, const char *fmt, ...) {
   vsnprintf(Title, 300, fmt, args);
   va_end(args);
   int len = strlen(Title);
-  gfx->getTextBounds(Title, button.h, button.v, &TBx1, &TBy1, &TBw, &TBh);
+  gfx->getTextBounds(Title, 0, 0, &TBx1, &TBy1, &TBw, &TBh);
   gfx->setTextColor(WHITE, button.BorderColor);
   //different positions
   //top left- just inside / outside the box- original function
@@ -551,16 +548,16 @@ void AddTitleInsideBox(int font, int pos, Button button, const char *fmt, ...) {
   //top right
   switch (pos) {
     case 1:  // top right
-      gfx->setCursor(button.h + button.width - TBw - button.bordersize, button.v + TBh + button.bordersize);
+      gfx->setCursor(button.h + button.width - TBw - button.bordersize, button.v + TBh );
       break;
     case 2:  //bottom right
-      gfx->setCursor(button.h + button.width - TBw - button.bordersize, button.v + button.height - TBh);
+      gfx->setCursor(button.h + button.width - TBw - button.bordersize, button.v + button.height +TBy1+ button.bordersize);
       break;
     case 3:  //top left
-      gfx->setCursor(button.h, button.v + TBh + button.bordersize);
+      gfx->setCursor(button.h, button.v + TBh );
       break;
     case 4:  //bottom left
-      gfx->setCursor(button.h, button.v + button.height - TBh);
+      gfx->setCursor(button.h, button.v + button.height +TBy1 + button.bordersize);
       break;
     default:  //top right
       gfx->setCursor(button.h + button.width - TBw, button.v - TBh);
