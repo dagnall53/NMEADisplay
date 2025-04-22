@@ -2,7 +2,7 @@
 # NMEADisplay
 This project is a Wireless Instrument Repeater Display for Boats.
 
-It requires the boat to have a wireless NMEA multiplexer that sends NMEA instrument readings on UDP. 
+It requires the boat to have a wireless NMEA Gateway that sends NMEA 0183 instrument readings on UDP. 
 <p align="center"> Version 3 display <img width = 400 src="https://github.com/user-attachments/assets/a6a14548-3c6a-4396-b0af-098bd9176c43" width="200" /></p>
 
 Images of previous versions of the display
@@ -51,6 +51,9 @@ You can select a network by touching it and it will update in the second box and
 if you touch this, it will select that SSID and return you to the main WiFi Settings page. Press EEPROM "UPDATE" and then "Save/Reset " to save this new SSID in the eeprom.
 Settings made via the screen will be copied into the config.txt file on the SD card and may also be modified wirelessly. (see next).
 Settings on the config.txt take priority when starting.
+
+The Display does a scan on startup and will attempt to automatically connect IF it finds the correct SSID on startup. 
+it will retry the scan once every 30 seconds if it does not find the SSID. This will interrupt the display, but since you are not connected .. there is nothing to display! 
 
 ## USING Webbrowser to select settings.
 Use the Webbrowser (see later) or put the SD card in a PC and open (double click on) the file "config.txt".

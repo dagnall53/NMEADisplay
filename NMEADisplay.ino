@@ -48,9 +48,9 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 #include "FONTS/FreeSansBold27pt7b.h"
 #include "FONTS/FreeSansBold40pt7b.h"
 #include "FONTS/FreeSansBold60pt7b.h"
-#include "FONTS/FreeMonoBoldOblique27pt7b.h"
-#include "FONTS/FreeMonoBoldOblique40pt7b.h"
-#include "FONTS/FreeMonoBoldOblique60pt7b.h"
+// #include "FONTS/FreeMonoBoldOblique27pt7b.h"
+// #include "FONTS/FreeMonoBoldOblique40pt7b.h"
+// #include "FONTS/FreeMonoBoldOblique60pt7b.h"
 
 
 
@@ -69,7 +69,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.92";
+const char soft_version[] = "Version 3.93";
 bool hasSD;
 
 
@@ -102,6 +102,7 @@ char nmea_EXT[BufferLength];  // buffer for ESP_now received data
 
 bool EspNowIsRunning = false;
 char* pTOKEN;
+int StationsConnected;
 // assists for wifigfx interrupt  box that shows status..  to help turn it off after a time
 uint32_t WIFIGFXBoxstartedTime;
 bool WIFIGFXBoxdisplaystarted;
@@ -806,8 +807,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         }
       }
       if (CheckButton(TopRightbutton)) {
-        GFXBorderBoxPrintf(SecondRowButton, " Starting WiFi re-SCAN ");
-        NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
+        GFXBorderBoxPrintf(SecondRowButton, " Starting WiFi re-SCAN / reconnect ");
+        ScanAndConnect(false);
+        //NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
         DataChanged = true;
       }  // do the scan again
       if (CheckButton(SecondRowButton)) {
@@ -928,14 +930,15 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
     case 0:  // main settings
       if (RunSetup) {
         ShowToplinesettings("Now");
-        setFont(3);
+        setFont(4);
         GFXBorderBoxPrintf(Full0Center, "-Experimental-");
         GFXBorderBoxPrintf(Full1Center, "WIFI Settings");
         GFXBorderBoxPrintf(Full2Center, "NMEA DISPLAY");
         GFXBorderBoxPrintf(Full3Center, "Debug + LOG");
         GFXBorderBoxPrintf(Full4Center, "GPS Display");
         GFXBorderBoxPrintf(Full5Center, "Save / Reset ");
-        GFXBorderBoxPrintf(Full6Center, "Panel Name<%s>", Display_Config.PanelName);
+        setFont(3);
+        GFXBorderBoxPrintf(Full6Center, "PanelName<%s>", Display_Config.PanelName);
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
@@ -1417,27 +1420,28 @@ void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes increment
       text_offset = -(FreeSansBold60pt7bGlyphs[0x38].yOffset);
       text_char_width = 12;
       break;
-      case 21:  //Mono oblique BOLD 27 pt
-      Fontname = "FreeMonoBoldOblique27pt7b";
-      gfx->setFont(&FreeMonoBoldOblique27pt7b);
-      text_height = (FreeMonoBoldOblique27pt7bGlyphs[0x38].height) + 1;
-      text_offset = -(FreeMonoBoldOblique27pt7bGlyphs[0x38].yOffset);
-      text_char_width = 12;
-      break;
-    case 22:  //Mono oblique BOLD 40 pt
-      Fontname = "FreeMonoBoldOblique40pt7b";
-      gfx->setFont(&FreeMonoBoldOblique40pt7b);
-      text_height = (FreeMonoBoldOblique40pt7bGlyphs[0x38].height) + 1;
-      text_offset = -(FreeMonoBoldOblique40pt7bGlyphs[0x38].yOffset);
-      text_char_width = 12;
-      break;
-          case 23:  //Mono oblique BOLD 60 pt
-      Fontname = "FreeMonoBoldOblique60pt7b";
-      gfx->setFont(&FreeMonoBoldOblique60pt7b);
-      text_height = (FreeMonoBoldOblique60pt7bGlyphs[0x38].height) + 1;
-      text_offset = -(FreeMonoBoldOblique60pt7bGlyphs[0x38].yOffset);
-      text_char_width = 12;
-      break;
+
+    //   case 21:  //Mono oblique BOLD 27 pt
+    //   Fontname = "FreeMonoBoldOblique27pt7b";
+    //   gfx->setFont(&FreeMonoBoldOblique27pt7b);
+    //   text_height = (FreeMonoBoldOblique27pt7bGlyphs[0x38].height) + 1;
+    //   text_offset = -(FreeMonoBoldOblique27pt7bGlyphs[0x38].yOffset);
+    //   text_char_width = 12;
+    //   break;
+    // case 22:  //Mono oblique BOLD 40 pt
+    //   Fontname = "FreeMonoBoldOblique40pt7b";
+    //   gfx->setFont(&FreeMonoBoldOblique40pt7b);
+    //   text_height = (FreeMonoBoldOblique40pt7bGlyphs[0x38].height) + 1;
+    //   text_offset = -(FreeMonoBoldOblique40pt7bGlyphs[0x38].yOffset);
+    //   text_char_width = 12;
+    //   break;
+    //       case 23:  //Mono oblique BOLD 60 pt
+    //   Fontname = "FreeMonoBoldOblique60pt7b";
+    //   gfx->setFont(&FreeMonoBoldOblique60pt7b);
+    //   text_height = (FreeMonoBoldOblique60pt7bGlyphs[0x38].height) + 1;
+    //   text_offset = -(FreeMonoBoldOblique60pt7bGlyphs[0x38].yOffset);
+    //   text_char_width = 12;
+    //   break;
 
 
     default:
@@ -1540,6 +1544,7 @@ void setup() {
 
 void loop() {
   static unsigned long LogInterval;
+  static unsigned long SSIDSearchInterval;
   static bool flash;
   static unsigned long flashinterval;
   yield();
@@ -1555,6 +1560,12 @@ void loop() {
   if ((millis() <= 15000) && !WIFIGFXBoxdisplaystarted && (WiFi.status() != WL_CONNECTED)) {
     WifiGFXinterrupt(9, WifiStatus, "...STARTING...\nnot connected\nLooking for\n<%s>", Current_Settings.ssid);
   }
+
+  if (!IsConnected && (millis() >= SSIDSearchInterval)) {
+    SSIDSearchInterval = millis() + 30000;
+    ScanAndConnect(true); // has the required SSID appeared yet?? 
+  }
+
   //LOG ??
   if ((millis() >= flashinterval)) {
     flashinterval = millis() + 1000;
@@ -1931,24 +1942,28 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       Serial.println("WiFi connected");
       //  gfx->println(" Connected ! ");
-      Serial.print("** Connected.: ");
+      Serial.print("** Connected to : ");
       IsConnected = true;
       //  gfx->println(" Using :");
       //  gfx->println(WiFi.SSID());
-      Serial.print(" *Running with:  ssid<");
       Serial.print(WiFi.SSID());
       Serial.println(">");
-      WifiGFXinterrupt(9, WifiStatus, "CONNECTED\nTO <%s> ", WiFi.SSID());
+      WifiGFXinterrupt(9, WifiStatus, "CONNECTED TO\n<%s>", WiFi.SSID());
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-      IsConnected = false;
       Serial.println("WiFi disconnected");
       Serial.print("WiFi lost Reason: ");
       Serial.println(disconnectreason(info.wifi_sta_disconnected.reason));
-      Serial.println("Trying to Reconnect");
-      WiFi.begin(Current_Settings.ssid, Current_Settings.password);
+      if (!IsConnected){
+         if (ScanAndConnect(true)) { WifiGFXinterrupt(8, WifiStatus, "Attempting Reconnect to\n<%s>",Current_Settings.ssid); }
+        }else{
+        WiFi.disconnect(); 
+        WifiGFXinterrupt(8, WifiStatus, "Disconnected \n REASON:%s\n Retrying:<%s>", disconnectreason(info.wifi_sta_disconnected.reason).c_str(), Current_Settings.ssid);
+        IsConnected = false; 
+        }
+      
+      
 
-      WifiGFXinterrupt(8, WifiStatus, "Disconnected \n REASON:%s\n Retrying:<%s>", disconnectreason(info.wifi_sta_disconnected.reason).c_str(), Current_Settings.ssid);
 
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
@@ -1957,22 +1972,70 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
       // gfx->println(WiFi.localIP());
       Serial.println(WiFi.localIP());
       sta_ip = WiFi.localIP();
-      WifiGFXinterrupt(9, WifiStatus, "CONNECTED\n to %s \n (IP:%i.%i.%i.%i) \n", WiFi.SSID(),
+      WifiGFXinterrupt(9, WifiStatus, "CONNECTED TO\n<%s>\nIP:%i.%i.%i.%i\n", WiFi.SSID(),
                        // sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3]);
                        WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
       break;
+
+    case ARDUINO_EVENT_WIFI_AP_START:
+      WifiGFXinterrupt(8, WifiStatus, "Soft-AP started\n%s ",WiFi.softAPSSID());
+      Serial.println("   10 ESP32 soft-AP start");
+      break;  
+
+
+    case ARDUINO_EVENT_WIFI_AP_STACONNECTED://12 a station connected to ESP32 soft-AP
+      WifiGFXinterrupt(8, WifiStatus, "Station Connected\nTo AP");
+      StationsConnected = StationsConnected + 1;
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED://13 a station disconnected from ESP32 soft-AP
+      WifiGFXinterrupt(8, WifiStatus, "Station Disconnected\nfrom AP");
+      StationsConnected = StationsConnected - 1;
+      if (StationsConnected == 0) {}
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED://14 ESP32 soft-AP assign an IP to a connected station
+      WifiGFXinterrupt(8, WifiStatus, "Station Connected\nTo AP\nNow has Assigned IP");
+        Serial.print("   AP IP address: ");
+    Serial.println(WiFi.softAPIP());
+      break;   
   }
+}
+
+bool ScanAndConnect(bool display){
+  // (a sucessful!) experiment.. do the WIfI/scan(i) and they get independently stored??
+  NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
+  WiFi.disconnect(false);  // Do NOT turn off wifi if the network disconnects
+  delay(100);
+   
+  Serial.printf(" Scan found <%i> networks:\n", NetworksFound);
+  bool found = false;
+  for (int i = 0; i < NetworksFound; ++i) {
+    if (WiFi.SSID(i).length() <= 25) {
+      Serial.printf(" <%s> \n", WiFi.SSID(i));
+    } else {
+      Serial.printf(" <name too long> \n");
+    }
+    if (WiFi.SSID(i) == Current_Settings.ssid) { found = true; }
+  }
+  if (found) { //gfx->printf("Found <%s> network!\n", Current_Settings.ssid); 
+  if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found\n <%i> networks\n Connecting to\n <%s>", NetworksFound,Current_Settings.ssid);}
+  WiFi.begin(Current_Settings.ssid, Current_Settings.password);}
+  else { 
+  if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found\n <%i> networks\n but not %s", NetworksFound,Current_Settings.ssid);}
+  }
+ return found;
 }
 
 void ConnectWiFiusingCurrentSettings() {
   bool result;
   uint32_t StartTime = millis();
-  gfx->println("Setting up WiFi");
+  // superceded by WIFI box display "setting up AP" gfx->println("Setting up WiFi");
   WiFi.disconnect(false, true);  // clean the persistent memory in case someone else set it !! eg ESPHOME!!
   delay(100);
   WiFi.persistent(false);
   WiFi.mode(WIFI_AP_STA);
+  WiFi.onEvent(WiFiEventPrint); // serial print for debugging 
   WiFi.onEvent(wifiEvent);  // Register the event handler
+  
   // start the display's AP - potentially with NULL pasword
   if ((String(Display_Config.APpassword) == "NULL") || (String(Display_Config.APpassword) == "null") || (String(Display_Config.APpassword) == "")) {
     result = WiFi.softAP(Display_Config.PanelName);
@@ -1984,8 +2047,7 @@ void ConnectWiFiusingCurrentSettings() {
   if (result == true) {
     Serial.println("Soft-AP creation success!");
     Serial.print("   ssidAP: ");
-    gfx->println("Soft-AP creation success");
-    gfx->printf("   ssidAP: %s\n", WiFi.softAPSSID());
+
     Serial.println(WiFi.softAPSSID());
     Serial.print("   passAP: ");
     Serial.println(Display_Config.APpassword);
@@ -1999,29 +2061,7 @@ void ConnectWiFiusingCurrentSettings() {
     Serial.println(WiFi.softAPIP());
   }
   WiFi.mode(WIFI_AP_STA);
-  // (a sucessful!) experiment.. do the WIfI/scan(i) and they get independently stored??
-  NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
-  WiFi.disconnect(false);  // Do NOT turn off wifi if the network disconnects
-  delay(100);
-  gfx->printf(" Scan found <%i> networks\n", NetworksFound);
-  Serial.printf(" Scan found <%i> networks:\n", NetworksFound);
-  bool found = false;
-  for (int i = 0; i < NetworksFound; ++i) {
-    if (WiFi.SSID(i).length() <= 25) {
-      Serial.printf(" <%s> \n", WiFi.SSID(i));
-    } else {
-      Serial.printf(" <name too long> \n");
-    }
-    if (WiFi.SSID(i) == Current_Settings.ssid) { found = true; }
-  }
-  if (found) { gfx->printf("Found <%s> network!\n", Current_Settings.ssid); }
-  WiFi.begin(Current_Settings.ssid, Current_Settings.password);        //standard wifi start
-  gfx->printf("will try to connect to :%s\n", Current_Settings.ssid);  //
-  // while ((WiFi.status() != WL_CONNECTED) && (millis() <= StartTime + 10000)) {  //wait while it tries..10 seconds max
-  //   delay(500);
-  //   gfx->print(".");
-  //   Serial.print(".");
-  // }
+  if (ScanAndConnect(true)) {gfx->printf("will try to connect to :%s\n", Current_Settings.ssid);}  //
 }
 
 bool Test_Serial_1() {  // UART0 port P1
@@ -2353,4 +2393,99 @@ WIFI_REASON_HANDSHAKE_TIMEOUT        = 204,{*/
   }
 
   return "Unknown";
+}
+
+void WiFiEventPrint(WiFiEvent_t event) {
+ 
+  switch (event) {
+    case ARDUINO_EVENT_WIFI_READY:
+      Serial.println("   00 ESP32 WiFi ready");
+      break;
+    case ARDUINO_EVENT_WIFI_SCAN_DONE:
+      Serial.println("   01 ESP32 finish scanning AP");
+      break;
+    case ARDUINO_EVENT_WIFI_STA_START:
+      Serial.println("   02 ESP32 station start");
+      break;
+    case ARDUINO_EVENT_WIFI_STA_STOP:
+      Serial.println("   03 ESP32 station stop");
+      break;
+    case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+      //Serial.println("   04 ESP32 station connected to AP");
+      break;
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+      Serial.println("   05 ESP32 station disconnected from AP");
+      break;
+    case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
+      Serial.println("   06 the auth mode of AP connected by ESP32 station changed");
+      break;
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+      //Serial.println("   07 ESP32 station got IP from connected AP");
+      break;
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP6:
+      Serial.println("   08 ESP32 station interface v6IP addr is preferred");
+      break;
+    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+      Serial.println("   09 ESP32 station lost IP and the IP is reset to 0");
+      break;
+    case ARDUINO_EVENT_WIFI_AP_START:
+      // dealt with in the main wifi event cases function Serial.println("   10 ESP32 soft-AP start");
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STOP:
+      Serial.println("   11 ESP32 soft-AP stop");
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
+      Serial.println("   12 a station connected to ESP32 soft-AP");
+      StationsConnected = StationsConnected + 1;
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
+      Serial.println("   13 a station disconnected from ESP32 soft-AP");
+      StationsConnected = StationsConnected - 1;
+      if (StationsConnected == 0) {}
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
+      Serial.println("   14 ESP32 soft-AP assign an IP to a connected station");
+      break;
+    case ARDUINO_EVENT_WIFI_AP_PROBEREQRECVED:
+      Serial.println("   15 Receive probe request packet in soft-AP interface");
+      break;
+    case ARDUINO_EVENT_WIFI_AP_GOT_IP6:
+      Serial.println("   16 ESP32 ap interface v6IP addr is preferred");
+      break;
+    case ARDUINO_EVENT_WIFI_FTM_REPORT:
+      Serial.println("   17 fine time measurement report");
+      break;
+    case ARDUINO_EVENT_ETH_START:
+      Serial.println("   18 ESP32 ethernet start");
+      break;
+    case ARDUINO_EVENT_ETH_STOP:
+      Serial.println("   19 ESP32 ethernet stop");
+      break;
+    case ARDUINO_EVENT_ETH_CONNECTED:
+      Serial.println("   20 ESP32 ethernet phy link up");
+      break;
+    case ARDUINO_EVENT_ETH_DISCONNECTED:
+      Serial.println("   21 ESP32 ethernet phy link down");
+      break;
+    case ARDUINO_EVENT_ETH_GOT_IP:
+      Serial.println("   22 ESP32 ethernet got IP from connected AP");
+      break;
+    case ARDUINO_EVENT_ETH_GOT_IP6:
+      Serial.println("   23 ESP32 ethernet interface v6IP addr is preferred");
+      break;
+    case ARDUINO_EVENT_WPS_ER_SUCCESS:
+      Serial.println("   24 ESP32 station wps succeeds in enrollee mode");
+      break;
+    case ARDUINO_EVENT_WPS_ER_FAILED:
+      Serial.println("   25 ESP32 station wps fails in enrollee mode");
+      break;
+    case ARDUINO_EVENT_WPS_ER_TIMEOUT:
+      Serial.println("   26 ESP32 station wps timeout in enrollee mode");
+      break;
+    case ARDUINO_EVENT_WPS_ER_PIN:
+      Serial.println("   27 ESP32 station wps pin code in enrollee mode");
+      break;
+    default:
+      break;
+  }
 }

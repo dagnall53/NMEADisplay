@@ -62,7 +62,8 @@ extern void setFont(int);
 extern const char soft_version[];
 //const char *host = "NMEADisplay";
 extern tBoatData BoatData;
-
+extern void WifiGFXinterrupt(int font, Button& button, const char* fmt, ...) ;
+extern Button WifiStatus;
 WebServer server(80);
 File uploadFile;
 
@@ -428,10 +429,12 @@ void SetupOTA() {
     Serial.print("You can now connect to http://");
     Serial.print(Display_Config.PanelName);
     Serial.println(".local");
+    WifiGFXinterrupt(8, WifiStatus, "MDNS responder started\nconnect to\n http://%s.local",Display_Config.PanelName);
   }
   //**************
   server.on("/", HTTP_GET, []() {
     Serial.println(" handling  root");
+    WifiGFXinterrupt(8, WifiStatus, "Running Webserver");
     handleRoot();
   });
 
@@ -455,10 +458,12 @@ void SetupOTA() {
   });
 
   server.on("/OTA", HTTP_GET, []() {
+    WifiGFXinterrupt(8, WifiStatus, "Ready for OTA");
     server.sendHeader("Connection", "close");
     server.send(200, "text/html", serverIndex);
   });
   server.on("/ota", HTTP_GET, []() {
+    WifiGFXinterrupt(8, WifiStatus, "Ready for OTA");
     server.sendHeader("Connection", "close");
     server.send(200, "text/html", serverIndex);
   });
