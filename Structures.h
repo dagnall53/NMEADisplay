@@ -9,12 +9,13 @@ tBoatdata from Timo Llapinen by Dr.András Szép under GNU General Public Licens
 #include <NMEA0183Msg.h>
 #include <NMEA0183Messages.h> // for the doubleNA
 
-struct JSONCONFIG {  // for the JSON set Defaults and user settings for displays 
+struct JSONCONFIG {  // will be Display_Config for the JSON set Defaults and user settings for displays 
   char Mag_Var[15]; // got to save double variable as a string! east is positive
   int Start_Page ;
   char PanelName[25];
   char APpassword[25]; 
-   
+  char FourWayBR[10] ;
+  char FourWayBL[10] ; 
 };
 
 

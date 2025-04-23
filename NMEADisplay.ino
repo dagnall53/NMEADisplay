@@ -69,7 +69,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.93";
+const char soft_version[] = "Version 3.95";
 bool hasSD;
 
 
@@ -86,13 +86,14 @@ Audio audio;
 
 
 // some wifi stuff
-
+//NB these may not be used -- I have tried to do some simplification
 IPAddress udp_ap(0, 0, 0, 0);   // the IP address to send UDP data in SoftAP mode
 IPAddress udp_st(0, 0, 0, 0);   // the IP address to send UDP data in Station mode
 IPAddress sta_ip(0, 0, 0, 0);   // the IP address (or received from DHCP if 0.0.0.0) in Station mode
 IPAddress gateway(0, 0, 0, 0);  // the IP address for Gateway in Station mode
 IPAddress subnet(0, 0, 0, 0);   // the SubNet Mask in Station mode
 boolean IsConnected = false;    // may be used in AP_AND_STA to flag connection success (got IP)
+boolean AttemptingConnect;      // to note that WIFI.begin has been started
 int NetworksFound;              // used for scan Networks result. Done at start up!
 WiFiUDP Udp;
 #define BufferLength 500
@@ -109,7 +110,6 @@ bool WIFIGFXBoxdisplaystarted;
 //********** All boat data (instrument readings) are stored as double in a single structure:
 
 tBoatData BoatData;  // BoatData values, int double etc
-
 
 bool dataUpdated;  // flag that Nmea Data has been updated
 
@@ -250,9 +250,11 @@ bool LoadConfiguration(const char* filename, JSONCONFIG& config, MySettings& set
   if (doc["Start_Page"] == 0) { return false; }  //secondary backup in case the file is present (passes error) but zeroed!
 
   config.Start_Page = doc["Start_Page"] | 4;  // 4 is default page int - no problem...
-
   strlcpy(temp, doc["Mag_Var"] | "1.15", sizeof(temp));
   BoatData.Variation = atof(temp);  //  (+ = easterly) Positive: If the magnetic north is to the east of true north, the declination is positive (or easterly).
+  
+  strlcpy(config.FourWayBR, doc["FourWayBR"] | "SOG", sizeof(config.FourWayBR));
+  strlcpy(config.FourWayBL, doc["FourWayBL"] | "DEPTH", sizeof(config.FourWayBL));
 
   strlcpy(config.PanelName,                  // User selectable
           doc["PanelName"] | "NMEADISPLAY",  // <- and default in case Json is corrupt / missing !
@@ -300,6 +302,10 @@ void SaveConfiguration(const char* filename, JSONCONFIG& config, MySettings& set
   doc["Mag_Var"] = buff;
   doc["PanelName"] = config.PanelName;
   doc["APpassword"] = config.APpassword;
+  doc["FourWayBR"] = config.FourWayBR;
+  doc["FourWayBL"] = config.FourWayBL;
+
+
   //now the settings WIFI etc..
   doc["ssid"] = settings.ssid;
   doc["password"] = settings.password;
@@ -454,14 +460,41 @@ void ShowToplinesettings(MySettings A, String Text) {
   CurrentSettingsBox.PrintLine = 0;
   // 7 is smallest Bold Font
   UpdateLinef(7, CurrentSettingsBox, "%s:SSID<%s>PWD<%s>UDPPORT<%s>", Text, A.ssid, A.password, A.UDP_PORT);
-  sta_ip = WiFi.localIP();
-  UpdateLinef(7, CurrentSettingsBox, "IP:%i.%i.%i.%i  RSSI %i", sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3], rssiValue);
+  UpdateLinef(7, CurrentSettingsBox, "IP:%i.%i.%i.%i  RSSI %i", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3], rssiValue);
   UpdateLinef(7, CurrentSettingsBox, "Ser<%s>UDP<%s>ESP<%s>Log<%s>NMEA<%s>", A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off, A.Log_ON On_Off, A.NMEA_log_ON On_Off);
   // UpdateLinef(7,CurrentSettingsBox, "Logger settings Log<%s>NMEA<%s>",A.Serial_on On_Off, A.UDP_ON On_Off, A.ESP_NOW_ON On_Off,A.NMEA_log_ON On_Off);
 }
 void ShowToplinesettings(String Text) {
   ShowToplinesettings(Current_Settings, Text);
 }
+
+void ShowGPSinBox(int font, Button button){
+  static double lastTime;
+  //Serial.printf("In ShowGPSinBox  %i\n",int(BoatData.GPSTime));
+   if ((BoatData.GPSTime != NMEA0183DoubleNA) && (BoatData.GPSTime != lastTime))  {
+    lastTime=BoatData.GPSTime;
+    GFXBorderBoxPrintf(button,"");
+    AddTitleInsideBox(9, 2, button, " GPS");
+        button.PrintLine = 0;
+        if (BoatData.SatsInView != NMEA0183DoubleNA) { UpdateLinef(font, button, "Satellites in view %.0f ", BoatData.SatsInView); }
+        if (BoatData.GPSTime != NMEA0183DoubleNA) {
+          //UpdateLinef(font, button, "");
+          UpdateLinef(font, button, "Date: %06i ", int(BoatData.GPSDate));
+          //UpdateLinef(font, button, "");
+          UpdateLinef(font, button, "TIME: %02i:%02i:%02i",
+                      int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
+        }
+        if (BoatData.Latitude.data != NMEA0183DoubleNA) {
+          UpdateLinef(font, button, "LAT");
+          UpdateLinef(font, button, "%s", LattoString(BoatData.Latitude.data));
+           UpdateLinef(font, button, "LON");
+          UpdateLinef(font, button, "%s", LongtoString(BoatData.Longitude.data));
+          UpdateLinef(font, button, "");
+        }
+   }  
+}
+
+
 
 //***************************   DISPLAY .. The main place where the pages are described ****************
 void Display(int page) {
@@ -808,8 +841,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       }
       if (CheckButton(TopRightbutton)) {
         GFXBorderBoxPrintf(SecondRowButton, " Starting WiFi re-SCAN / reconnect ");
+        AttemptingConnect=false; // so that Scan can do a full scan..
         ScanAndConnect(false);
-        //NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
         DataChanged = true;
       }  // do the scan again
       if (CheckButton(SecondRowButton)) {
@@ -972,23 +1005,31 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         // AddTitleInsideBox(9, 1, bottomLeftquarter, "pos1"); // for box printing tests!
         // AddTitleInsideBox(9, 4, bottomLeftquarter, "pos4");  //font,position
         GFXBorderBoxPrintf(bottomRightquarter, "");
-        AddTitleInsideBox(9, 3, bottomRightquarter, "SOG ");
-        AddTitleInsideBox(9, 2, bottomRightquarter, " Kts");  //font,position
-        delay(500);
+        if(String(Display_Config.FourWayBR) == "SOG"){
+           AddTitleInsideBox(9, 3, bottomRightquarter, "SOG ");
+           AddTitleInsideBox(9, 2, bottomRightquarter, " Kts");  //font,position
+          }
+        // if(String(Display_Config.FourWayBR) == "GPS"){ AddTitleInsideBox(9, 2, bottomRightquarter, " GPS");}
+        //delay(500); 
+        setFont(10); 
       }
-      if (millis() > slowdown + 300) {
+       if (millis() > slowdown + 500) {
         slowdown = millis();
-        setFont(10);  // note: all the 'updates' now check for new data else return immediately
       }
       WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp);
       UpdateDataTwoSize(true, true, 13, 11, topLeftquarter, BoatData.STW, "%.1f");
       UpdateDataTwoSize(true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%.1f");
-      UpdateDataTwoSize(true, true, 13, 11, bottomRightquarter, BoatData.SOG, "%.1f");
-      // }
+      if(String(Display_Config.FourWayBR) == "SOG"){UpdateDataTwoSize(true, true, 13, 11, bottomRightquarter, BoatData.SOG, "%.1f");}
+      if(String(Display_Config.FourWayBR) == "GPS"){ShowGPSinBox(9,bottomRightquarter);}
+      
+
       if (CheckButton(topLeftquarter)) { Display_Page = 6; }      //stw
       if (CheckButton(bottomLeftquarter)) { Display_Page = 7; }   //depth
       if (CheckButton(topRightquarter)) { Display_Page = 5; }     // Wind
-      if (CheckButton(bottomRightquarter)) { Display_Page = 8; }  //SOG
+      if (CheckButton(bottomRightquarter)) {
+           if(String(Display_Config.FourWayBR) == "GPS"){Display_Page = 9;} 
+                            else{ Display_Page = 8; }  //SOG
+           }
 
       break;
 
@@ -1208,9 +1249,10 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
           UpdateLinef(9, BigSingleDisplay, "");
           UpdateLinef(9, BigSingleDisplay, "LAT %s", LattoString(BoatData.Latitude.data));
           UpdateLinef(9, BigSingleDisplay, "LON %s", LongtoString(BoatData.Longitude.data));
+          UpdateLinef(9, BigSingleDisplay, "");
         }
 
-        UpdateLinef(9, BigSingleDisplay, "some other data for review during wrap testing: 1234567890\nand after 'cr' Wraped");
+       // UpdateLinef(9, BigSingleDisplay, "some other data for review during wrap testing: 1234567890\nand after 'cr' Wraped");
         if (LocalCopy.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "COG: %5.4f", LocalCopy.data); }
         if (LocalCopy2.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "SOG: %5.4f", LocalCopy2.data); }
         if (BoatData.MagHeading.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "Mag Heading: %.4f", BoatData.MagHeading); }
@@ -1556,14 +1598,13 @@ void loop() {
   Display(Display_Page);  //EventTiming("STOP");
   EXTHeartbeat();
   audio.loop();
-  // only for first 15 seconds do not repeat later if disconnect.. or it gets confusing with the wifievents!
-  if ((millis() <= 15000) && !WIFIGFXBoxdisplaystarted && (WiFi.status() != WL_CONNECTED)) {
-    WifiGFXinterrupt(9, WifiStatus, "...STARTING...\nnot connected\nLooking for\n<%s>", Current_Settings.ssid);
-  }
 
-  if (!IsConnected && (millis() >= SSIDSearchInterval)) {
+  if (!AttemptingConnect && !IsConnected && (millis() >= SSIDSearchInterval)) { // repeat at intervals to check..
     SSIDSearchInterval = millis() + 30000;
-    ScanAndConnect(true); // has the required SSID appeared yet?? 
+    ScanAndConnect(false); // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared 
+  }  
+  if (!IsConnected && AttemptingConnect && !WIFIGFXBoxdisplaystarted ) {//&& (WiFi.status() != WL_CONNECTED)) {
+    WifiGFXinterrupt(9, WifiStatus, "...STARTING...\nConnecting to\n<%s>", Current_Settings.ssid);
   }
 
   //LOG ??
@@ -1594,7 +1635,7 @@ void loop() {
   }
 
   if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000)) {
-    Display(true, Display_Page);  // reset the display after 10 secs of interruption from the WIFIGFX interruption
+    Display(true, Display_Page);  // reset the WIFIGFX interrupt display after 10 secs of interruption from the WIFIGFX interruption
     WIFIGFXBoxdisplaystarted = false;
   }
 
@@ -1938,12 +1979,14 @@ void WifiGFXinterrupt(int font, Button& button, const char* fmt, ...) {  //quick
 }
 
 void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
+  
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       Serial.println("WiFi connected");
       //  gfx->println(" Connected ! ");
       Serial.print("** Connected to : ");
       IsConnected = true;
+      AttemptingConnect=false;
       //  gfx->println(" Using :");
       //  gfx->println(WiFi.SSID());
       Serial.print(WiFi.SSID());
@@ -1951,30 +1994,33 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
       WifiGFXinterrupt(9, WifiStatus, "CONNECTED TO\n<%s>", WiFi.SSID());
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-      Serial.println("WiFi disconnected");
-      Serial.print("WiFi lost Reason: ");
-      Serial.println(disconnectreason(info.wifi_sta_disconnected.reason));
+    // take care with printf. It can quickly crash if it gets stuff it cannot deal with. 
+    //  Serial.printf(" Disconnected.reason %s  isConnected%s   attemptingConnect%s  \n",disconnectreason(info.wifi_sta_disconnected.reason).c_str(),IsConnected On_Off,AttemptingConnect On_Off);
       if (!IsConnected){
-         if (ScanAndConnect(true)) { WifiGFXinterrupt(8, WifiStatus, "Attempting Reconnect to\n<%s>",Current_Settings.ssid); }
-        }else{
-        WiFi.disconnect(); 
+        if (AttemptingConnect) {return;}
+        Serial.println("WiFi disconnected");
+        Serial.print("WiFi lost reason: ");
+        Serial.println(disconnectreason(info.wifi_sta_disconnected.reason));
+        if (ScanAndConnect(true)) {  // is the required SSID to be found?
+          WifiGFXinterrupt(8, WifiStatus, "Attempting Reconnect to\n<%s>",Current_Settings.ssid); 
+          Serial.println("Attempting Reconnect");}
+        }
+        else{
+        Serial.println("WiFi Disconnected");
+        Serial.print("WiFi Lost Reason: ");
+        Serial.println(disconnectreason(info.wifi_sta_disconnected.reason));
+        WiFi.disconnect(false); // changed to false.. Revise?? so that it does this only if no one is connected to the AP ??
+        AttemptingConnect=false; // so that ScanandConnect can do a full scan next time.. 
         WifiGFXinterrupt(8, WifiStatus, "Disconnected \n REASON:%s\n Retrying:<%s>", disconnectreason(info.wifi_sta_disconnected.reason).c_str(), Current_Settings.ssid);
         IsConnected = false; 
         }
-      
-      
-
-
       break;
+   
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
       Serial.print("The ESP32 has received IP address :");
-      // gfx->print("IP: ");
-      // gfx->println(WiFi.localIP());
       Serial.println(WiFi.localIP());
-      sta_ip = WiFi.localIP();
       WifiGFXinterrupt(9, WifiStatus, "CONNECTED TO\n<%s>\nIP:%i.%i.%i.%i\n", WiFi.SSID(),
-                       // sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3]);
-                       WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
+                        WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
       break;
 
     case ARDUINO_EVENT_WIFI_AP_START:
@@ -1984,13 +2030,14 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
 
 
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED://12 a station connected to ESP32 soft-AP
-      WifiGFXinterrupt(8, WifiStatus, "Station Connected\nTo AP");
       StationsConnected = StationsConnected + 1;
+      WifiGFXinterrupt(8, WifiStatus, "Station Connected\nTo AP\n Total now %i",StationsConnected);
       break;
-    case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED://13 a station disconnected from ESP32 soft-AP
-      WifiGFXinterrupt(8, WifiStatus, "Station Disconnected\nfrom AP");
+    case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED://13 a station disconnected from ESP32 soft-AP      
       StationsConnected = StationsConnected - 1;
       if (StationsConnected == 0) {}
+      WifiGFXinterrupt(8, WifiStatus, "Station Disconnected\nfrom AP\n Total now %i",StationsConnected);
+
       break;
     case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED://14 ESP32 soft-AP assign an IP to a connected station
       WifiGFXinterrupt(8, WifiStatus, "Station Connected\nTo AP\nNow has Assigned IP");
@@ -2001,13 +2048,18 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
 }
 
 bool ScanAndConnect(bool display){
-  // (a sucessful!) experiment.. do the WIfI/scan(i) and they get independently stored??
-  NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
+  static unsigned long ScanInterval; 
+  static bool found ;
+  
+  // do the WIfI/scan(i) and it is independently stored somewhere!! 
+  // but do not call too often - give it time to run!!
+  if (millis() >= ScanInterval ) { ScanInterval = millis()+20000; found=false;
+      NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);delay(100);
+      Serial.printf(" Scan found <%i> networks:\n", NetworksFound);}
+   else {Serial.printf(" Using saved Scan of <%i> networks:\n", NetworksFound);}
+ 
   WiFi.disconnect(false);  // Do NOT turn off wifi if the network disconnects
-  delay(100);
-   
-  Serial.printf(" Scan found <%i> networks:\n", NetworksFound);
-  bool found = false;
+  
   for (int i = 0; i < NetworksFound; ++i) {
     if (WiFi.SSID(i).length() <= 25) {
       Serial.printf(" <%s> \n", WiFi.SSID(i));
@@ -2016,10 +2068,13 @@ bool ScanAndConnect(bool display){
     }
     if (WiFi.SSID(i) == Current_Settings.ssid) { found = true; }
   }
-  if (found) { //gfx->printf("Found <%s> network!\n", Current_Settings.ssid); 
-  if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found\n <%i> networks\n Connecting to\n <%s>", NetworksFound,Current_Settings.ssid);}
-  WiFi.begin(Current_Settings.ssid, Current_Settings.password);}
-  else { 
+  if (found) { 
+       if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found\n <%i> networks\n Connecting to\n <%s>", NetworksFound,Current_Settings.ssid);}
+       Serial.printf(" Scan found <%s> \n", Current_Settings.ssid);//gfx->printf("Found <%s> network!\n", Current_Settings.ssid); 
+       WiFi.begin(Current_Settings.ssid, Current_Settings.password);
+       IsConnected = false;
+       AttemptingConnect = true;}
+  else { AttemptingConnect=false; 
   if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found\n <%i> networks\n but not %s", NetworksFound,Current_Settings.ssid);}
   }
  return found;
@@ -2061,7 +2116,7 @@ void ConnectWiFiusingCurrentSettings() {
     Serial.println(WiFi.softAPIP());
   }
   WiFi.mode(WIFI_AP_STA);
-  if (ScanAndConnect(true)) {gfx->printf("will try to connect to :%s\n", Current_Settings.ssid);}  //
+  if (ScanAndConnect(true)) {}  // all Serial prints etc are now inside ScanAndConnect 'TRUE' will display them.
 }
 
 bool Test_Serial_1() {  // UART0 port P1
@@ -2311,7 +2366,7 @@ char* LattoString(double data) {
   float minutes = (pos - degrees) * 60;
   bool direction;
   direction = (pos >= 0);
-  snprintf(buff, sizeof(buff), "%2ideg %6.3fmin %s", abs(degrees), abs(minutes), direction ? "N" : "S");
+  snprintf(buff, sizeof(buff), " %2ideg %6.3fmin %s", abs(degrees), abs(minutes), direction ? "N" : "S");
 
   return buff;
 }
@@ -2414,7 +2469,7 @@ void WiFiEventPrint(WiFiEvent_t event) {
       //Serial.println("   04 ESP32 station connected to AP");
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-      Serial.println("   05 ESP32 station disconnected from AP");
+      //Serial.println("   05 ESP32 station disconnected from AP");
       break;
     case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
       Serial.println("   06 the auth mode of AP connected by ESP32 station changed");
@@ -2435,13 +2490,13 @@ void WiFiEventPrint(WiFiEvent_t event) {
       Serial.println("   11 ESP32 soft-AP stop");
       break;
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-      Serial.println("   12 a station connected to ESP32 soft-AP");
-      StationsConnected = StationsConnected + 1;
+      //Serial.println("   12 a station connected to ESP32 soft-AP");
+      //StationsConnected = StationsConnected + 1;
       break;
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
-      Serial.println("   13 a station disconnected from ESP32 soft-AP");
-      StationsConnected = StationsConnected - 1;
-      if (StationsConnected == 0) {}
+     // Serial.println("   13 a station disconnected from ESP32 soft-AP");
+      //StationsConnected = StationsConnected - 1;
+      //if (StationsConnected == 0) {}
       break;
     case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
       Serial.println("   14 ESP32 soft-AP assign an IP to a connected station");
