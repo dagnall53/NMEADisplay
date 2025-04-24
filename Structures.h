@@ -40,6 +40,7 @@ struct MyColors {  // for later Day/Night settings
 struct instData {  // struct to hold instrument data AND the time it was updated.
   double data = NMEA0183DoubleNA;
   double lastdata = NMEA0183DoubleNA;
+//  double DataforGraph[202];
   unsigned long updated;
   bool displayed;
   bool greyed;

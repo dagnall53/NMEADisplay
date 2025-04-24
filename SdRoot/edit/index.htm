@@ -649,29 +649,32 @@
       saveButton.onclick = function(e){
     	httpPost(file, editor.getValue()+"", type);
       };
-	   <!-- Download Button -->		
-      var downloadButton = document.createElement("button");
-      downloadButton.innerHTML = 'Download';
-      document.getElementById("filecmds").appendChild(downloadButton);
-      downloadButton.onclick = function(e){
-	    console.log(' download variables 652 ');
-	    
-	    var pathEl = document.getElementById("upload-path");
-	    console.log(pathEl.value);
-            if(pathEl){if (pathEl.value !== null) {
+	   <!-- Download Button -->	
+      //var downloadButton = document.createElement("button");
+      //downloadButton.innerHTML = 'Download';
+      //document.getElementById("filecmds").appendChild(downloadButton);
+      //downloadButton.onclick = function(e){
+	    //console.log(' download variables 657 ');
+	    //var pathEl = document.getElementById("upload-path");
+	    //console.log(pathEl.value);
+      //      if(pathEl){if (pathEl.value !== null) {
               //loadDownload(pathEl.value);
-              document.getElementById('download-frame').src = pathEl.value+"?download=true";
-              
-            }}; //loadDownload(path);
-
-      };
+      //        document.getElementById('download-frame').src = pathEl.value+"?download=true";
+      //        }}; //loadDownload(path);
+      //};
 	     <!-- Delete Button -->		
-      var deleteButton = document.createElement("button");
-      deleteButton.innerHTML = 'Delete';
-      document.getElementById("filecmds").appendChild(deleteButton);
-      deleteButton.onclick = function(e){
-    	//httpPost(file, editor.getValue()+"", type);
-      };
+    //  var deleteButton = document.createElement("button");
+    //  deleteButton.innerHTML = 'Delete';
+    //  document.getElementById("filecmds").appendChild(deleteButton);
+     // deleteButton.onclick = function(e){ 
+	 //   console.log(' delete button 672 ');
+    //    var pathEl = document.getElementById("upload-path");
+	   //   console.log(pathEl.value);
+      //      if(pathEl){if (pathEl.value !== null) {
+      //    createTree.httpDelete(pathEl);
+      //    if(document.body.getElementsByClassName('contextMenu').length > 0) {document.body.removeChild(el);}
+      //      }}
+      //};
        <!-- /Save Button-->
         editor.commands.addCommand({
             name: 'saveCommand',

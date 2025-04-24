@@ -33,7 +33,9 @@ void Pdrawline(Phv P1, Phv P2, uint16_t COLOUR) ;
 void PfillCircle(Phv P1, int rad, uint16_t COLOUR);
 
 //void DrawGraph (Button button, instData &DATA, double dmin, double dmax);
-void DrawGraph (Button button, instData &DATA, double dmin, double dmax, int font,const char *units,const char *msg);
+void SCROLLGraph(Button button, instData &DATA, double dmin, double dmax, int font, const char *msg, const char *units);
+
+void DrawGraph (Button button, instData &DATA, double dmin, double dmax, int font,const char *msg,const char *units);
 void DrawGPSPlot(bool reset, Button button,tBoatData BoatData, double magnification );
 // Sub for functions, Circular keeps things in range.. eg degrees kept in range 0-359 
 int Circular(int x, int min,int max);

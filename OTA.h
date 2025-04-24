@@ -454,6 +454,7 @@ void SetupOTA() {
     server.sendHeader("Connection", "close");
     if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
     delay(50);
+      WiFi.disconnect();
     ESP.restart();
   });
 
@@ -474,6 +475,7 @@ void SetupOTA() {
     "/update", HTTP_POST, []() {
       server.sendHeader("Connection", "close");
       server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+        WiFi.disconnect();
       ESP.restart();
     },
     []() {

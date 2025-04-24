@@ -69,7 +69,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.95";
+const char soft_version[] = "Version 3.96";
 bool hasSD;
 
 
@@ -985,6 +985,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         //Display_Page = 4;
         EEPROM_WRITE(Display_Config, Current_Settings);
         delay(50);
+          WiFi.disconnect();
         ESP.restart();
       }
       break;
@@ -1065,7 +1066,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         //LocalCopy = BoatData.STW;
       }
       LocalCopy = BoatData.STW;
-      DrawGraph(BigSingleDisplay, LocalCopy, 0, 10, 9, "STW Graph ", "Kts");
+      SCROLLGraph(BigSingleDisplay, LocalCopy, 0, 10, 9, "STW Graph ", "Kts");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
       if (CheckButton(BigSingleDisplay)) { Display_Page = 16; }
@@ -1091,7 +1092,6 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         //LocalCopy = BoatData.STW;
       }
       LocalCopy = BoatData.STW;
-      //DrawGraph( BigSingleDisplay, LocalCopy, 0, 10,9,"STW Graph ","Kts");
       UpdateDataTwoSize(3,true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f"); // note magnify 3!!
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
@@ -1112,7 +1112,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         // LocalCopy = BoatData.WaterDepth;  //NOTE: need local copy or else we can only disply this data ONCE per page
       }
       LocalCopy = BoatData.WaterDepth;  //
-      DrawGraph(BigSingleDisplay, LocalCopy, 30, 0, 9, "Fathmometer 30m ", "m");
+      SCROLLGraph(BigSingleDisplay, LocalCopy, 30, 0, 9, "Fathmometer 30m ", "m");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
 
       if (CheckButton(BigSingleTopRight)) { Display_Page = 4; }
@@ -1131,7 +1131,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
       }
       LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-      DrawGraph(BigSingleDisplay, LocalCopy, 10, 0, 9, "Fathmometer 10m ", "m");
+      SCROLLGraph(BigSingleDisplay, LocalCopy, 10, 0, 9, "Fathmometer 10m ", "m");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
 
       //        TouchCrosshair(20); quarters select big screens
@@ -1176,7 +1176,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       //   slowdown = millis();
       // }
       LocalCopy = BoatData.SOG;
-      DrawGraph(BigSingleDisplay, LocalCopy, 0, 10, 9, "SOG Graph ", "kts");
+      SCROLLGraph(BigSingleDisplay, LocalCopy, 0, 10, 9, "SOG Graph ", "kts");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
 
@@ -1205,7 +1205,6 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         slowdown = millis();
       }
       LocalCopy = BoatData.SOG;
-      //DrawGraph( BigSingleDisplay, LocalCopy, 0, 10,9,"SOG ","kts");
       UpdateDataTwoSize(3, true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f");//note magnify 3 
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
@@ -1601,11 +1600,8 @@ void loop() {
 
   if (!AttemptingConnect && !IsConnected && (millis() >= SSIDSearchInterval)) { // repeat at intervals to check..
     SSIDSearchInterval = millis() + 30000;
-    ScanAndConnect(false); // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared 
+    ScanAndConnect(true); // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared 
   }  
-  if (!IsConnected && AttemptingConnect && !WIFIGFXBoxdisplaystarted ) {//&& (WiFi.status() != WL_CONNECTED)) {
-    WifiGFXinterrupt(9, WifiStatus, "...STARTING...\nConnecting to\n<%s>", Current_Settings.ssid);
-  }
 
   //LOG ??
   if ((millis() >= flashinterval)) {
@@ -1634,7 +1630,7 @@ void loop() {
         BoatData.WindAngleApp.data, BoatData.Latitude.data, BoatData.Longitude.data);
   }
 
-  if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000)) {
+  if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000)&& (IsConnected))  {
     Display(true, Display_Page);  // reset the WIFIGFX interrupt display after 10 secs of interruption from the WIFIGFX interruption
     WIFIGFXBoxdisplaystarted = false;
   }
@@ -2050,7 +2046,7 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
 bool ScanAndConnect(bool display){
   static unsigned long ScanInterval; 
   static bool found ;
-  
+  unsigned long ConnectTimeout;
   // do the WIfI/scan(i) and it is independently stored somewhere!! 
   // but do not call too often - give it time to run!!
   if (millis() >= ScanInterval ) { ScanInterval = millis()+20000; found=false;
@@ -2069,13 +2065,24 @@ bool ScanAndConnect(bool display){
     if (WiFi.SSID(i) == Current_Settings.ssid) { found = true; }
   }
   if (found) { 
-       if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found\n <%i> networks\n Connecting to\n <%s>", NetworksFound,Current_Settings.ssid);}
+       if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found\n <%i> networks\n Connecting to\n <%s>\n", NetworksFound,Current_Settings.ssid);}
        Serial.printf(" Scan found <%s> \n", Current_Settings.ssid);//gfx->printf("Found <%s> network!\n", Current_Settings.ssid); 
+       ConnectTimeout=millis()+30000;
        WiFi.begin(Current_Settings.ssid, Current_Settings.password);
        IsConnected = false;
-       AttemptingConnect = true;}
+       AttemptingConnect = true; 
+       // keep printing .. inside the box?
+       gfx->setTextBound(WifiStatus.h + WifiStatus.bordersize, WifiStatus.v + WifiStatus.bordersize, WifiStatus.width - (2 * WifiStatus.bordersize), WifiStatus.height - (2 * WifiStatus.bordersize));
+       gfx->setTextWrap(true);
+       while ((WiFi.status() != WL_CONNECTED) && (millis()<=ConnectTimeout)) {
+        gfx->print('.'); Serial.print('.');
+        delay(1000);
+        }
+        if (WiFi.status() != WL_CONNECTED){gfx->print("Timeout - will try later");}
+        gfx->setTextBound(0, 0, 480, 480);
+       }
   else { AttemptingConnect=false; 
-  if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found\n <%i> networks\n but not %s", NetworksFound,Current_Settings.ssid);}
+  if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found\n <%i> networks\n but not %s\n", NetworksFound,Current_Settings.ssid);}
   }
  return found;
 }
@@ -2088,10 +2095,9 @@ void ConnectWiFiusingCurrentSettings() {
   delay(100);
   WiFi.persistent(false);
   WiFi.mode(WIFI_AP_STA);
-  WiFi.onEvent(WiFiEventPrint); // serial print for debugging 
+  //WiFi.onEvent(WiFiEventPrint); // serial print for debugging 
   WiFi.onEvent(wifiEvent);  // Register the event handler
-  
-  // start the display's AP - potentially with NULL pasword
+   // start the display's AP - potentially with NULL pasword
   if ((String(Display_Config.APpassword) == "NULL") || (String(Display_Config.APpassword) == "null") || (String(Display_Config.APpassword) == "")) {
     result = WiFi.softAP(Display_Config.PanelName);
     delay(5);
@@ -2116,7 +2122,7 @@ void ConnectWiFiusingCurrentSettings() {
     Serial.println(WiFi.softAPIP());
   }
   WiFi.mode(WIFI_AP_STA);
-  if (ScanAndConnect(true)) {}  // all Serial prints etc are now inside ScanAndConnect 'TRUE' will display them.
+  if (ScanAndConnect(true)) {Serial.println("found SSID and attempted connect");}  // all Serial prints etc are now inside ScanAndConnect 'TRUE' will display them.
 }
 
 bool Test_Serial_1() {  // UART0 port P1
@@ -2466,16 +2472,16 @@ void WiFiEventPrint(WiFiEvent_t event) {
       Serial.println("   03 ESP32 station stop");
       break;
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-      //Serial.println("   04 ESP32 station connected to AP");
+      Serial.println("   04 ESP32 station connected to AP");
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-      //Serial.println("   05 ESP32 station disconnected from AP");
+      Serial.println("   05 ESP32 station disconnected from AP");
       break;
     case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
       Serial.println("   06 the auth mode of AP connected by ESP32 station changed");
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-      //Serial.println("   07 ESP32 station got IP from connected AP");
+      Serial.println("   07 ESP32 station got IP from connected AP");
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP6:
       Serial.println("   08 ESP32 station interface v6IP addr is preferred");
@@ -2484,17 +2490,17 @@ void WiFiEventPrint(WiFiEvent_t event) {
       Serial.println("   09 ESP32 station lost IP and the IP is reset to 0");
       break;
     case ARDUINO_EVENT_WIFI_AP_START:
-      // dealt with in the main wifi event cases function Serial.println("   10 ESP32 soft-AP start");
+      Serial.println("   10 ESP32 soft-AP start");
       break;
     case ARDUINO_EVENT_WIFI_AP_STOP:
       Serial.println("   11 ESP32 soft-AP stop");
       break;
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-      //Serial.println("   12 a station connected to ESP32 soft-AP");
+      Serial.println("   12 a station connected to ESP32 soft-AP");
       //StationsConnected = StationsConnected + 1;
       break;
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
-     // Serial.println("   13 a station disconnected from ESP32 soft-AP");
+     Serial.println("   13 a station disconnected from ESP32 soft-AP");
       //StationsConnected = StationsConnected - 1;
       //if (StationsConnected == 0) {}
       break;
