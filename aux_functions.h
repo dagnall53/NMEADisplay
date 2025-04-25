@@ -18,6 +18,9 @@ void UpdateLinef(uint16_t color,int font,Button& button, const char* fmt, ...) ;
 void UpdateDataTwoSize(bool horizCenter, bool vertCenter,int bigfont, int smallfont,Button button, instData &data, const char *fmt);
 // for even bigger, magnify the font  
 void UpdateDataTwoSize(int magnify,bool horizCenter, bool vertCenter,int bigfont, int smallfont,Button button, instData &data, const char *fmt);
+// NEW version that will update the box etc on starting Simplifies the Display page settings when selecting by JSON..
+void UpdateDataTwoSize(bool reset,const char *msg, const char *units,bool horizCenter, bool vertCenter, int bigfont, int smallfont, Button button, instData &data, const char *fmt) ;
+
 
 // Sub function to update (multiple) lines in a button (uses \n to separate lines )
 void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t color, int font, Button &button, const char *msg);
@@ -32,10 +35,9 @@ void PTriangleFill(Phv P1, Phv P2, Phv P3, uint16_t COLOUR);
 void Pdrawline(Phv P1, Phv P2, uint16_t COLOUR) ;
 void PfillCircle(Phv P1, int rad, uint16_t COLOUR);
 
-//void DrawGraph (Button button, instData &DATA, double dmin, double dmax);
-void SCROLLGraph(Button button, instData &DATA, double dmin, double dmax, int font, const char *msg, const char *units);
+//Note two instances so you can display two simultaneously?
+void SCROLLGraph(bool reset,int instance, int dotsize, bool line,Button button, instData &DATA, double dmin, double dmax, int font, const char *msg, const char *units);
 
-void DrawGraph (Button button, instData &DATA, double dmin, double dmax, int font,const char *msg,const char *units);
 void DrawGPSPlot(bool reset, Button button,tBoatData BoatData, double magnification );
 // Sub for functions, Circular keeps things in range.. eg degrees kept in range 0-359 
 int Circular(int x, int min,int max);
@@ -46,8 +48,8 @@ int GraphRange( double data, int low, int high, double dmin ,double dmax );
 void toNewStruct(char *field, instData &data); 
 double DoubleInstdataAdd(instData &data1, instData &data);//returns a double of value data.data +data1.data;
 
-
-
+// not used?
+//void DrawGraph (Button button, instData &DATA, double dmin, double dmax, int font,const char *msg,const char *units);
 
 
 #endif

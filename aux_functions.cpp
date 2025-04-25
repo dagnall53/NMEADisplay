@@ -14,6 +14,7 @@ extern int text_offset;
 extern int MasterFont;
 extern void setFont(int);
 extern int text_height;
+extern int Display_Page;
 
 extern double NMEA0183GetDouble(const char *data);  // have to do this as its local to NMEA0183Messagesmessages.cpp!
 
@@ -301,6 +302,7 @@ void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t col
   if (horizCenter) { x = x + ((typingspaceW - (TBw1)) / 2) - TBx1; }                                   // subtract any start text offset
   y = TopLeftYforthisLine(button, button.PrintLine) + text_offset + 1;                                 // // puts y cursor on a specific line
   if (vertCenter) { y = text_offset + button.bordersize + button.v + ((typingspaceH - (TBh1)) / 2); }  // vertical centering
+  gfx->fillRect(x,y-text_offset,TBw1,TBh1, button.BackColor); // Background exactly the text - needed for STATUS to make flash work in status!
   gfx->setCursor(x, y);
   gfx->setTextColor(color);
   gfx->print(msg);
@@ -441,6 +443,15 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
   }
   gfx->setTextColor(button.TextColor);
   gfx->setTextBound(0, 0, 480, 480);  //MUST reset it for other functions that do not set it themselves!
+}
+
+void UpdateDataTwoSize(bool reset,const char *msg, const char *units,bool horizCenter, bool vertCenter, int bigfont, int smallfont, Button button, instData &data, const char *fmt) {
+  if (reset) {
+    GFXBorderBoxPrintf(button, "");
+    AddTitleInsideBox(9, 3, button, msg);
+    AddTitleInsideBox(9, 2, button, units); 
+    }
+  UpdateDataTwoSize(horizCenter, vertCenter, bigfont, smallfont, button, data, fmt);
 }
 
 
@@ -584,7 +595,7 @@ int Circular(int x, int min, int max) {  // returns circulated data in range min
   return x;
 }
 
-int GraphRange(double data, int _TL, int _BR, double dmin, double dmax) {  // returns int (range TL to _BR) proportionate to position of data relative to dmin  / dmax
+int GraphRange(double data, int _TL, int _BR, double dmin, double dmax) {  // returns int (range T or L to _B or R) proportionate to position of data relative to dmin  / dmax
   int graphpoint;
   double input_ratio = (data - dmin) / (dmax - dmin);
   graphpoint = (_TL + (input_ratio * (_BR - _TL)));
@@ -640,98 +651,103 @@ void DrawGPSPlot(bool reset, Button button, tBoatData BoatData, double magnifica
   }
 }
 
-void DrawGraph(Button button, instData &DATA, double dmin, double dmax) {
-  DrawGraph(button, DATA, dmin, dmax, 8, " ", " ");
-}
-extern int Display_Page;
-void DrawGraph(Button button, instData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
-  if (DATA.displayed) { return; }
-  if (DATA.data == NMEA0183DoubleNA) { return; }
-  static int Displaypage = 0;  // where were we last called from ??
-  #define Hmax 200               // how many points fill screen width
-  static Phv graph[Hmax + 2];  //phv is a point H,V structure
-  static int index, lastindex;
-  static bool haslooped;
-  int dotsize;
-  double data;
-  data = DATA.data;
-  dotsize = 3;
-  if (Displaypage != Display_Page) {
-    Displaypage = Display_Page;
-    haslooped = false;
-    for (int x = 0; x <= Hmax; x++) {  //set all points mid screen (so it does not rub things out!)
-      graph[x].v = (button.v + button.bordersize + (button.height / 2));
-      graph[x].h = (button.h + button.bordersize + (button.width / 2));
-    }
-    // Serial.printf(" Debug Graph..'zeroed' to mid point of  h%i  v%i",graph[1].h,graph[1].v);
-    //initial fill and border (same as writeinborder box codes )
-    gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
-    gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
-                  button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
-    index = 0;
-    lastindex = 0;
-    // I think this is better done explicitly when DrawGraph is called
-    // AddTitleInsideBox(font,3, button, " %s", msg);
-    // AddTitleInsideBox(font,1, button, " %4.0f%s", dmax,units);
-    // AddTitleInsideBox(font,2, button, " %4.0f%s", dmin,units);
-    // end of setup....
-  }
+// void DrawGraph(Button button, instData &DATA, double dmin, double dmax) {
+//   DrawGraph(button, DATA, dmin, dmax, 8, " ", " ");
+// }
+
+// void DrawGraph(Button button, instData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
+//   if (DATA.displayed) { return; }
+//   if (DATA.data == NMEA0183DoubleNA) { return; }
+//   static int Displaypage = 0;  // where were we last called from ??
+//   #define Hmax 200               // how many points fill screen width
+//   static Phv graph[Hmax + 2];  //phv is a point H,V structure
+//   static int index, lastindex;
+//   static bool haslooped;
+//   int dotsize;
+//   double data;
+//   data = DATA.data;
+//   dotsize = 3;
+//   if (Displaypage != Display_Page) {
+//     Displaypage = Display_Page;
+//     haslooped = false;
+//     for (int x = 0; x <= Hmax; x++) {  //set all points mid screen (so it does not rub things out!)
+//       graph[x].v = (button.v + button.bordersize + (button.height / 2));
+//       graph[x].h = (button.h + button.bordersize + (button.width / 2));
+//     }
+//     // Serial.printf(" Debug Graph..'zeroed' to mid point of  h%i  v%i",graph[1].h,graph[1].v);
+//     //initial fill and border (same as writeinborder box codes )
+//     gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
+//     gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
+//                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
+//     index = 0;
+//     lastindex = 0;
+//     // I think this is better done explicitly when DrawGraph is called
+//     // AddTitleInsideBox(font,3, button, " %s", msg);
+//     // AddTitleInsideBox(font,1, button, " %4.0f%s", dmax,units);
+//     // AddTitleInsideBox(font,2, button, " %4.0f%s", dmin,units);
+//     // end of setup....
+//   }
   
-  if (index == 0) {  // redraw text in case it gets overwritten
-    AddTitleInsideBox(font, 3, button, " %s", msg);
-    AddTitleInsideBox(font, 1, button, " %4.0f%s", dmax, units);
-    AddTitleInsideBox(font, 2, button, " %4.0f%s", dmin, units);
-  }
+//   if (index == 0) {  // redraw text in case it gets overwritten
+//     AddTitleInsideBox(font, 3, button, " %s", msg);
+//     AddTitleInsideBox(font, 1, button, " %4.0f%s", dmax, units);
+//     AddTitleInsideBox(font, 2, button, " %4.0f%s", dmin, units);
+//   }
 
-  bool LINE = true; //Or just blobs.. 
-  if (haslooped) {                                         // only erase if there is something to erase!
-    PfillCircle(graph[index], dotsize, button.BackColor);  // blank the  circle that will be overwritten
-    //Blank line from Current dot (about to be rewritten!) to next circle but not the 'flyback'
-    if (LINE && (index <= Hmax - 1)) {
-      if (index >= lastindex) { Pdrawline(graph[lastindex], graph[index], button.BackColor); }
-      Pdrawline(graph[index], graph[index + 1], button.BackColor);
-    }
-  }
-  //Serial.printf(" Graph Index %i\n", index);
-  //get graph point.. V is 'data' horiz is 'index'
-  graph[index].v = GraphRange(data, button.v + button.height - button.bordersize - dotsize, button.v + button.bordersize + dotsize, dmin, dmax);
-  graph[index].h = GraphRange(index, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
+//   bool LINE = true; //Or just blobs.. 
+//   if (haslooped) {                                         // only erase if there is something to erase!
+//     PfillCircle(graph[index], dotsize, button.BackColor);  // blank the  circle that will be overwritten
+//     //Blank line from Current dot (about to be rewritten!) to next circle but not the 'flyback'
+//     if (LINE && (index <= Hmax - 1)) {
+//       if (index >= lastindex) { Pdrawline(graph[lastindex], graph[index], button.BackColor); }
+//       Pdrawline(graph[index], graph[index + 1], button.BackColor);
+//     }
+//   }
+//   //Serial.printf(" Graph Index %i\n", index);
+//   //get graph point.. V is 'data' horiz is 'index'
+//   graph[index].v = GraphRange(data, button.v + button.height - button.bordersize - dotsize, button.v + button.bordersize + dotsize, dmin, dmax);
+//   graph[index].h = GraphRange(index, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
 
-  // draw from Last circle to the new one
-  if (LINE && (index >= 1)) {
-    Pdrawline(graph[lastindex], graph[index], button.TextColor);
-  }
-  PfillCircle(graph[index], dotsize, button.TextColor);
-  lastindex = index;
-  index = Circular(index + 1, 0, Hmax);  //circular increment
+//   // draw from Last circle to the new one
+//   if (LINE && (index >= 1)) {
+//     Pdrawline(graph[lastindex], graph[index], button.TextColor);
+//   }
+//   PfillCircle(graph[index], dotsize, button.TextColor);
+//   lastindex = index;
+//   index = Circular(index + 1, 0, Hmax);  //circular increment
 
-  if (lastindex >= index) { haslooped = true; }
+//   if (lastindex >= index) { haslooped = true; }
 
-  DATA.displayed = true;  //reset to false inside toNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
-}
+//   DATA.displayed = true;  //reset to false inside toNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
+// }
 
-void SCROLLGraph(Button button, instData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
-  if (DATA.displayed) { return; }
+
+void SCROLLGraph(bool reset,int instance, int dotsize, bool line, Button button, instData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
+  if (instance >> 1) {return;} // allow only instance 0 and 1
+  if (DATA.graphed) { return; }
   if (DATA.data == NMEA0183DoubleNA) { return; }
-  static int Displaypage = 0;  // where were we last called from ??
+  static int Displaypage[2] ;  // where were we last called from ??
   #define Hmax 200               // how many points fill screen width
-  static Phv graph[Hmax + 2];  //phv is a point H,V structure
-  static int index, lastindex;
-  int dotsize;
+  static Phv graph[Hmax + 2][2];  //phv is a point H,V structure
+  //int dotsize;
   double data;
   data = DATA.data;
-  dotsize = 3;
-  if (Displaypage != Display_Page) {
-    Displaypage = Display_Page;
-    for (int x = 0; x <= Hmax; x++) {  //set all horizontal points !!
-      graph[x].v = (button.v + button.bordersize + (button.height / 2));
-      graph[x].h = GraphRange(x, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
+  //dotsize = 3;
+  if (reset) {
+    Serial.printf(" RESETTING SCROLLGRAPH  %i  %i ",Display_Page, Displaypage[instance]); 
+    Displaypage[instance] = Display_Page;
+    Serial.printf(" after..   %i  %i \n",Display_Page, Displaypage[instance]); 
+
+    for (int x = 0; x <= Hmax; x++) {  //reset all points !!
+      graph[x][instance].v = (button.v + button.bordersize + (button.height / 2));
+      graph[x][instance].h = GraphRange(x, button.h + button.bordersize + (2*dotsize), button.h + button.width - button.bordersize - (2*dotsize), 0, Hmax);
     }
     gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
     gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
       // end of setup....
-  }
+   }
+
   // clear plot area and re-add titles as they may get overwritten
    gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
@@ -741,18 +757,72 @@ void SCROLLGraph(Button button, instData &DATA, double dmin, double dmax, int fo
   bool LINE = true; //Or just blobs.. 
   // scroll the existing data values left:
   for (int x = 0; x <= Hmax; x++) {
-       graph[x-1].v=graph[x].v;} // slide the v VALUES only, not the horizontal positions! 
+         graph[x-1][instance].v=graph[x][instance].v;
+         graph[x][instance].h = GraphRange(x, button.h + button.bordersize + (2*dotsize), button.h + button.width - button.bordersize - (2*dotsize), 0, Hmax);
+       } // slide the v VALUES only, just set the horizontal positions! 
        //add the new data 
-  graph[Hmax].v = GraphRange(data, button.v + button.height - button.bordersize - dotsize, button.v + button.bordersize + dotsize, dmin, dmax);
+  graph[Hmax][instance].v = GraphRange(data, button.v + button.height - button.bordersize - (2*dotsize), button.v + button.bordersize + (2*dotsize), dmin, dmax);
   //graph[Hmax].h = GraphRange(Hmax, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
      for (int x =1; x<= Hmax;x++){
      if (LINE && (x >= 1)) {
-        Pdrawline(graph[x-1], graph[x], button.TextColor);
+        Pdrawline(graph[x-1][instance], graph[x][instance], button.TextColor);
            }
-        PfillCircle(graph[x], dotsize, button.TextColor);
+     if (dotsize>=1) {   PfillCircle(graph[x][instance], dotsize, button.TextColor);}
    }
-   DATA.displayed = true;  //reset to false inside t-- to avoid confusion!.oNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
+   DATA.graphed = true;  //reset to false inside t-- to avoid confusion!.oNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
 }
+
+// void SCROLLGraph2(Button button, instData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
+//   if (DATA.displayed) { return; }
+//   if (DATA.data == NMEA0183DoubleNA) { return; }
+//   static int Displaypage ;  // where were we last called from ??
+//   #define Hmax 200               // how many points fill screen width
+//   static Phv graph[Hmax + 2];  //phv is a point H,V structure
+//   int dotsize;
+//   double data;
+//   data = DATA.data;
+//   dotsize = 3;
+//   if (Displaypage != Display_Page) {
+//     Serial.printf(" RESETTING SCROLLGRAPH2  %i  %i ",Display_Page, Displaypage); 
+//     Displaypage = Display_Page;
+//     Serial.printf(" after..   %i  %i \n",Display_Page, Displaypage); 
+
+//     for (int x = 0; x <= Hmax; x++) {  //set all horizontal points !!
+//       graph[x].v = (button.v + button.bordersize + (button.height / 2));
+//       graph[x].h = GraphRange(x, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
+//     }
+//     gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
+//     gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
+//                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
+//       // end of setup....
+//   }
+//   // clear plot area and re-add titles as they may get overwritten
+//    gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
+//                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
+//     AddTitleInsideBox(font, 3, button, " %s", msg);
+//     AddTitleInsideBox(font, 1, button, " %4.0f%s", dmax, units);
+//     AddTitleInsideBox(font, 2, button, " %4.0f%s", dmin, units);
+//   bool LINE = true; //Or just blobs.. 
+//   // scroll the existing data values left:
+//   for (int x = 0; x <= Hmax; x++) {
+//        graph[x-1].v=graph[x].v;
+//         graph[x].h = GraphRange(x, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
+//   } // slide the v VALUES only, not the horizontal positions! 
+//        //add the new data 
+//   graph[Hmax].v = GraphRange(data, button.v + button.height - button.bordersize - dotsize, button.v + button.bordersize + dotsize, dmin, dmax);
+//   //graph[Hmax].h = GraphRange(Hmax, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
+//      for (int x =1; x<= Hmax;x++){
+//      if (LINE && (x >= 1)) {
+//         Pdrawline(graph[x-1], graph[x], button.TextColor);
+//            }
+//         PfillCircle(graph[x], dotsize, button.TextColor);
+//    }
+//    DATA.displayed = true;  //reset to false inside t-- to avoid confusion!.oNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
+// }
+
+
+
+
 
 double DoubleInstdataAdd(instData &data1, instData &data) {
   double temp;

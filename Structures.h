@@ -9,7 +9,7 @@ tBoatdata from Timo Llapinen by Dr.András Szép under GNU General Public Licens
 #include <NMEA0183Msg.h>
 #include <NMEA0183Messages.h> // for the doubleNA
 
-struct JSONCONFIG {  // will be Display_Config for the JSON set Defaults and user settings for displays 
+struct DISPLAYCONFIGStruct {  // will be Display_Config for the JSON set Defaults and user settings for displays 
   char Mag_Var[15]; // got to save double variable as a string! east is positive
   int Start_Page ;
   char PanelName[25];
@@ -40,12 +40,13 @@ struct MyColors {  // for later Day/Night settings
 struct instData {  // struct to hold instrument data AND the time it was updated.
   double data = NMEA0183DoubleNA;
   double lastdata = NMEA0183DoubleNA;
-//  double DataforGraph[202];
   unsigned long updated;
   bool displayed;
   bool greyed;
   bool graphed;
-  int source;  // to try an experiment with two GPS to see how they track. 
+  int source;// to try an experiment with two GPS to see how they track.
+  bool DisplayboxSetup;  // has the "button" been set up ??
+  int displayed_on;   
 };
 
 

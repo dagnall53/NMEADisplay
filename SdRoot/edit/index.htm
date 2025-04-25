@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <meta name='viewport' content= 'width=device-width, initial-scale=1.0' >
     <title>SD Editor</title>
     <style type="text/css" media="screen">
       .contextMenu {
@@ -48,6 +49,9 @@
 
       .css-treeview {
         font: normal 11px Verdana, Arial, Sans-serif;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
         -moz-user-select: none;
         -webkit-user-select: none;
         user-select: none;
@@ -155,7 +159,7 @@
         top: 56px;
         bottom: 0;
         left: 0;
-        width:200px;
+        width:30%;
         padding: 8px;
       }
       #editor, #preview { 
@@ -163,7 +167,7 @@
         top: 56px;
         right: 0;
         bottom: 0;
-        left: 200px;
+        left: 30%;
       }
       #preview {
         background-color: #EEE;

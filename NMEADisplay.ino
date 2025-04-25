@@ -1,6 +1,6 @@
 //*******************************************************************************
 /*
-Compiled and tested with ESp32 V2.0.11  V3has deprecated some functions and this code will not work with V3!
+Compiled and tested with ESp32 V2.0.17  V3has deprecated some functions and this code will not work with V3!
 GFX library for Arduino 1.5.5
 Select "ESP32-S3 DEV Module"
 Select PSRAM "OPI PSRAM"
@@ -69,7 +69,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.96";
+const char soft_version[] = "Version 3.97";
 bool hasSD;
 
 
@@ -103,7 +103,7 @@ char nmea_EXT[BufferLength];  // buffer for ESP_now received data
 
 bool EspNowIsRunning = false;
 char* pTOKEN;
-int StationsConnected;
+int StationsConnectedtomyAP;
 // assists for wifigfx interrupt  box that shows status..  to help turn it off after a time
 uint32_t WIFIGFXBoxstartedTime;
 bool WIFIGFXBoxdisplaystarted;
@@ -130,8 +130,8 @@ MySettings Default_Settings = { 17, "GUESTBOAT", "12345678", "2002", false, true
   int Start_Page ;
   char PanelName[25];
   char APpassword[25]; */
-JSONCONFIG Default_JSON = { "0.5", 4, "nmeadisplay", "12345678" };
-JSONCONFIG Display_Config;
+DISPLAYCONFIGStruct Default_JSON = { "0.5", 4, "nmeadisplay", "12345678" };
+DISPLAYCONFIGStruct Display_Config;
 int Display_Page = 4;  //set last in setup(), but here for clarity?
 MySettings Saved_Settings;
 MySettings Current_Settings;
@@ -161,7 +161,7 @@ Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 
 //used for single data display
 // modified all to lift by 30 pixels to allow a common bottom row display (to show logs and get to settings)
-
+Button StatusBox = { 0, 450, 480, 30, 3, BLACK, WHITE, BLACK };
 Button WifiStatus = { 60, 180, 360, 120, 5, BLUE, WHITE, BLACK };  // big central box for wifi events to pop up - v3.5
 
 Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK };              // used for wind and graph displays
@@ -180,7 +180,7 @@ Button bottomLeftquarter = { 0, 240 - 15, 240, 240 - 15, 5, BLUE, WHITE, BLACK }
 Button topRightquarter = { 240, 0, 240, 240 - 15, 5, BLUE, WHITE, BLACK };
 Button bottomRightquarter = { 240, 240 - 15, 240, 240 - 15, 5, BLUE, WHITE, BLACK };
 
-Button StatusBox = { 0, 450, 480, 29, 5, BLUE, WHITE, BLACK };
+
 
 // these were used for initial tests and for volume control - not needed for most people!! .. only used now for Range change in GPS graphic (?)
 Button TopLeftbutton = { 0, 0, 75, 45, 5, BLUE, WHITE, BLACK };
@@ -223,7 +223,7 @@ Button Full6Center = { 80, 385, 320, 50, 5, BLUE, WHITE, BLACK };  // inteferes 
 
 
 
-bool LoadConfiguration(const char* filename, JSONCONFIG& config, MySettings& settings) {
+bool LoadConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySettings& settings) {
   // Open SD file for reading
   if (!SD.exists(filename)) {
     Serial.printf(" Json file %s did not exist\n Using defaults\n", filename);
@@ -281,7 +281,7 @@ bool LoadConfiguration(const char* filename, JSONCONFIG& config, MySettings& set
 }
 
 
-void SaveConfiguration(const char* filename, JSONCONFIG& config, MySettings& settings) {
+void SaveConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySettings& settings) {
   // Delete existing file, otherwise the configuration is appended to the file
   SD.remove(filename);
   char buff[15];
@@ -348,7 +348,7 @@ void PrintJsonFile(const char* filename) {
 void WindArrow2(Button button, instData Speed, instData& Wind) {
   // Serial.printf(" ** DEBUG  speed %f    wind %f ",Speed.data,Wind.data);
   bool recent = (Wind.updated >= millis() - 3000);
-  if (!Wind.displayed) {  //EventTiming("START");
+  if (!Wind.graphed) {  //EventTiming("START");
     WindArrowSub(button, Speed, Wind);
     // EventTiming("STOP");EventTiming("WIND arrow");
   }
@@ -379,13 +379,13 @@ void WindArrowSub(Button button, instData Speed, instData& wind) {
     }
   }
   lastwind = wind.data;
-  wind.displayed = true;
+  wind.graphed = true;
   lastfont = MasterFont;
   if (Speed.data != NMEA0183DoubleNA) {
     if (rad <= 130) {
       UpdateDataTwoSize(true, true, 8, 7, button, Speed, "%2.0fkt");
     } else {
-      UpdateDataTwoSize(true, true, 10, 9, button, Speed, "%2.0fkt");
+      UpdateDataTwoSize(true,true, 10, 9, button, Speed, "%2.0fkt");
     }
   }
 
@@ -501,8 +501,11 @@ void Display(int page) {
   Display(false, page);
 }
 
-void Display(bool reset, int page) {  // setups for alternate pages to be selected by page.
 
+
+void Display(bool reset, int page) {  // setups for alternate pages to be selected by page.
+  static unsigned long flashinterval;
+  static bool flash; 
   static double startposlat, startposlon;
   double LatD, LongD;  //deltas
   double wind_gnd;
@@ -517,9 +520,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
   static bool RunSetup;
   static unsigned int slowdown, timer2;
   //static float wind, SOG, Depth;
-  float temp, oldtemp;
-  static instData LocalCopy, LocalCopy2, LocalCopy3;
-
+  float temp;
+  static instData LocalCopy ; // needed only where two digital displays wanted for the same data variable.
   static int fontlocal;
   static int FileIndex, Playing;  // static to hold after selection and before pressing play!
   static int V_offset;            // used in the audio file selection to sort print area
@@ -536,6 +538,16 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
     setFont(3);
     GFXBorderBoxPrintf(StatusBox, "");  // common to all pages
   }
+    if ((millis() >= flashinterval)) {
+    flashinterval = millis() + 1000;
+    StatusBox.PrintLine = 0;  // always start / only use / the top line 0  of this box
+    UpdateLinef(3, StatusBox, "Page:%i  Log Status %s NMEA %s click for settings", Display_Page,
+                    Current_Settings.Log_ON On_Off, Current_Settings.NMEA_log_ON On_Off);
+    if (Current_Settings.Log_ON || Current_Settings.NMEA_log_ON) {
+      flash = !flash;
+    if (!flash) {UpdateLinef(3, StatusBox, "Page:%i  Log Status     NMEA     click for settings", Display_Page);
+      } }
+    }
   // add any other generic stuff here
   if (CheckButton(StatusBox)) { Display_Page = 0; }  // go to settings
   // Now specific stuff for each page
@@ -655,7 +667,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       }
       if (CheckButton(Switch6)) {
         Current_Settings.Log_ON = !Current_Settings.Log_ON;
-        if (Current_Settings.Log_ON) { Startlogfile(); }
+        if (Current_Settings.Log_ON) { StartInstlogfile(); }
         DataChanged = true;
       };
 
@@ -1000,30 +1012,38 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(topLeftquarter, "");
         AddTitleInsideBox(9, 3, topLeftquarter, "STW ");
         AddTitleInsideBox(9, 2, topLeftquarter, " Kts");  //font,position
-        GFXBorderBoxPrintf(bottomLeftquarter, "");
-        AddTitleInsideBox(9, 3, bottomLeftquarter, "DEPTH");
-        AddTitleInsideBox(9, 2, bottomLeftquarter, "Meters");  //font,position
-        // AddTitleInsideBox(9, 1, bottomLeftquarter, "pos1"); // for box printing tests!
-        // AddTitleInsideBox(9, 4, bottomLeftquarter, "pos4");  //font,position
-        GFXBorderBoxPrintf(bottomRightquarter, "");
-        if(String(Display_Config.FourWayBR) == "SOG"){
-           AddTitleInsideBox(9, 3, bottomRightquarter, "SOG ");
-           AddTitleInsideBox(9, 2, bottomRightquarter, " Kts");  //font,position
-          }
-        // if(String(Display_Config.FourWayBR) == "GPS"){ AddTitleInsideBox(9, 2, bottomRightquarter, " GPS");}
-        //delay(500); 
         setFont(10); 
       }
-       if (millis() > slowdown + 500) {
-        slowdown = millis();
-      }
-      WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp);
-      UpdateDataTwoSize(true, true, 13, 11, topLeftquarter, BoatData.STW, "%.1f");
-      UpdateDataTwoSize(true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%.1f");
-      if(String(Display_Config.FourWayBR) == "SOG"){UpdateDataTwoSize(true, true, 13, 11, bottomRightquarter, BoatData.SOG, "%.1f");}
-      if(String(Display_Config.FourWayBR) == "GPS"){ShowGPSinBox(9,bottomRightquarter);}
+       if (millis() > slowdown +1000) {
+        slowdown = millis();//only make/update copies every second!  else undisplayed copies will be redrawn!
+        // could have more complex that accounts for displayed already? 
+       }
       
+      WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp);
+      UpdateDataTwoSize(true,true, 13, 11, topLeftquarter, BoatData.STW, "%.1f");
+      
+      
+      //seeing if JSON setting of (bottom two sides of) quad is useful.. TROUBLE with two scrollGraphss so there is now extra 'instances' settings allowing two to run simultaneously!! ?
+      if(String(Display_Config.FourWayBL) == "DEPTH"){UpdateDataTwoSize(RunSetup,"DEPTH"," M", true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%.1f");}
+      if(String(Display_Config.FourWayBL) == "SOG"){UpdateDataTwoSize(RunSetup,"SOG"," Kts", true, true, 13, 11, bottomLeftquarter, BoatData.SOG, "%.1f");}
+      if(String(Display_Config.FourWayBL) == "GPS"){ShowGPSinBox(9,bottomLeftquarter);}
 
+      if(String(Display_Config.FourWayBL) == "DGRAPH"){SCROLLGraph(RunSetup,0,1,true,bottomLeftquarter, BoatData.WaterDepth, 10, 0, 8, "Fathmometer 10m ", "m");}
+      if(String(Display_Config.FourWayBL) == "DGRAPH2"){SCROLLGraph(RunSetup,0,1,true,bottomLeftquarter, BoatData.WaterDepth, 50, 0, 8, "Fathmometer 50m ", "m");}
+      if(String(Display_Config.FourWayBL) == "STWGRAPH"){SCROLLGraph(RunSetup,0,1,true,bottomLeftquarter, BoatData.STW, 0, 10, 8, "STW ", "kts");}
+      if(String(Display_Config.FourWayBL) == "SOGGRAPH"){SCROLLGraph(RunSetup,0,1,true,bottomLeftquarter, BoatData.SOG, 0, 10, 8, "SOG ", "kts");}
+     
+      // note use of SCROLLGraph2 
+      if(String(Display_Config.FourWayBR) == "DEPTH"){UpdateDataTwoSize(RunSetup,"DEPTH"," M", true, true, 13, 11, bottomRightquarter, BoatData.WaterDepth, "%.1f");}
+      if(String(Display_Config.FourWayBR) == "SOG"){UpdateDataTwoSize(RunSetup,"SOG"," Kts", true, true, 13, 11, bottomRightquarter, BoatData.SOG, "%.1f");}
+      if(String(Display_Config.FourWayBR) == "GPS"){ShowGPSinBox(9,bottomRightquarter);}
+
+      if(String(Display_Config.FourWayBR) == "DGRAPH"){SCROLLGraph(RunSetup,1,1,true,bottomRightquarter, BoatData.WaterDepth, 10, 0, 8, "Fathmometer 10m ", "m");}
+      if(String(Display_Config.FourWayBR) == "DGRAPH2"){SCROLLGraph(RunSetup,1,1,true,bottomRightquarter, BoatData.WaterDepth, 50, 0, 8, "Fathmometer 50m ", "m");}
+      if(String(Display_Config.FourWayBR) == "SOGGRAPH"){SCROLLGraph(RunSetup,1,1,true,bottomRightquarter, BoatData.SOG, 0, 10, 8, "SOG ", "kts");}
+      if(String(Display_Config.FourWayBR) == "STWGRAPH"){SCROLLGraph(RunSetup,1,1,true,bottomRightquarter, BoatData.STW, 0, 10, 8, "STW ", "kts");}
+      
+     
       if (CheckButton(topLeftquarter)) { Display_Page = 6; }      //stw
       if (CheckButton(bottomLeftquarter)) { Display_Page = 7; }   //depth
       if (CheckButton(topRightquarter)) { Display_Page = 5; }     // Wind
@@ -1046,9 +1066,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-      LocalCopy = BoatData.WindAngleApp;  //Duplicate wind angle so it can be shown again in a second box
+      
       WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngleApp);
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, LocalCopy, "%.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WindAngleApp, "%.1f");
       if (CheckButton(BigSingleDisplay)) { Display_Page = 15; }
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       break;
@@ -1063,12 +1083,12 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(8, 3, BigSingleTopLeft, "SOG");
         AddTitleInsideBox(8, 2, BigSingleTopLeft, "Kts");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        //LocalCopy = BoatData.STW;
+   
       }
-      LocalCopy = BoatData.STW;
-      SCROLLGraph(BigSingleDisplay, LocalCopy, 0, 10, 9, "STW Graph ", "Kts");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
+     
+      SCROLLGraph(RunSetup,0,3,true,BigSingleDisplay, BoatData.STW, 0, 10, 9, "STW Graph ", "Kts");
+      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
+      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
       if (CheckButton(BigSingleDisplay)) { Display_Page = 16; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 8; }
@@ -1089,10 +1109,10 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(8, 3, BigSingleTopLeft, "SOG");
         AddTitleInsideBox(8, 2, BigSingleTopLeft, "Kts");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        //LocalCopy = BoatData.STW;
+       
       }
       LocalCopy = BoatData.STW;
-      UpdateDataTwoSize(3,true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f"); // note magnify 3!!
+      UpdateDataTwoSize(3,true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f"); // note magnify 3!! so needs the local copy 
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
 
@@ -1109,11 +1129,10 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(8, 2, BigSingleTopRight, " m");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
         //AddTitleInsideBox(9,3,BigSingleDisplay, "Fathmometer 30m");
-        // LocalCopy = BoatData.WaterDepth;  //NOTE: need local copy or else we can only disply this data ONCE per page
-      }
-      LocalCopy = BoatData.WaterDepth;  //
-      SCROLLGraph(BigSingleDisplay, LocalCopy, 30, 0, 9, "Fathmometer 30m ", "m");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
+          }
+
+      SCROLLGraph(RunSetup,0,3,true,BigSingleDisplay, BoatData.WaterDepth, 30, 0, 9, "Fathmometer 30m ", "m");
+      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
 
       if (CheckButton(BigSingleTopRight)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
@@ -1128,11 +1147,10 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(8, 1, BigSingleTopRight, "Depth"); 
         AddTitleInsideBox(8, 2, BigSingleTopRight, "m");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-      }
-      LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-      SCROLLGraph(BigSingleDisplay, LocalCopy, 10, 0, 9, "Fathmometer 10m ", "m");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
+        }
+      
+      SCROLLGraph(RunSetup,0,3,true,BigSingleDisplay, BoatData.WaterDepth, 10, 0, 9, "Fathmometer 10m ", "m");
+      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
 
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
@@ -1148,9 +1166,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(8, 2, BigSingleTopRight, "m");
         GFXBorderBoxPrintf(BigSingleDisplay, ""); 
         AddTitleInsideBox(10, 2, BigSingleDisplay, "m");
-        
-        LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");
-      }
+        }
       LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");  // nb %4.1 will give leading printing space- giving formatting issues!
       UpdateDataTwoSize(4,true, true, 12, 10, BigSingleDisplay, LocalCopy, "%.1f");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
@@ -1169,16 +1185,13 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(8, 3, BigSingleTopLeft, "SOG");
         AddTitleInsideBox(8, 2, BigSingleTopLeft, "Kts");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        // LocalCopy = BoatData.SOG;
+
         DataChanged = false;
       }
-      // if (millis() > slowdown + 500) {
-      //   slowdown = millis();
-      // }
-      LocalCopy = BoatData.SOG;
-      SCROLLGraph(BigSingleDisplay, LocalCopy, 0, 10, 9, "SOG Graph ", "kts");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
+      
+      SCROLLGraph(RunSetup,0,3,true,BigSingleDisplay, BoatData.SOG, 0, 10, 9, "SOG Graph ", "kts");
+      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
+      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
 
       //if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
@@ -1198,16 +1211,15 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(8, 3, BigSingleTopLeft, "SOG");
         AddTitleInsideBox(8, 2, BigSingleTopLeft, "Kts");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        LocalCopy = BoatData.SOG;
         DataChanged = false;
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
       LocalCopy = BoatData.SOG;
-      UpdateDataTwoSize(3, true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f");//note magnify 3 
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
-      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
+      UpdateDataTwoSize(3, true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f");//note magnify 3 is a repeat display so needs the localCopy 
+      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
+      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
 
       //if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
@@ -1226,10 +1238,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(BigSingleTopLeft, "Click for graphic");
         setFont(10);
       }
-      LocalCopy = BoatData.COG;
-      LocalCopy2 = BoatData.SOG;
-      UpdateDataTwoSize(true, true, 9, 8, TopHalfBigSingleTopRight, BoatData.SOG, "SOG: %.1f kt");
-      UpdateDataTwoSize(true, true, 9, 8, BottomHalfBigSingleTopRight, BoatData.COG, "COG: %.1f d");
+      UpdateDataTwoSize(true,true, 9, 8, TopHalfBigSingleTopRight, BoatData.SOG, "SOG: %.1f kt");
+      UpdateDataTwoSize(true,true, 9, 8, BottomHalfBigSingleTopRight, BoatData.COG, "COG: %.1f d");
       if (millis() > slowdown + 1000) {
         slowdown = millis();
         GFXBorderBoxPrintf(BigSingleDisplay, "");
@@ -1251,9 +1261,6 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
           UpdateLinef(9, BigSingleDisplay, "");
         }
 
-       // UpdateLinef(9, BigSingleDisplay, "some other data for review during wrap testing: 1234567890\nand after 'cr' Wraped");
-        if (LocalCopy.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "COG: %5.4f", LocalCopy.data); }
-        if (LocalCopy2.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "SOG: %5.4f", LocalCopy2.data); }
         if (BoatData.MagHeading.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "Mag Heading: %.4f", BoatData.MagHeading); }
         UpdateLinef(9, BigSingleDisplay, "Variation: %.4f", BoatData.Variation);
       }
@@ -1335,10 +1342,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-      LocalCopy = BoatData.WindAngleGround;  //Duplicate wind angle so it can be shown again in a second box
-      UpdateDataTwoSize(true, true, 9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %.1f");
-      WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, LocalCopy);
-      UpdateDataTwoSize(true, true, 9, 8, BottomHalfBigSingleTopRight, BoatData.WindAngleGround, "gnd %.1f");
+      UpdateDataTwoSize(true,true, 9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %.1f");
+      WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngleGround);
+      UpdateDataTwoSize(true,true, 9, 8, BottomHalfBigSingleTopRight, BoatData.WindAngleGround, "gnd %.1f");
 
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(BigSingleDisplay)) { Display_Page = 5; }
@@ -1571,23 +1577,16 @@ void setup() {
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
   keyboard(-1);     //reset keyboard display update settings
   Udp.begin(atoi(Current_Settings.UDP_PORT));
-  //delay(1000);       // time to admire your user page!
-  Display_Page = Display_Config.Start_Page;
-
-  Serial.printf(" Starting display with JSON set page<%i> \n", Display_Config.Start_Page);
-  // select first page from the JSON. to show or use non defined page to start with default
+  //delay(1000);       // time to admire your user page!  
   gfx->setTextBound(0, 0, 480, 480);
   gfx->setTextColor(WHITE);
-  // gfx->setTextBound(0, 0, 480, 480); //reset or it wil cause issues later in other prints?
-  //Startlogfile();
-  Display(Display_Page);
-}
+  Display_Page = Display_Config.Start_Page;// select first page from the JSON. to show or use non defined page to start with default
+  Serial.printf(" Starting display with JSON set page<%i> \n", Display_Config.Start_Page);
+  }
 
 void loop() {
   static unsigned long LogInterval;
   static unsigned long SSIDSearchInterval;
-  static bool flash;
-  static unsigned long flashinterval;
   yield();
   server.handleClient();  // for OTA;
   //EventTiming("START");
@@ -1600,46 +1599,28 @@ void loop() {
 
   if (!AttemptingConnect && !IsConnected && (millis() >= SSIDSearchInterval)) { // repeat at intervals to check..
     SSIDSearchInterval = millis() + 30000;
-    ScanAndConnect(true); // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared 
+    if (StationsConnectedtomyAP==0){ // avoid scanning if we have someone connected to AP as it will disconnect! 
+    ScanAndConnect(true);} // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared 
   }  
 
-  //LOG ??
-  if ((millis() >= flashinterval)) {
-    flashinterval = millis() + 1000;
-    StatusBox.PrintLine = 0;  // always start / only use / the top line 0  of this box
-    if (Current_Settings.Log_ON || Current_Settings.NMEA_log_ON) {
-      flash = !flash;
-      if (flash) {
-        UpdateLinef(3, StatusBox, "Page:%i  Log Status     NMEA     click for settings", Display_Page);
-      } else {
-        UpdateLinef(3, StatusBox, "Page:%i  Log Status %s NMEA %s click for settings", Display_Page,
-                    Current_Settings.Log_ON On_Off, Current_Settings.NMEA_log_ON On_Off);
-      }
-    } else {
-      UpdateLinef(3, StatusBox, "Page:%i  Log Status %s NMEA %s click for settings", Display_Page,
-                  Current_Settings.Log_ON On_Off, Current_Settings.NMEA_log_ON On_Off);
-    }
-  }
+  
 
+// NMEALOG is done in CheckAndUseInputs
+// the instrument log saves everything every 10 secs, even if data not available!
   if ((Current_Settings.Log_ON) && (millis() >= LogInterval)) {
-    LogInterval = millis() + 5000;
-    LOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f ,%4.0f ,%f ,%f \r\n",
+    LogInterval = millis() + 10000;
+    INSTLOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f \r\n",
         int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
-        BoatData.STW.data, BoatData.SOG.data, BoatData.WaterDepth.data, BoatData.WindSpeedK.data,
-        BoatData.COG.data, BoatData.MagHeading.data,
-        BoatData.WindAngleApp.data, BoatData.Latitude.data, BoatData.Longitude.data);
+        BoatData.STW.data,  BoatData.WaterDepth.data, BoatData.WindSpeedK.data,BoatData.WindAngleApp.data);
   }
 
-  if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000)&& (IsConnected))  {
-    Display(true, Display_Page);  // reset the WIFIGFX interrupt display after 10 secs of interruption from the WIFIGFX interruption
+  if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000)&& (!AttemptingConnect))  {
     WIFIGFXBoxdisplaystarted = false;
+    Display(true, Display_Page);delay(500); // change page back, having set zero above which alows the graphics to reset up the boxes etc.
   }
 
-  // NMEALOG is done in CheckAndUseInputs
+  
 
-  //EventTiming(" loop time touch sample display");
-  //vTaskDelay(1);  // Audio is distorted without this?? used in https://github.com/schreibfaul1/ESP32-audioI2S/blob/master/examples/plays%20all%20files%20in%20a%20directory/plays_all_files_in_a_directory.ino
-  // //.... (audio.isRunning()){   delay(100);gfx->println("Playing Ships bells"); Serial.println("Waiting for bells to finish!");}
 }
 
 
@@ -1742,12 +1723,10 @@ bool CheckButton(Button& button) {  // trigger on release. ?needs index (s) to r
 void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
   if (Current_Settings.ESP_NOW_ON) {
     if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
-    // line_EXT = false;
   }
 
   if (Current_Settings.Serial_on) {
     if (Test_Serial_1()) { UseNMEA(nmea_1, 1); }
-    //line_1=false;
   }
   if (Current_Settings.UDP_ON) {
     if (Test_U()) { UseNMEA(nmea_U, 2); }
@@ -1786,7 +1765,7 @@ void UseNMEA(char* buf, int type) {
 }
 
 //*********** EEPROM functions *********
-void EEPROM_WRITE(JSONCONFIG B, MySettings A) {
+void EEPROM_WRITE(DISPLAYCONFIGStruct B, MySettings A) {
   // save my current settings
   // ALWAYS Write the Default display page!  may change this later and save separately?!!
   Serial.printf("SAVING EEPROM\n key:%i \n", A.EpromKEY);
@@ -2015,6 +1994,7 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
       Serial.print("The ESP32 has received IP address :");
       Serial.println(WiFi.localIP());
+      if (hasSD) {audio.connecttoFS(SD, "/StartSound.mp3");}
       WifiGFXinterrupt(9, WifiStatus, "CONNECTED TO\n<%s>\nIP:%i.%i.%i.%i\n", WiFi.SSID(),
                         WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
       break;
@@ -2026,13 +2006,13 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
 
 
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED://12 a station connected to ESP32 soft-AP
-      StationsConnected = StationsConnected + 1;
-      WifiGFXinterrupt(8, WifiStatus, "Station Connected\nTo AP\n Total now %i",StationsConnected);
+      StationsConnectedtomyAP = StationsConnectedtomyAP + 1;
+      WifiGFXinterrupt(8, WifiStatus, "Station Connected\nTo AP\n Total now %i",StationsConnectedtomyAP);
       break;
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED://13 a station disconnected from ESP32 soft-AP      
-      StationsConnected = StationsConnected - 1;
-      if (StationsConnected == 0) {}
-      WifiGFXinterrupt(8, WifiStatus, "Station Disconnected\nfrom AP\n Total now %i",StationsConnected);
+      StationsConnectedtomyAP = StationsConnectedtomyAP - 1;
+      if (StationsConnectedtomyAP == 0) {}
+      WifiGFXinterrupt(8, WifiStatus, "Station Disconnected\nfrom AP\n Total now %i",StationsConnectedtomyAP);
 
       break;
     case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED://14 ESP32 soft-AP assign an IP to a connected station
@@ -2055,20 +2035,22 @@ bool ScanAndConnect(bool display){
    else {Serial.printf(" Using saved Scan of <%i> networks:\n", NetworksFound);}
  
   WiFi.disconnect(false);  // Do NOT turn off wifi if the network disconnects
-  
+  int channel=0;
+  long rssiValue ;
   for (int i = 0; i < NetworksFound; ++i) {
     if (WiFi.SSID(i).length() <= 25) {
-      Serial.printf(" <%s> \n", WiFi.SSID(i));
+      Serial.printf(" <%s> ", WiFi.SSID(i));
     } else {
-      Serial.printf(" <name too long> \n");
+      Serial.printf(" <name too long> ");
     }
-    if (WiFi.SSID(i) == Current_Settings.ssid) { found = true; }
+    if (WiFi.SSID(i) == Current_Settings.ssid) { found = true; channel=i; rssiValue = WiFi.RSSI(i);}
+    Serial.printf("CH:%i signal:%i \n", WiFi.channel(i),WiFi.RSSI(i));
   }
   if (found) { 
-       if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found\n <%i> networks\n Connecting to\n <%s>\n", NetworksFound,Current_Settings.ssid);}
+       if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found <%i> networks\n Connecting to <%s> signal:%i\nplease wait", NetworksFound,Current_Settings.ssid,rssiValue);}
        Serial.printf(" Scan found <%s> \n", Current_Settings.ssid);//gfx->printf("Found <%s> network!\n", Current_Settings.ssid); 
-       ConnectTimeout=millis()+30000;
-       WiFi.begin(Current_Settings.ssid, Current_Settings.password);
+       ConnectTimeout=millis()+60000;
+       WiFi.begin(Current_Settings.ssid, Current_Settings.password,channel); // faster if we pre-set it the channel??
        IsConnected = false;
        AttemptingConnect = true; 
        // keep printing .. inside the box?
@@ -2082,7 +2064,7 @@ bool ScanAndConnect(bool display){
         gfx->setTextBound(0, 0, 480, 480);
        }
   else { AttemptingConnect=false; 
-  if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found\n <%i> networks\n but not %s\n", NetworksFound,Current_Settings.ssid);}
+  if (display){WifiGFXinterrupt(8, WifiStatus, "%is WIFI scan found\n <%i> networks\n but not %s\n Will look again in 30 seconds",millis()/1000, NetworksFound,Current_Settings.ssid);}
   }
  return found;
 }
@@ -2095,7 +2077,7 @@ void ConnectWiFiusingCurrentSettings() {
   delay(100);
   WiFi.persistent(false);
   WiFi.mode(WIFI_AP_STA);
-  //WiFi.onEvent(WiFiEventPrint); // serial print for debugging 
+ // WiFi.onEvent(WiFiEventPrint); // serial print for debugging 
   WiFi.onEvent(wifiEvent);  // Register the event handler
    // start the display's AP - potentially with NULL pasword
   if ((String(Display_Config.APpassword) == "NULL") || (String(Display_Config.APpassword) == "null") || (String(Display_Config.APpassword) == "")) {
@@ -2122,7 +2104,13 @@ void ConnectWiFiusingCurrentSettings() {
     Serial.println(WiFi.softAPIP());
   }
   WiFi.mode(WIFI_AP_STA);
-  if (ScanAndConnect(true)) {Serial.println("found SSID and attempted connect");}  // all Serial prints etc are now inside ScanAndConnect 'TRUE' will display them.
+  // all Serial prints etc are now inside ScanAndConnect 'TRUE' will display them.
+  if (ScanAndConnect(true)) { //Serial.println("found SSID and attempted connect");
+      if(WiFi.status() != WL_CONNECTED) {WifiGFXinterrupt(8, WifiStatus, "Time %is \nWIFI scan found\n <%i> networks\n but did not connect to\n <%s> \n Will look again in 30 seconds",
+                 millis()/1000, NetworksFound,Current_Settings.ssid);}
+  }
+  
+  
 }
 
 bool Test_Serial_1() {  // UART0 port P1
@@ -2497,12 +2485,12 @@ void WiFiEventPrint(WiFiEvent_t event) {
       break;
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
       Serial.println("   12 a station connected to ESP32 soft-AP");
-      //StationsConnected = StationsConnected + 1;
+      //StationsConnectedtomyAP = StationsConnectedtomyAP + 1;
       break;
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
      Serial.println("   13 a station disconnected from ESP32 soft-AP");
-      //StationsConnected = StationsConnected - 1;
-      //if (StationsConnected == 0) {}
+      //StationsConnectedtomyAP = StationsConnectedtomyAP - 1;
+      //if (StationsConnectedtomyAP == 0) {}
       break;
     case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
       Serial.println("   14 ESP32 soft-AP assign an IP to a connected station");

@@ -47,14 +47,14 @@
 #include <SD.h>
 
 extern bool hasSD;
-static bool logFileStarted = false;
-static bool NMEAlogFileStarted = false;
+static bool INSTlogFileStarted = false;
+static bool NMEAINSTlogFileStarted = false;
 
-extern JSONCONFIG Display_Config;
+extern DISPLAYCONFIGStruct Display_Config;
 extern const char *Setupfilename;  // <- SD library uses 8.3 filenames
-extern bool LoadConfiguration(const char *filename, JSONCONFIG &config, MySettings &settings);
+extern bool LoadConfiguration(const char *filename, DISPLAYCONFIGStruct &config, MySettings &settings);
 extern MySettings Current_Settings;
-extern void EEPROM_WRITE(JSONCONFIG B,MySettings A);
+extern void EEPROM_WRITE(DISPLAYCONFIGStruct B,MySettings A);
 
 // extern Arduino_ST7701_RGBPanel *gfx ;  // declare the gfx structure so I can use GFX commands in Keyboard.cpp and here...
 extern Arduino_RGB_Display *gfx;  //  change if alternate (not 'Arduino_RGB_Display' ) display !
@@ -64,6 +64,8 @@ extern const char soft_version[];
 extern tBoatData BoatData;
 extern void WifiGFXinterrupt(int font, Button& button, const char* fmt, ...) ;
 extern Button WifiStatus;
+extern int Display_Page;
+extern void Display(bool reset, int page);
 WebServer server(80);
 File uploadFile;
 
@@ -90,11 +92,9 @@ String html_Question() {
 /*the main html web page, with modified names etc    */
 String html_startws() {
 String st =
-  "<!DOCTYPE html>\r\n<html><head> <meta http-equiv="
-  "content-type"
-  " content="
-  "text/html; charset=utf-8"
-  ">"
+  "<!DOCTYPE html>\r\n<html><head>" 
+  "<meta name='viewport' content= 'width=device-width, initial-scale=1.0' >"
+  "<meta http-equiv= content-type content=text/html; charset=utf-8 >"
   "<title>NavDisplay</title>"
   "<style>"
   "body {background-color:black;color:white;}"
@@ -103,8 +103,8 @@ String st =
   "<img src='/v3small.jpg' /><br>"
   "<h1 ><a>";
   st+= String(Display_Config.PanelName);
-  st+= "</h1><br>"
-       " <h2>Software :";
+  st+= "</h1>"
+  " <h2>Software :";
   st+= String(soft_version);
   st+= "</h2></a>"
   "<h1 ><a style='color:white;' href='http://";
@@ -112,10 +112,13 @@ String st =
   st+= ".local/edit/index.htm'>SD File Access</a></h1>"
   "  <h1 >  <a style='color:white;' href='http://";
   st+= String(Display_Config.PanelName);
-  st += ".local/OTA'>OTA Update</a></h1>"
+  st += ".local/Save'>Save </a></h1>"
   "  <h1 >  <a style='color:white;' href='http://";
   st+= String(Display_Config.PanelName);
-  st += ".local/Reset'>Save/Reset</a></h1>"
+  st += ".local/Reset'>Save and Restart</a></h1>"
+  "  <h1 >  <a style='color:white;' href='http://";
+  st+= String(Display_Config.PanelName);
+  st += ".local/OTA'>OTA Update</a></h1>"
   "</body></html>";
   return st;
   }
@@ -451,11 +454,16 @@ void SetupOTA() {
   server.onNotFound(handleNotFound);
 
   server.on("/Reset", HTTP_GET, []() {
-    server.sendHeader("Connection", "close");
+    handleRoot();
     if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
-    delay(50);
-      WiFi.disconnect();
+    server.sendHeader("Connection", "close");delay(150);
+    WiFi.disconnect();
     ESP.restart();
+  });
+    server.on("/Save", HTTP_GET, []() {
+    handleRoot();
+    if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
+    delay(50);Display(true,Display_Page);delay(50);
   });
 
   server.on("/OTA", HTTP_GET, []() {
@@ -560,59 +568,59 @@ void appendFile(fs::FS &fs, const char *path, const char *message) {
 }
 
 
-char LogFileName[25];
+char InstLogFileName[25];
 char NMEALogFileName[25];
 
-void Startlogfile() {
-  if (!hasSD) { return; }
+void StartInstlogfile() {
+  INSTlogFileStarted = false;
+  if (!hasSD) {  return; }
   // If the data.txt file doesn't exist
   // Create a file on the SD card and write the data labels
   if (BoatData.GPSDate == 0) { return; }
-  if (BoatData.GPSDate == NMEA0183DoubleNA) { return; }  // and check for NMEA0183DoubleNA?
+  if (BoatData.GPSDate == NMEA0183DoubleNA) { return; }  // and check for NMEA0183DoubleNA
   //We have a date so we can use this for the file name!
   // Serial.printf("  ***** LOG FILE DEBUG ***  use: <%6i>  to make name..  ",int(BoatData.GPSDate));
-  snprintf(LogFileName, 25, "/logs/%6i.log", int(BoatData.GPSDate));
-  //  Serial.printf("  <%s> \n",LogFileName);
-  File file = SD.open(LogFileName);
+  snprintf(InstLogFileName, 25, "/logs/%6i.log", int(BoatData.GPSDate));
+  //  Serial.printf("  <%s> \n",InstLogFileName);
+  File file = SD.open(InstLogFileName);
   if (!file) {
     //Serial.println("File doesn't exist");
-    logFileStarted = true;
-    Serial.printf("Creating <%s>LOG file. and header..\n", LogFileName);
+    INSTlogFileStarted = true;
+    Serial.printf("Creating <%s> Instrument LOG file. and header..\n", InstLogFileName);
     // data will be added by a see the  LOG( fmt ...) in the main loop at 5 sec intervals
-    /*   LOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f ,%4.0f ,%f ,%f \r\n",
-        int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
-        BoatData.STW.data, BoatData.SOG.data, BoatData.WaterDepth.data, BoatData.WindSpeedK.data,
-        BoatData.COG.data,BoatData.MagHeading.data,
-        BoatData.WindAngleApp.data, BoatData.Latitude.data, BoatData.Longitude.data);*/
-    writeFile(SD, LogFileName, "NEW LOG data headings\r\nTime ,STW,SOG,Depth,Windspeed,WindAngleApp,COG,MagHeading,Lat,Long \r\n");
+    /*    int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
+        BoatData.STW.data,  BoatData.WaterDepth.data, BoatData.WindSpeedK.data,BoatData.WindAngleApp);
+        */
+    writeFile(SD, InstLogFileName, "NEW LOG data headings\r\n Time ,STW  ,Depth  ,Windspeed  ,WindAngleApp\r\n");
     file.close();
     return;
   } else {
-    // Serial.println("File already exists");
+     INSTlogFileStarted = true;
+     Serial.println("File already exists");
   }
   file.close();
 }
 
 void StartNMEAlogfile() {
-  if (!hasSD) { return; }
+  if (!hasSD) {  NMEAINSTlogFileStarted = false;return; }
   // If the data.txt file doesn't exist
   // Create a (FIXED NAME!) file on the SD card and write the data labels
   File file = SD.open("/logs/NMEA.log");
   if (!file) {
     //Serial.println("File doens't exist");
-    NMEAlogFileStarted = true;
+    NMEAINSTlogFileStarted = true;
     Serial.printf("Creating NMEA LOG file. and header..\n");
     writeFile(SD, "/logs/NMEA.log", "NMEA data headings\r\nTime(s): Source:NMEA......\r\n");
     file.close();
     return;
-  } else {
-    // Serial.println("File already exists");
+  } else {NMEAINSTlogFileStarted = true;
+     Serial.println("File already exists");
   }
   file.close();
 }
 
 void NMEALOG(const char *fmt, ...) {
-  if (!NMEAlogFileStarted) {
+  if (!NMEAINSTlogFileStarted) {
     StartNMEAlogfile();
     return;
   }
@@ -628,9 +636,9 @@ void NMEALOG(const char *fmt, ...) {
   appendFile(SD, "/logs/NMEA.log", msg);
 }
 
-void LOG(const char *fmt, ...) {
-  if (!logFileStarted) {
-    Startlogfile();
+void INSTLOG(const char *fmt, ...) {
+  if (!INSTlogFileStarted) {
+    StartInstlogfile();
     return;
   }
   static char msg[300] = { '\0' };  // used in message buildup
@@ -639,10 +647,10 @@ void LOG(const char *fmt, ...) {
   vsnprintf(msg, 128, fmt, args);
   va_end(args);
   int len = strlen(msg);
-  // Serial.printf("  Logging to:<%s>", LogFileName);
+  // Serial.printf("  Logging to:<%s>", InstLogFileName);
   // Serial.print("  Log  data: ");
   // Serial.println(msg);
-  appendFile(SD, LogFileName, msg);
+  appendFile(SD, InstLogFileName, msg);
 }
 
 
