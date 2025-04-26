@@ -41,12 +41,11 @@ struct instData {  // struct to hold instrument data AND the time it was updated
   double data = NMEA0183DoubleNA;
   double lastdata = NMEA0183DoubleNA;
   unsigned long updated;
-  bool displayed;
-  bool greyed;
-  bool graphed;
-  int source;// to try an experiment with two GPS to see how they track.
-  bool DisplayboxSetup;  // has the "button" been set up ??
-  int displayed_on;   
+  bool displayed;  // displayed is used by Digital displays
+  bool greyed;     // when the data is OLD! 
+  bool graphed;    // is used by Graphs, so you can display digital and graph on same page!
+  int source;      // Ready to try an experiment with two GPS to see how they track .
+ 
 };
 
 

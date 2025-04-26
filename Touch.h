@@ -10,9 +10,9 @@
 #define TOUCH_MAP_Y1 480
 #define TOUCH_MAP_Y2 0
 
-//nb were defined in display settings
+//nb were previously defined in display settings
 
-#define TOUCH_INT -1          //-1
+#define TOUCH_INT -1          //-1 = not connected
 #define TOUCH_RST 38          // important not -1
 #define TOUCH_SDA  19
 #define TOUCH_SCL  45

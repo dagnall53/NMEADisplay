@@ -33,7 +33,7 @@ Select PSRAM "OPI PSRAM"
 //#include "SineCos.h"
 #include <Arduino_GFX_Library.h>
 // Original version was for GFX 1.3.1 only. #include "GUITIONESP32-S3-4848S040_GFX_133.h"
-#include "Esp32_4inch.h"  // defines GFX !
+#include "Esp32_4inch.h"  // defines GFX settings for GUITIONESP32-S3-4848S040!
 //*********** for keyboard*************
 #include "Keyboard.h"
 #include "Touch.h"
@@ -69,7 +69,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 3.97";
+const char soft_version[] = "Version 4.00";
 bool hasSD;
 
 
@@ -104,9 +104,13 @@ char nmea_EXT[BufferLength];  // buffer for ESP_now received data
 bool EspNowIsRunning = false;
 char* pTOKEN;
 int StationsConnectedtomyAP;
+
+#define scansearchinterval 30000
+
 // assists for wifigfx interrupt  box that shows status..  to help turn it off after a time
 uint32_t WIFIGFXBoxstartedTime;
 bool WIFIGFXBoxdisplaystarted;
+
 //********** All boat data (instrument readings) are stored as double in a single structure:
 
 tBoatData BoatData;  // BoatData values, int double etc
@@ -529,8 +533,10 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
   //String tempstring;
   // int FS = 1;  // for font size test
   // int tempint;
-  if (page != LastPageselected) { RunSetup = true; }
-  if (reset) { RunSetup = true; }
+  if (page != LastPageselected) { WIFIGFXBoxdisplaystarted = false; // will have reset the screen, so turn off the auto wifibox blanking if there was a wifiiterrupt box
+                        // this (above) saves a timed screen refresh that can clear keyboard stuff 
+   RunSetup = true; }
+  if (reset) {WIFIGFXBoxdisplaystarted = false; RunSetup = true; }
   //generic setup stuff for ALL pages
   if (RunSetup) {
     gfx->fillScreen(BLUE);
@@ -799,10 +805,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
           GFXBorderBoxPrintf(TOPButton, "NOT FOUND:%s", Current_Settings.ssid);
         }
         GFXBorderBoxPrintf(TopRightbutton, "Scan");
-        GFXBorderBoxPrintf(SecondRowButton, "SCANNING...");
+        GFXBorderBoxPrintf(SecondRowButton, " Saved results");
         gfx->setCursor(0, 140);  //(location of terminal. make better later!)
-        Serial.println(" starting WiFi.Scan");
-        GFXBorderBoxPrintf(SecondRowButton, "scan done");
+
         if (NetworksFound <= 0) {  // note scan error can give negative number
           NetworksFound = 0;
           GFXBorderBoxPrintf(SecondRowButton, " Use keyboard ");
@@ -873,6 +878,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
     case -4:  // Keyboard setting of UDP port - note keyboard (2) numbers start
       if (RunSetup) {
+        setFont(4);
         GFXBorderBoxPrintf(TOPButton, "Current <%s>", Current_Settings.UDP_PORT);
         GFXBorderBoxPrintf(Full0Center, "Set UDP PORT");
         keyboard(-1);  //reset
@@ -886,6 +892,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
     case -3:  // keyboard setting of Password
       if (RunSetup) {
+        setFont(4);
         GFXBorderBoxPrintf(TOPButton, "Current <%s>", Current_Settings.password);
         GFXBorderBoxPrintf(Full0Center, "Set Password");
         keyboard(-1);  //reset
@@ -900,6 +907,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
     case -2:  //Keyboard set of SSID
       if (RunSetup) {
+        setFont(4);
         GFXBorderBoxPrintf(Full0Center, "Set SSID");
         GFXBorderBoxPrintf(TopRightbutton, "Scan");
         AddTitleBorderBox(0, TopRightbutton, "WiFi");
@@ -922,7 +930,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         ShowToplinesettings(Saved_Settings, "EEPROM");
         setFont(4);
         GFXBorderBoxPrintf(SecondRowButton, "SSID <%s>", Current_Settings.ssid);
-        AddTitleBorderBox(0, SecondRowButton, "Current Setting");
+        if (IsConnected){AddTitleBorderBox(0, SecondRowButton, "Current Setting <CONNECTED>");}else
+        {AddTitleBorderBox(0, SecondRowButton, "Current Setting <NOT CONNECTED>");}
         GFXBorderBoxPrintf(ThirdRowButton, "Password <%s>", Current_Settings.password);
         AddTitleBorderBox(0, ThirdRowButton, "Current Setting");
         GFXBorderBoxPrintf(FourthRowButton, "UDP Port <%s>", Current_Settings.UDP_PORT);
@@ -1598,15 +1607,15 @@ void loop() {
   audio.loop();
 
   if (!AttemptingConnect && !IsConnected && (millis() >= SSIDSearchInterval)) { // repeat at intervals to check..
-    SSIDSearchInterval = millis() + 30000;
+    SSIDSearchInterval = millis() + scansearchinterval; // 5 secs for debugging!!
     if (StationsConnectedtomyAP==0){ // avoid scanning if we have someone connected to AP as it will disconnect! 
     ScanAndConnect(true);} // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared 
   }  
 
   
 
-// NMEALOG is done in CheckAndUseInputs
-// the instrument log saves everything every 10 secs, even if data not available!
+   // NMEALOG is done in CheckAndUseInputs
+  // the instrument log saves everything every 10 secs, even if data not available!
   if ((Current_Settings.Log_ON) && (millis() >= LogInterval)) {
     LogInterval = millis() + 10000;
     INSTLOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f \r\n",
@@ -1614,10 +1623,13 @@ void loop() {
         BoatData.STW.data,  BoatData.WaterDepth.data, BoatData.WindSpeedK.data,BoatData.WindAngleApp.data);
   }
 
-  if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000)&& (!AttemptingConnect))  {
+  if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000) && (!AttemptingConnect))  {
     WIFIGFXBoxdisplaystarted = false;
-    Display(true, Display_Page);delay(500); // change page back, having set zero above which alows the graphics to reset up the boxes etc.
-  }
+    Display(true, Display_Page);delay(50); // change page back, having set zero above which alows the graphics to reset up the boxes etc.
+    }
+  
+
+  
 
   
 
@@ -1703,7 +1715,7 @@ void TouchCrosshair(int point, int size, uint16_t colour) {
 // }
 
 
-bool CheckButton(Button& button) {  // trigger on release. ?needs index (s) to remember which button!
+bool CheckButton(Button& button) {  // trigger on release. needs index (s) to remember which button!
   //trigger on release! does not sense !isTouched ..  use Keypressed in each button struct to keep track!
   if (ts.isTouched && !button.Keypressed && (millis() - button.LastDetect >= 250)) {
     if (XYinBox(ts.points[0].x, ts.points[0].y, button.h, button.v, button.width, button.height)) {
@@ -1931,7 +1943,7 @@ void SD_Setup() {
 //  ************  WIFI support functions *****************
 
 void WifiGFXinterrupt(int font, Button& button, const char* fmt, ...) {  //quick interrupt of gfx to show WIFI events..
-                                                                         // version of add centered text, multi line from /void MultiLineInButton(int font, Button &button,const char *fmt, ...)
+  if (Display_Page <= -1){return;} // do not interrupt the settings pages!                                                                       // version of add centered text, multi line from /void MultiLineInButton(int font, Button &button,const char *fmt, ...)
   static char msg[300] = { '\0' };
   va_list args;
   va_start(args, fmt);
@@ -2064,7 +2076,8 @@ bool ScanAndConnect(bool display){
         gfx->setTextBound(0, 0, 480, 480);
        }
   else { AttemptingConnect=false; 
-  if (display){WifiGFXinterrupt(8, WifiStatus, "%is WIFI scan found\n <%i> networks\n but not %s\n Will look again in 30 seconds",millis()/1000, NetworksFound,Current_Settings.ssid);}
+  if (display){WifiGFXinterrupt(8, WifiStatus, "%is WIFI scan found\n <%i> networks\n but not %s\n Will look again in %i seconds"
+     ,millis()/1000, NetworksFound,Current_Settings.ssid,scansearchinterval/1000);}
   }
  return found;
 }
