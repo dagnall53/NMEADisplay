@@ -1607,8 +1607,8 @@ void loop() {
   audio.loop();
 
   if (!AttemptingConnect && !IsConnected && (millis() >= SSIDSearchInterval)) { // repeat at intervals to check..
-    SSIDSearchInterval = millis() + scansearchinterval; // 5 secs for debugging!!
-    if (StationsConnectedtomyAP==0){ // avoid scanning if we have someone connected to AP as it will disconnect! 
+    SSIDSearchInterval = millis() + scansearchinterval; // 
+    if (StationsConnectedtomyAP==0){ // avoid scanning if we have someone connected to AP as it will/may disconnect! 
     ScanAndConnect(true);} // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared 
   }  
 

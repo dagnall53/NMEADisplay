@@ -131,8 +131,8 @@
           }
         }
       }
-
-      #uploader { 
+  @media (min-width:500px) {  
+        #uploader { 
         position: absolute;
         top: 0;
         right: 0;
@@ -143,7 +143,7 @@
         background-color: #444;
         color:#EEE;
       }
-	  #filecmds { 
+	     #filecmds { 
         position: absolute;
         top: 28px;
         right: 0;
@@ -159,7 +159,7 @@
         top: 56px;
         bottom: 0;
         left: 0;
-        width:30%;
+        width:20%;
         padding: 8px;
       }
       #editor, #preview { 
@@ -167,12 +167,67 @@
         top: 56px;
         right: 0;
         bottom: 0;
-        left: 30%;
+        left: 20%;
+        width: 80%;
+        height: 80vh;
       }
       #preview {
         background-color: #EEE;
         padding:5px;
       }
+        
+      }
+  @media (max-width:500px) {
+
+      #uploader { 
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 20%;
+        width:80% ;
+        height: 66px;
+        line-height: 20px;
+        padding-left: 1px;
+        padding-top: 1px;
+        background-color: #444;
+        color:#EEE;
+      }
+	  #filecmds { 
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        width: 20%;
+        height:46px;
+        line-height: 20px;
+        padding-left: 0;
+        padding-top: 21px;
+        background-color: #444;
+        color:#EEE;
+      }
+      #tree { 
+        position: absolute;
+        top: 12vh;
+        bottom: 0;
+        left: 0;
+        width:25%;
+        padding: 8px;
+      }
+      #editor, #preview { 
+        position: absolute;
+        top: 12vh;
+        width: 75%;
+        right: 0;
+        bottom: 0;
+        left: 25%;
+        height: 78vh;
+      }
+      #preview {
+        background-color: #EEE;
+        padding:5px;
+      }
+   }
+      
     </style>
     <script>
       function createFileUploader(element, tree, editor){
@@ -355,9 +410,9 @@
           list.appendChild(download);
           download.innerHTML = "<span>Download</span>";
           download.onclick = function(e){
-		  console.log('download 354');
-		  console.log(path);
-		  console.log(document.body.getElementsByClassName('contextMenu').length);
+		//  console.log('download 354');
+		//  console.log(path);
+		//  console.log(document.body.getElementsByClassName('contextMenu').length);
             loadDownload(path);
             if(document.body.getElementsByClassName('contextMenu').length > 0) document.body.removeChild(el);
           };
@@ -566,11 +621,11 @@
 
       function createEditor(element, file, lang, theme, type){
         function getLangFromFilename(filename){
-          console.log('at 565');
-          console.log(filename);
+//          console.log('at 565');
+//          console.log(filename);
 		  var pathEl = document.getElementById("upload-path");
             if(pathEl){if (filename !== null) {pathEl.value = filename;}};
-         console.log(' got to 569');
+//         console.log(' got to 569');
           var lang = "plain";
           var ext = /(?:\.([^.]+))?$/.exec(filename)[1];
           if(typeof ext !== undefined){
@@ -648,7 +703,7 @@
         editor.setShowPrintMargin(false);
         <!-- Save Button -->		
       var saveButton = document.createElement("button");
-      saveButton.innerHTML = 'Save Edited';
+      saveButton.innerHTML = 'SDsave';
       document.getElementById("filecmds").appendChild(saveButton);
       saveButton.onclick = function(e){
     	httpPost(file, editor.getValue()+"", type);
