@@ -443,7 +443,7 @@ void SaveConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySett
 }
 
 
-void PrintJsonFile( char* comment, const char* filename) {
+void PrintJsonFile( const char* comment, const char* filename) {
   // Open file for reading
   File file = SD.open(filename, FILE_READ);
   Serial.printf(" %s JSON FILE %s is.",comment,filename);

@@ -19,7 +19,7 @@ wifi_second_chan_t* secondch;
  enumerator WIFI_SECOND_CHAN_BELOW the channel width is HT40 and the secondary channel is below the primary channel
  */
 
-bool Start_ESP_EXT() {  // start espnow and run Test_EspNOW() when data is seen / sent
+bool Start_ESP_EXT() {  // start espnow and set interrupt to function Test_EspNOW() when data is seen / sent
   bool success = false;
   EspNowIsRunning = false;
   memcpy(peerInfo.peer_addr, peerAddress_def, 6);
@@ -28,7 +28,8 @@ bool Start_ESP_EXT() {  // start espnow and run Test_EspNOW() when data is seen 
   if (esp_now_init() == ESP_OK) { EspNowIsRunning = true; }
   esp_now_register_recv_cb(Test_EspNOW);
   if (esp_now_add_peer(&peerInfo) == ESP_OK) { success = true; }
-  esp_wifi_get_channel(espnowchannel,secondch); 
+  esp_wifi_get_channel(espnowchannel,secondch);
+  Serial.println(" ESP-Now setup completed"); 
   return success;
 }
 
