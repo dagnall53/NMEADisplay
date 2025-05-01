@@ -425,7 +425,7 @@ void handleQuestion() {
   server.sendContent("");
   server.client().stop();
 }
-void SetupOTA() {
+void SetupWebstuff() {
   if (MDNS.begin(Display_Config.PanelName)) {
     MDNS.addService("http", "tcp", 80);
     Serial.println("MDNS responder started");

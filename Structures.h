@@ -16,6 +16,8 @@ struct DISPLAYCONFIGStruct {  // will be Display_Config for the JSON set Default
   char APpassword[25]; 
   char FourWayBR[10] ;
   char FourWayBL[10] ; 
+  char FourWayTR[10] ;
+  char FourWayTL[10] ;
 };
 
 
@@ -74,8 +76,44 @@ struct Button {
   bool screenfull,debugpause;
 };
 
-struct Phv {
+struct Phv {   // struct for int positions h v typically on screen 
   int h, v;
 };
 
+/// for Victron stuff:
+
+// victron ble structures ?
+
+struct Vicdevice {
+  char MacAddrstr[12];
+  char charKeystr [32];
+  char commentstr [10];
+};
+
+struct VicJSONstruct{   // equivalent to DISPLAYCONFIGStruct
+  char device1MacAddrstr[12];
+  char device1charKeystr [32];
+  char device1commentstr [10];
+
+  char device2MacAddrstr[12];
+  char device2charKeystr [32];
+  char device2commentstr [10];
+
+    char device3MacAddrstr[12];
+  char device3charKeystr [32];
+  char device3commentstr [10];
+
+    char device4MacAddrstr[12];
+  char device4charKeystr [32];
+  char device4commentstr [10];
+
+    char device5MacAddrstr[12];
+  char device5charKeystr [32];
+  char device5commentstr [10];
+
+    char device6MacAddrstr[12];
+  char device6charKeystr [32];
+  char device6commentstr [10];
+
+};
 #endif  // _BoatData_H_

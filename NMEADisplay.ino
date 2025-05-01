@@ -25,12 +25,11 @@ Select PSRAM "OPI PSRAM"
 #include <esp_wifi.h>
 #include "ESP_NOW_files.h"
 #include "OTA.h"
-// #include <WebServer.h> (in ota)
-// #include <ESPmDNS.h>
 
+#define NumVictronDevices 6  // before structures
 #include "Structures.h"
+
 #include "aux_functions.h"
-//#include "SineCos.h"
 #include <Arduino_GFX_Library.h>
 // Original version was for GFX 1.3.1 only. #include "GUITIONESP32-S3-4848S040_GFX_133.h"
 #include "Esp32_4inch.h"  // defines GFX settings for GUITIONESP32-S3-4848S040!
@@ -48,9 +47,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 #include "FONTS/FreeSansBold27pt7b.h"
 #include "FONTS/FreeSansBold40pt7b.h"
 #include "FONTS/FreeSansBold60pt7b.h"
-// #include "FONTS/FreeMonoBoldOblique27pt7b.h"
-// #include "FONTS/FreeMonoBoldOblique40pt7b.h"
-// #include "FONTS/FreeMonoBoldOblique60pt7b.h"
+
 
 
 
@@ -69,7 +66,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
-const char soft_version[] = "Version 4.00";
+const char soft_version[] = "Version 4.02";
 bool hasSD;
 
 
@@ -78,6 +75,10 @@ bool hasSD;
 // READ https://arduinojson.org/?utm_source=meta&utm_medium=library.properties
 // *********************************************************************************************************
 const char* Setupfilename = "/config.txt";  // <- SD library uses 8.3 filenames
+// victron config structure for mac and keys (SD only not on eeprom)
+const char* VictronDevicesSetupfilename = "/vconfig.txt";  // <- SD library uses 8.3 filenames
+VicJSONstruct  Victron_Config;
+
 
 
 
@@ -133,12 +134,17 @@ MySettings Default_Settings = { 17, "GUESTBOAT", "12345678", "2002", false, true
 /*  char Mag_Var[15]; // got to save double variable as a string! east is positive
   int Start_Page ;
   char PanelName[25];
-  char APpassword[25]; */
-DISPLAYCONFIGStruct Default_JSON = { "0.5", 4, "nmeadisplay", "12345678" };
+  char APpassword[25]; 
+  SOG", sizeof(config.FourWayBR));
+  strlcpy(config.FourWayBL, doc["FourWayBL"] | "DEPTH", sizeof(config.FourWayBL));
+  strlcpy(config.FourWayTR, doc["FourWayTR"] | "WIND", sizeof(config.FourWayTR));
+  strlcpy(config.FourWayTL, doc["FourWayTL"] | "STW */
+DISPLAYCONFIGStruct Default_JSON = { "0.5", 4, "nmeadisplay", "12345678","SOG","DEPTH","WIND","STW" }; // many display stuff set default circa 265 etc. 
 DISPLAYCONFIGStruct Display_Config;
 int Display_Page = 4;  //set last in setup(), but here for clarity?
 MySettings Saved_Settings;
 MySettings Current_Settings;
+
 
 
 int MasterFont;  //global for font! Idea is to use to reset font after 'temporary' seletion of another fone
@@ -199,7 +205,7 @@ Button ThirdRowButton = { 20, 100, 430, 35, 5, WHITE, BLACK, BLUE };
 Button FourthRowButton = { 20, 140, 430, 35, 5, WHITE, BLACK, BLUE };
 Button FifthRowButton = { 20, 180, 430, 35, 5, WHITE, BLACK, BLUE };
 
-#define sw_width 65
+#define sw_width 55
 //switches at line 180
 Button Switch1 = { 20, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
 Button Switch2 = { 100, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
@@ -209,6 +215,11 @@ Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };  // big one for e
 //switches at line 60
 Button Switch6 = { 20, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
 Button Switch7 = { 100, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+Button Switch8 = { 180, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+Button Switch9 = { 260, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+Button Switch10 = { 340, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+Button Switch11 = { 420, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+
 
 Button Terminal = { 0, 100, 480, 330, 5, WHITE, BLACK, WHITE };  //BORDER invisible as == background col) to try and help debug printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
 //for selections
@@ -225,13 +236,109 @@ Button Full6Center = { 80, 385, 320, 50, 5, BLUE, WHITE, BLACK };  // inteferes 
 
 #define On_Off ? "ON " : "OFF"  // if 1 first case else second (0 or off) same number of chars to try and helps some flashing later
 
+bool LoadVictronConfiguration(const char* filename, VicJSONstruct& config) {
+  // Open SD file for reading
+  bool fault=false;
+  if (!SD.exists(filename)) {
+    Serial.printf(" Json Victron file %s did not exist\n Using defaults\n", filename);
+    fault=true;
+  }
+  File file = SD.open(filename, FILE_READ);
+  if (!file) {
+    Serial.println(F("**Failed to read Victron JSON file"));
+    fault=true;
+  }
+  // Allocate a temporary JsonDocument
+  char temp[15];
+  JsonDocument doc;
+  // Deserialize the JSON document
+  DeserializationError error = deserializeJson(doc, file);
+  if (error) {
+    Serial.println(F("**Failed to deserialise victron JSON file"));
+    fault=true;
+  }
+  // Copy values (or defaults) from the JsonDocument to the config / settings
+  // what is the point of the defaults if we never get here when the file is initially missing!! 
+  strlcpy(config.device1MacAddrstr, doc["D1.mac"] | "ea9df3ebc625", sizeof(config.device1MacAddrstr));
+  strlcpy(config.device2MacAddrstr, doc["D2.mac"] | "f944913298e8", sizeof(config.device1MacAddrstr));
+  strlcpy(config.device3MacAddrstr, doc["D3.mac"] | "f944913298e8", sizeof(config.device1MacAddrstr));
+  strlcpy(config.device4MacAddrstr, doc["D4.mac"] | "f944913298e8", sizeof(config.device1MacAddrstr));
+  strlcpy(config.device5MacAddrstr, doc["D5.mac"] | "f944913298e8", sizeof(config.device1MacAddrstr));
+  strlcpy(config.device6MacAddrstr, doc["D5.mac"] | "f944913298e8", sizeof(config.device1MacAddrstr));
+ 
+  strlcpy(config.device1charKeystr, doc["D1.key"] | "e09d8b200c61238c811a621e5964c44e", sizeof(config.device1charKeystr));
+  strlcpy(config.device2charKeystr, doc["D2.key"] | "40ef2093aa678238147091c7657daa54", sizeof(config.device1charKeystr));
+  strlcpy(config.device3charKeystr, doc["D3.key"] | "40ef2093aa678238147091c7657daa54", sizeof(config.device1charKeystr));
+  strlcpy(config.device4charKeystr, doc["D4.key"] | "40ef2093aa678238147091c7657daa54", sizeof(config.device1charKeystr));
+  strlcpy(config.device5charKeystr, doc["D5.key"] | "40ef2093aa678238147091c7657daa54", sizeof(config.device1charKeystr));
+  strlcpy(config.device6charKeystr, doc["D6.key"] | "40ef2093aa678238147091c7657daa54", sizeof(config.device1charKeystr));
 
+   strlcpy(config.device1commentstr, doc["D1.comment"] | "300A", sizeof(config.device1commentstr));
+   strlcpy(config.device2commentstr, doc["D2.comment"] | "SOLAR1", sizeof(config.device1commentstr));
+   strlcpy(config.device3commentstr, doc["D3.comment"] | "SOLAR2", sizeof(config.device1commentstr));
+   strlcpy(config.device4commentstr, doc["D4.comment"] | "Bow", sizeof(config.device1commentstr));
+   strlcpy(config.device5commentstr, doc["D5.comment"] | "500A", sizeof(config.device1commentstr));
+   strlcpy(config.device6commentstr, doc["D5.comment"] | "mains", sizeof(config.device1commentstr));
+    // Close the file (Curiously, File's destructor doesn't close the file)
+  file.close();
+ 
+ return !fault; // report success
+}
+void SaveVictronConfiguration(const char* filename, VicJSONstruct& config) {
+  // Delete existing file, otherwise the configuration is appended to the file
+  SD.remove(filename);
+  char buff[15];
+  // Open file for writing
+  File file = SD.open(filename, FILE_WRITE);
+  if (!file) {
+    Serial.println(F("JSON: Victron: Failed to create SD file"));
+    return;
+  }
+  Serial.printf(" We expect %i Victron devices",NumVictronDevices);
+  // Allocate a temporary JsonDocument
+  JsonDocument doc;
+  // Set the values in the JSON file.. // NOT ALL ARE read yet!!
+  //modify how the display works
+   doc["D1.mac"]= config.device1MacAddrstr;
+   doc["D1.key"] =config.device1charKeystr;
+   doc["D1.comment"] =config.device1commentstr;
+
+   doc["D2.mac"]= config.device2MacAddrstr;
+   doc["D2.key"] =config.device2charKeystr;
+   doc["D2.comment"] =config.device2commentstr;
+
+    doc["D3.mac"]= config.device3MacAddrstr;
+   doc["D3.key"] =config.device3charKeystr;
+   doc["D3.comment"] =config.device3commentstr;
+
+    doc["D4.mac"]= config.device4MacAddrstr;
+   doc["D4.key"] =config.device4charKeystr;
+   doc["D4.comment"] =config.device4commentstr;
+
+    doc["D5.mac"]= config.device5MacAddrstr;
+   doc["D5.key"] =config.device5charKeystr;
+   doc["D5.comment"] =config.device5commentstr;
+
+    doc["D6.mac"]= config.device6MacAddrstr;
+   doc["D6.key"] =config.device6charKeystr;
+   doc["D6.comment"] =config.device6commentstr;
+
+
+
+  // Serialize JSON to file
+  if (serializeJsonPretty(doc, file) == 0) {  // use 'pretty format' with line feeds
+    Serial.println(F("JSON: Failed to write to Victron SD file"));
+  }
+  // Close the file, //but print serial as a check
+  file.close();
+
+}
 
 bool LoadConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySettings& settings) {
   // Open SD file for reading
   if (!SD.exists(filename)) {
-    Serial.printf(" Json file %s did not exist\n Using defaults\n", filename);
-    SaveConfiguration(filename, Default_JSON, Default_Settings);
+    Serial.printf("**JSON file %s did not exist\n Using defaults\n", filename);
+    SaveConfiguration(filename, Default_JSON, Default_Settings); //save defaults to sd file
     config = Default_JSON;
     settings = Default_Settings;
     return false;
@@ -247,7 +354,7 @@ bool LoadConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySett
   // Deserialize the JSON document
   DeserializationError error = deserializeJson(doc, file);
   if (error) {
-    Serial.println(F("**Failed to read JSON file"));
+    Serial.println(F("**Failed to deserialise JSON file"));
     return false;
   }
   // Copy values (or defaults) from the JsonDocument to the config / settings
@@ -259,13 +366,18 @@ bool LoadConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySett
   
   strlcpy(config.FourWayBR, doc["FourWayBR"] | "SOG", sizeof(config.FourWayBR));
   strlcpy(config.FourWayBL, doc["FourWayBL"] | "DEPTH", sizeof(config.FourWayBL));
-
+  strlcpy(config.FourWayTR, doc["FourWayTR"] | "WIND", sizeof(config.FourWayTR));
+  strlcpy(config.FourWayTL, doc["FourWayTL"] | "STW", sizeof(config.FourWayTL));
   strlcpy(config.PanelName,                  // User selectable
           doc["PanelName"] | "NMEADISPLAY",  // <- and default in case Json is corrupt / missing !
           sizeof(config.PanelName));
   strlcpy(config.APpassword,               // User selectable
           doc["APpassword"] | "12345678",  // <- and default in case Json is corrupt / missing !
           sizeof(config.APpassword));
+
+  
+
+
 
   // only change settings if we have read the file! else we will use the EEPROM settings
   if (!error)
@@ -308,6 +420,8 @@ void SaveConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySett
   doc["APpassword"] = config.APpassword;
   doc["FourWayBR"] = config.FourWayBR;
   doc["FourWayBL"] = config.FourWayBL;
+  doc["FourWayTR"] = config.FourWayTR;
+  doc["FourWayTL"] = config.FourWayTL;
 
 
   //now the settings WIFI etc..
@@ -325,18 +439,18 @@ void SaveConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySett
   }
   // Close the file, but print serial as a check
   file.close();
-  PrintJsonFile(filename);
+  PrintJsonFile("Check after Saving configuration ", filename);
 }
 
 
-void PrintJsonFile(const char* filename) {
+void PrintJsonFile( char* comment, const char* filename) {
   // Open file for reading
   File file = SD.open(filename, FILE_READ);
-  Serial.println(" PRINT JSON SETUP ");
+  Serial.printf(" %s JSON FILE %s is.",comment,filename);
   if (!file) {
     Serial.println(F("Failed to read file"));
     return;
-  }
+  }Serial.println();
   // Extract each characters by one by one
   while (file.available()) {
     Serial.print((char)file.read());
@@ -631,7 +745,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(Full0Center, "-Test JPegs-");
         GFXBorderBoxPrintf(Full1Center, "Check SD /Audio");
         GFXBorderBoxPrintf(Full2Center, "Check Fonts");
-        // GFXBorderBoxPrintf(Full2Center, "Settings  WIFI etc");
+        GFXBorderBoxPrintf(Full3Center, "VICTRON devices");
         // GFXBorderBoxPrintf(Full3Center, "See NMEA");
 
         GFXBorderBoxPrintf(Full5Center, "Main Menu");
@@ -642,7 +756,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(Full0Center)) { Display_Page = -200; }
       if (CheckButton(Full1Center)) { Display_Page = -9; }
       if (CheckButton(Full2Center)) { Display_Page = -10; }
-      //  if (CheckButton(Full3Center)) { Display_Page = 4; }
+      if (CheckButton(Full3Center)) { Display_Page = -86; } // V for Victron
       //   if (CheckButton(Full4Center)) { Display_Page = -10; }
       if (CheckButton(Full5Center)) { Display_Page = 0; }
       break;
@@ -656,6 +770,12 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleBorderBox(0, Switch6, "Inst LOG");
         GFXBorderBoxPrintf(Switch7, Current_Settings.NMEA_log_ON On_Off);
         AddTitleBorderBox(0, Switch7, "NMEA LOG");
+        GFXBorderBoxPrintf(Switch9, Current_Settings.UDP_ON On_Off);
+        AddTitleBorderBox(0, Switch9, "UDP");
+        GFXBorderBoxPrintf(Switch10, Current_Settings.ESP_NOW_ON On_Off);
+        AddTitleBorderBox(0, Switch10, "ESP-Now");
+
+
         if (!Terminal.debugpause) {
           AddTitleBorderBox(0, Terminal, "TERMINAL");
         } else {
@@ -682,6 +802,18 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         if (Current_Settings.NMEA_log_ON) { StartNMEAlogfile(); }
         DataChanged = true;
       };
+
+      if (CheckButton(Switch9)) {
+        Current_Settings.UDP_ON = !Current_Settings.UDP_ON;
+        DataChanged = true;
+      };
+      if (CheckButton(Switch10)) {
+        Current_Settings.ESP_NOW_ON = !Current_Settings.ESP_NOW_ON;
+        DataChanged = true;
+      };
+
+
+
       break;
 
     case -10:  // a test page for fonts
@@ -822,10 +954,16 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
             //if (WiFi.SSID(i).length() > 20) { gfx->print("..(toolong).."); }
             gfx->print(WiFi.SSID(i).substring(0, 20));
             if (WiFi.SSID(i).length() > 20) { gfx->print(".."); }
-            Serial.println(WiFi.SSID(i));
+            Serial.print(WiFi.SSID(i));
+            Serial.println(WiFi.channel(i));
             gfx->print(" (");
             gfx->print(WiFi.RSSI(i));
-            gfx->println(")");
+            gfx->print(")");
+            gfx->print(" ch<");
+            gfx->print(WiFi.channel(i));
+            gfx->println(">");
+
+
             //    gfx->println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*");
             delay(10);
           }
@@ -1016,8 +1154,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         setFont(10);
         gfx->fillScreen(BLACK);
         // DrawCompass(360, 120, 120);
-        DrawCompass(topRightquarter);
-        AddTitleInsideBox(8, 3, topRightquarter, "WIND APP ");
+        if(String(Display_Config.FourWayTR) == "WIND") { DrawCompass(topRightquarter); AddTitleInsideBox(8, 3, topRightquarter, "WIND APP ");}
         GFXBorderBoxPrintf(topLeftquarter, "");
         AddTitleInsideBox(9, 3, topLeftquarter, "STW ");
         AddTitleInsideBox(9, 2, topLeftquarter, " Kts");  //font,position
@@ -1026,11 +1163,21 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
        if (millis() > slowdown +1000) {
         slowdown = millis();//only make/update copies every second!  else undisplayed copies will be redrawn!
         // could have more complex that accounts for displayed already? 
+        setFont(12); 
+       if(String(Display_Config.FourWayTR) == "TIME") { GFXBorderBoxPrintf(topRightquarter, "%02i:%02i",
+                      int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60);
+                      AddTitleInsideBox(9, 3, topRightquarter, "UTC ");
+                      
+                      }
+         setFont(10);               
+       
        }
       
-      WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp);
       UpdateDataTwoSize(true,true, 13, 11, topLeftquarter, BoatData.STW, "%.1f");
+
       
+      if(String(Display_Config.FourWayTR) == "WIND") { WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp);  }
+                      
       
       //seeing if JSON setting of (bottom two sides of) quad is useful.. TROUBLE with two scrollGraphss so there is now extra 'instances' settings allowing two to run simultaneously!! ?
       if(String(Display_Config.FourWayBL) == "DEPTH"){UpdateDataTwoSize(RunSetup,"DEPTH"," M", true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%.1f");}
@@ -1538,9 +1685,16 @@ void setup() {
   gfx->println(F("***Display Started***"));
 
   SD_Setup();
-
+ 
+  gfx->setCursor(40, 120);
+  gfx->setTextColor(WHITE);
+  gfx->setTextBound(0, 0, 480, 480);
+  setFont(4);
+  gfx->println(F("Started SD Card"));
+  gfx->setCursor(140, 140);
+  gfx->println(soft_version);
   Audio_setup();
-
+  
   EEPROM_READ();  // setup and read Saved_Settings (saved variables)
   Current_Settings = Saved_Settings;
   // Should automatically load default config if run for the first time
@@ -1548,21 +1702,21 @@ void setup() {
   //      But will update JSON IF the Data is changed (I have a JSON save in EEPROM WRITE)
   //Serial.println(F("Loading JSON configuration..."));
   if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {
-    Serial.println("USING JSON");
+    Serial.println(" USING JSON for wifi and display settings");
   } else {
     Display_Config = Default_JSON;
-    Serial.println(" USING EEPROM, display to defaults");
+    Serial.println(" USING EEPROM data, display set to defaults");
   }
+  
+  if (LoadVictronConfiguration(VictronDevicesSetupfilename,Victron_Config)){
+    Serial.println(" USING JSON for Victron data settings");
+    }else { Serial.println("\n\n***FAILED TO GET Victron JSON FILE****\n**** SAVING DEFAULT and Making File on SD****\n\n");
+    SaveVictronConfiguration(VictronDevicesSetupfilename,Victron_Config);// should write a default file if it was missing?
+    }
   // set up anything BoatData from the configs
   //Serial.print("now.. magvar:");Serial.println(BoatData.Variation);
 
-  gfx->setCursor(40, 120);
-  gfx->setTextColor(WHITE);
-  gfx->setTextBound(0, 0, 480, 480);
-  setFont(4);
-  gfx->println(F("Starting SD Card"));
-  gfx->setCursor(140, 140);
-  gfx->println(soft_version);
+
   // flash User selected logo and setup audio if SD present
   if (hasSD) {
     // // flash logo
@@ -1578,12 +1732,14 @@ void setup() {
   //Serial.println(F("Saving configuration..."));
   //SaveConfiguration(Setupfilename, Display_Config,Current_Settings);
   // Dump config file
-  Serial.println(F("Printing  JSON config file..."));
-  PrintJsonFile(Setupfilename);
+  PrintJsonFile(" Display and wifi config file...",Setupfilename);
+
+ 
+  PrintJsonFile(" Victron JSON config file..",VictronDevicesSetupfilename);
 
   ConnectWiFiusingCurrentSettings();
-  SetupOTA();
-  Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
+  SetupWebstuff();
+ 
   keyboard(-1);     //reset keyboard display update settings
   Udp.begin(atoi(Current_Settings.UDP_PORT));
   //delay(1000);       // time to admire your user page!  
@@ -1591,6 +1747,7 @@ void setup() {
   gfx->setTextColor(WHITE);
   Display_Page = Display_Config.Start_Page;// select first page from the JSON. to show or use non defined page to start with default
   Serial.printf(" Starting display with JSON set page<%i> \n", Display_Config.Start_Page);
+  Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
   }
 
 void loop() {
@@ -1733,9 +1890,11 @@ bool CheckButton(Button& button) {  // trigger on release. needs index (s) to re
   return false;
 }
 void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
-  if (Current_Settings.ESP_NOW_ON) {
-    if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
-  }
+  if ((Current_Settings.ESP_NOW_ON) && (IsConnected)) {  // ESP_now can work even if not actually 'connected', so for now, do not risk the while loop! 
+   // old.. only did one line of nmea_EXT..  if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
+    while (UpdateEspNow()) {UseNMEA(nmea_EXT, 3);// runs multiple times to clear the buffer.. use delay to allow other things to work.. print to show if this is the cause of start delays while debugging!
+    } 
+ }
 
   if (Current_Settings.Serial_on) {
     if (Test_Serial_1()) { UseNMEA(nmea_1, 1); }
@@ -1753,8 +1912,6 @@ void UseNMEA(char* buf, int type) {
       if (type == 2) { NMEALOG("%.3f UDP:%s", float(millis()) / 1000, buf); }
       if (type == 3) { NMEALOG("%.3f ESP:%s", float(millis()) / 1000, buf); }
     }
-
-
     // 8 is snasBold8pt small font and seems to wrap to give a space before the second line
     // 7 is smallest
     // 0 is 8pt mono thin,
@@ -1787,6 +1944,7 @@ void EEPROM_WRITE(DISPLAYCONFIGStruct B, MySettings A) {
   delay(50);
   //NEW also save as a JSON on the SD card SD card will overwrite current settings on setup..
   SaveConfiguration(Setupfilename, B, A);
+ // SaveVictronConfiguration(VictronDevicesSetupfilename,Victron_Config); // should write a default file if it was missing?
 }
 void EEPROM_READ() {
   int key;
@@ -2233,7 +2391,7 @@ void Audio_setup() {
     }
   } else {
     gfx->println("No Audio");
-    Serial.println("Audio setup FAILED");
+    Serial.println("No Audio");
   };
 }
 

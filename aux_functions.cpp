@@ -734,9 +734,9 @@ void SCROLLGraph(bool reset,int instance, int dotsize, bool line, Button button,
   data = DATA.data;
   //dotsize = 3;
   if (reset) {
-    Serial.printf(" RESETTING SCROLLGRAPH  %i  %i ",Display_Page, Displaypage[instance]); 
+  //  Serial.printf(" RESETTING SCROLLGRAPH  %i  %i ",Display_Page, Displaypage[instance]); 
     Displaypage[instance] = Display_Page;
-    Serial.printf(" after..   %i  %i \n",Display_Page, Displaypage[instance]); 
+  //  Serial.printf(" after..   %i  %i \n",Display_Page, Displaypage[instance]); 
 
     for (int x = 0; x <= Hmax; x++) {  //reset all points !!
       graph[x][instance].v = (button.v + button.bordersize + (button.height / 2));

@@ -196,5 +196,9 @@ Apparently, File Names longer than 8 charecters will be truncated by the SD libr
 from Ver 1.2 I have moved the music to a subdirectory in anticipation of adding SD logging.
 
 
+# VERSION 
+4.02 is trying a different ESP-NOW structure, with a buffer. 
+Some loss of data on esp-now has been seen, possibly due to no buffers on the prior exp-now structure. 
+
 
 
