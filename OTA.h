@@ -51,10 +51,18 @@ static bool INSTlogFileStarted = false;
 static bool NMEAINSTlogFileStarted = false;
 
 extern DISPLAYCONFIGStruct Display_Config;
+
 extern const char *Setupfilename;  // <- SD library uses 8.3 filenames
 extern bool LoadConfiguration(const char *filename, DISPLAYCONFIGStruct &config, MySettings &settings);
 extern MySettings Current_Settings;
 extern void EEPROM_WRITE(DISPLAYCONFIGStruct B,MySettings A);
+
+
+extern const char* VictronDevicesSetupfilename;  // <- SD library uses 8.3 filenames
+extern MyVictronDevices  Victron_Config;
+extern void SaveVictronConfiguration(const char* filename, MyVictronDevices& config);
+extern void PrintJsonFile( const char* comment, const char* filename);
+extern bool LoadVictronConfiguration(const char* filename, MyVictronDevices& config);
 
 // extern Arduino_ST7701_RGBPanel *gfx ;  // declare the gfx structure so I can use GFX commands in Keyboard.cpp and here...
 extern Arduino_RGB_Display *gfx;  //  change if alternate (not 'Arduino_RGB_Display' ) display !
@@ -268,6 +276,11 @@ void handleFileUpload() {
     uploadFile = SD.open(upload.filename.c_str(), FILE_WRITE);
     Serial.print("Upload: START, filename: ");
     Serial.println(upload.filename);
+    //maybe add equivalent to web initiated save here if the upload.filename filename is the config.txt or vconfig.txt?
+    // so that the saved settings are actuallt used by the display - rather than waiting for the save button or
+    //  power off.  
+
+    // TBD!
   } else if (upload.status == UPLOAD_FILE_WRITE) {
     if (uploadFile) {
       uploadFile.write(upload.buf, upload.currentSize);
@@ -392,7 +405,7 @@ void printDirectory() {
 }
 
 void handleNotFound() {
-  Serial.print(" handleNotFound: server.uri:<");
+  Serial.print(" handling: server.uri:<");
   Serial.print(server.uri());
   Serial.println(">");
   if (hasSD && loadFromSdCard(server.uri())) {
@@ -462,7 +475,12 @@ void SetupWebstuff() {
   });
     server.on("/Save", HTTP_GET, []() {
     handleRoot();
-    if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
+    if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {Serial.println("***Updating EEPROM");EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
+    if (LoadVictronConfiguration(VictronDevicesSetupfilename,Victron_Config)) { 
+      PrintJsonFile(" Check settings after Web initiated SAVE ",VictronDevicesSetupfilename); Serial.println("***Updating Victron data settings");}
+    else {Serial.println("***SETTING UP DEFAULT VICTRON SETTINGS JSON FILE****\n");
+          SaveVictronConfiguration(VictronDevicesSetupfilename,Victron_Config); }       // should write a default file if it was missing?
+    
     delay(50);Display(true,Display_Page);delay(50);
   });
 
@@ -596,7 +614,7 @@ void StartInstlogfile() {
     return;
   } else {
      INSTlogFileStarted = true;
-     Serial.println("File already exists");
+     Serial.println("Log File already exists.. appending");
   }
   file.close();
 }
@@ -614,7 +632,7 @@ void StartNMEAlogfile() {
     file.close();
     return;
   } else {NMEAINSTlogFileStarted = true;
-     Serial.println("File already exists");
+     Serial.println("NMEA log File already exists.. appending");
   }
   file.close();
 }

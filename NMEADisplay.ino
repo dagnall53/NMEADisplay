@@ -3,7 +3,7 @@
 Compiled and tested with ESp32 V2.0.17  V3has deprecated some functions and this code will not work with V3!
 GFX library for Arduino 1.5.5
 Select "ESP32-S3 DEV Module"
-Select PSRAM "OPI PSRAM"
+Select PSRAM "OPI PSRAM" / enabled
 
 16M flash 
 8m with spiffs - 3Mb app +spiffs
@@ -77,7 +77,7 @@ bool hasSD;
 const char* Setupfilename = "/config.txt";  // <- SD library uses 8.3 filenames
 // victron config structure for mac and keys (SD only not on eeprom)
 const char* VictronDevicesSetupfilename = "/vconfig.txt";  // <- SD library uses 8.3 filenames
-VicJSONstruct  Victron_Config;
+MyVictronDevices  Victron_Config;
 
 
 
@@ -235,8 +235,8 @@ Button Full6Center = { 80, 385, 320, 50, 5, BLUE, WHITE, BLACK };  // inteferes 
 
 
 #define On_Off ? "ON " : "OFF"  // if 1 first case else second (0 or off) same number of chars to try and helps some flashing later
-
-bool LoadVictronConfiguration(const char* filename, VicJSONstruct& config) {
+#define True_False ? "true" : "false"
+bool LoadVictronConfiguration(const char* filename, MyVictronDevices& config) {
   // Open SD file for reading
   bool fault=false;
   if (!SD.exists(filename)) {
@@ -257,34 +257,17 @@ bool LoadVictronConfiguration(const char* filename, VicJSONstruct& config) {
     Serial.println(F("**Failed to deserialise victron JSON file"));
     fault=true;
   }
-  // Copy values (or defaults) from the JsonDocument to the config / settings
-  // what is the point of the defaults if we never get here when the file is initially missing!! 
-  strlcpy(config.device1MacAddrstr, doc["D1.mac"] | "ea9df3ebc625", sizeof(config.device1MacAddrstr));
-  strlcpy(config.device2MacAddrstr, doc["D2.mac"] | "f944913298e8", sizeof(config.device1MacAddrstr));
-  strlcpy(config.device3MacAddrstr, doc["D3.mac"] | "f944913298e8", sizeof(config.device1MacAddrstr));
-  strlcpy(config.device4MacAddrstr, doc["D4.mac"] | "f944913298e8", sizeof(config.device1MacAddrstr));
-  strlcpy(config.device5MacAddrstr, doc["D5.mac"] | "f944913298e8", sizeof(config.device1MacAddrstr));
-  strlcpy(config.device6MacAddrstr, doc["D5.mac"] | "f944913298e8", sizeof(config.device1MacAddrstr));
- 
-  strlcpy(config.device1charKeystr, doc["D1.key"] | "e09d8b200c61238c811a621e5964c44e", sizeof(config.device1charKeystr));
-  strlcpy(config.device2charKeystr, doc["D2.key"] | "40ef2093aa678238147091c7657daa54", sizeof(config.device1charKeystr));
-  strlcpy(config.device3charKeystr, doc["D3.key"] | "40ef2093aa678238147091c7657daa54", sizeof(config.device1charKeystr));
-  strlcpy(config.device4charKeystr, doc["D4.key"] | "40ef2093aa678238147091c7657daa54", sizeof(config.device1charKeystr));
-  strlcpy(config.device5charKeystr, doc["D5.key"] | "40ef2093aa678238147091c7657daa54", sizeof(config.device1charKeystr));
-  strlcpy(config.device6charKeystr, doc["D6.key"] | "40ef2093aa678238147091c7657daa54", sizeof(config.device1charKeystr));
-
-   strlcpy(config.device1commentstr, doc["D1.comment"] | "300A", sizeof(config.device1commentstr));
-   strlcpy(config.device2commentstr, doc["D2.comment"] | "SOLAR1", sizeof(config.device1commentstr));
-   strlcpy(config.device3commentstr, doc["D3.comment"] | "SOLAR2", sizeof(config.device1commentstr));
-   strlcpy(config.device4commentstr, doc["D4.comment"] | "Bow", sizeof(config.device1commentstr));
-   strlcpy(config.device5commentstr, doc["D5.comment"] | "500A", sizeof(config.device1commentstr));
-   strlcpy(config.device6commentstr, doc["D5.comment"] | "mains", sizeof(config.device1commentstr));
+    for (int index=0;index<=Current_Settings.Num_Victron_Devices;index++){
+    strlcpy(config.VICMacAddrstr[index], doc["device"+String(index)+".mac"] | "-mac-", sizeof(config.VICMacAddrstr[index]));
+    strlcpy(config.VICcharKeystr[index], doc["device"+String(index)+".key"] | "-key-", sizeof(config.VICcharKeystr[index]));
+    strlcpy(config.VICcommentstr[index], doc["device"+String(index)+".comment"] | "-comment-", sizeof(config.VICcommentstr[index]));
+  } 
     // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
  
  return !fault; // report success
 }
-void SaveVictronConfiguration(const char* filename, VicJSONstruct& config) {
+void SaveVictronConfiguration(const char* filename, MyVictronDevices& config) {
   // Delete existing file, otherwise the configuration is appended to the file
   SD.remove(filename);
   char buff[15];
@@ -294,36 +277,14 @@ void SaveVictronConfiguration(const char* filename, VicJSONstruct& config) {
     Serial.println(F("JSON: Victron: Failed to create SD file"));
     return;
   }
-  Serial.printf(" We expect %i Victron devices",NumVictronDevices);
+  Serial.printf(" We expect %i Victron devices",Current_Settings.Num_Victron_Devices);
   // Allocate a temporary JsonDocument
   JsonDocument doc;
-  // Set the values in the JSON file.. // NOT ALL ARE read yet!!
-  //modify how the display works
-   doc["D1.mac"]= config.device1MacAddrstr;
-   doc["D1.key"] =config.device1charKeystr;
-   doc["D1.comment"] =config.device1commentstr;
-
-   doc["D2.mac"]= config.device2MacAddrstr;
-   doc["D2.key"] =config.device2charKeystr;
-   doc["D2.comment"] =config.device2commentstr;
-
-    doc["D3.mac"]= config.device3MacAddrstr;
-   doc["D3.key"] =config.device3charKeystr;
-   doc["D3.comment"] =config.device3commentstr;
-
-    doc["D4.mac"]= config.device4MacAddrstr;
-   doc["D4.key"] =config.device4charKeystr;
-   doc["D4.comment"] =config.device4commentstr;
-
-    doc["D5.mac"]= config.device5MacAddrstr;
-   doc["D5.key"] =config.device5charKeystr;
-   doc["D5.comment"] =config.device5commentstr;
-
-    doc["D6.mac"]= config.device6MacAddrstr;
-   doc["D6.key"] =config.device6charKeystr;
-   doc["D6.comment"] =config.device6commentstr;
-
-
+  for (int index=0;index<=Current_Settings.Num_Victron_Devices;index++){
+    doc["device"+String(index)+".mac"]=config.VICMacAddrstr[index];
+    doc["device"+String(index)+".key"]=config.VICcharKeystr[index];
+    doc["device"+String(index)+".comment"]=config.VICcommentstr[index];
+  }
 
   // Serialize JSON to file
   if (serializeJsonPretty(doc, file) == 0) {  // use 'pretty format' with line feeds
@@ -331,7 +292,7 @@ void SaveVictronConfiguration(const char* filename, VicJSONstruct& config) {
   }
   // Close the file, //but print serial as a check
   file.close();
-
+  PrintJsonFile("Check after Saving configuration ", filename);
 }
 
 bool LoadConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySettings& settings) {
@@ -380,8 +341,8 @@ bool LoadConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySett
 
 
   // only change settings if we have read the file! else we will use the EEPROM settings
-  if (!error)
-    strlcpy(settings.ssid,               // <- destination
+  if (!error) {
+  strlcpy(settings.ssid,               // <- destination
             doc["ssid"] | "GuestBoat",   // <- source and default in case Json is corrupt!
             sizeof(settings.ssid));      // <- destination's capacity
   strlcpy(settings.password,             // <- destination
@@ -390,6 +351,26 @@ bool LoadConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySett
   strlcpy(settings.UDP_PORT,             // <- destination
           doc["UDP_PORT"] | "2000",      // <- source and default.
           sizeof(settings.UDP_PORT));    // <- destination's capacity
+
+  strlcpy(temp,doc["Serial"]|"false",sizeof(temp));
+  settings.Serial_on= (strcmp(temp,"false"));
+   
+  strlcpy(temp,doc["UDP"]|"true",sizeof(temp));
+  settings.UDP_ON= (strcmp(temp,"false"));
+  strlcpy(temp,doc["ESP"]|"false",sizeof(temp));
+  settings.ESP_NOW_ON= (strcmp(temp,"false"));
+  strlcpy(temp,doc["LOG"]|"false",sizeof(temp));
+  settings.Log_ON= (strcmp(temp,"false"));
+  strlcpy(temp,doc["NMEALOG"]|"false",sizeof(temp));
+  settings.NMEA_log_ON= (strcmp(temp,"false"));
+  }
+
+  strlcpy(temp,doc["Victron_Enabled"]|"false",sizeof(temp));
+  settings.Victron_Enabled= (strcmp(temp,"false"));
+  
+  settings.Num_Victron_Devices =doc["Number_of_Victron"]| 3;
+
+
   // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
   if (!error) { return true; }
@@ -428,11 +409,15 @@ void SaveConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySett
   doc["ssid"] = settings.ssid;
   doc["password"] = settings.password;
   doc["UDP_PORT"] = settings.UDP_PORT;
-  doc["Serial"] = settings.Serial_on;
-  doc["UDP"] = settings.UDP_ON;
-  doc["ESP"] = settings.ESP_NOW_ON;
-  doc["LOG"] = settings.Log_ON;
-  doc["NMEALOG"] = settings.NMEA_log_ON;
+  doc["Serial"] = settings.Serial_on True_False;
+  doc["UDP"] = settings.UDP_ON True_False;
+  doc["ESP"] = settings.ESP_NOW_ON True_False;
+  doc["LOG"] = settings.Log_ON True_False;
+  doc["NMEALOG"] = settings.NMEA_log_ON True_False;
+  doc["Victron_Enabled"]=settings.Victron_Enabled True_False;
+  doc["Number_of_Victron"]= settings.Num_Victron_Devices;
+
+
   // Serialize JSON to file
   if (serializeJsonPretty(doc, file) == 0) {  // use 'pretty format' with line feeds
     Serial.println(F("JSON: Failed to write to SD file"));
@@ -1681,18 +1666,13 @@ void setup() {
   gfx->setTextBound(0, 0, 480, 480);
   gfx->setTextColor(WHITE);
   setFont(4);
-  gfx->setCursor(40, 120);
+  gfx->setCursor(40, 20);
   gfx->println(F("***Display Started***"));
 
   SD_Setup();
- 
-  gfx->setCursor(40, 120);
-  gfx->setTextColor(WHITE);
-  gfx->setTextBound(0, 0, 480, 480);
-  setFont(4);
   gfx->println(F("Started SD Card"));
-  gfx->setCursor(140, 140);
-  gfx->println(soft_version);
+  // gfx->setCursor(140, 140);
+  // gfx->println(soft_version);
   Audio_setup();
   
   EEPROM_READ();  // setup and read Saved_Settings (saved variables)
@@ -1728,13 +1708,8 @@ void setup() {
     gfx->println(soft_version);
   }
 
-  // Create configuration file
-  //Serial.println(F("Saving configuration..."));
-  //SaveConfiguration(Setupfilename, Display_Config,Current_Settings);
-  // Dump config file
+  // print config files
   PrintJsonFile(" Display and wifi config file...",Setupfilename);
-
- 
   PrintJsonFile(" Victron JSON config file..",VictronDevicesSetupfilename);
 
   ConnectWiFiusingCurrentSettings();
@@ -1746,7 +1721,7 @@ void setup() {
   gfx->setTextBound(0, 0, 480, 480);
   gfx->setTextColor(WHITE);
   Display_Page = Display_Config.Start_Page;// select first page from the JSON. to show or use non defined page to start with default
-  Serial.printf(" Starting display with JSON set page<%i> \n", Display_Config.Start_Page);
+  Serial.printf(" Starting display page<%i> \n", Display_Config.Start_Page);
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
   }
 
@@ -1784,12 +1759,7 @@ void loop() {
     WIFIGFXBoxdisplaystarted = false;
     Display(true, Display_Page);delay(50); // change page back, having set zero above which alows the graphics to reset up the boxes etc.
     }
-  
-
-  
-
-  
-
+ 
 }
 
 
@@ -1890,9 +1860,11 @@ bool CheckButton(Button& button) {  // trigger on release. needs index (s) to re
   return false;
 }
 void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
-  if ((Current_Settings.ESP_NOW_ON) && (IsConnected)) {  // ESP_now can work even if not actually 'connected', so for now, do not risk the while loop! 
+  static unsigned long MAXScanInterval; 
+  MAXScanInterval=millis()+500;
+  if ((Current_Settings.ESP_NOW_ON) ) {  // ESP_now can work even if not actually 'connected', so for now, do not risk the while loop! 
    // old.. only did one line of nmea_EXT..  if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
-    while (UpdateEspNow()) {UseNMEA(nmea_EXT, 3);// runs multiple times to clear the buffer.. use delay to allow other things to work.. print to show if this is the cause of start delays while debugging!
+    while (UpdateEspNow() && (millis()<=MAXScanInterval)) {UseNMEA(nmea_EXT, 3);// runs multiple times to clear the buffer.. use delay to allow other things to work.. print to show if this is the cause of start delays while debugging!
     } 
  }
 
@@ -2219,7 +2191,7 @@ bool ScanAndConnect(bool display){
   if (found) { 
        if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found <%i> networks\n Connecting to <%s> signal:%i\nplease wait", NetworksFound,Current_Settings.ssid,rssiValue);}
        Serial.printf(" Scan found <%s> \n", Current_Settings.ssid);//gfx->printf("Found <%s> network!\n", Current_Settings.ssid); 
-       ConnectTimeout=millis()+60000;
+       ConnectTimeout=millis()+3000;
        WiFi.begin(Current_Settings.ssid, Current_Settings.password,channel); // faster if we pre-set it the channel??
        IsConnected = false;
        AttemptingConnect = true; 

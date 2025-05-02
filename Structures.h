@@ -32,6 +32,8 @@ struct MySettings {  // MAINLY WIFI AND DATA LOGGING key,ssid,PW,udpport, UDP,se
   bool ESP_NOW_ON;
   bool Log_ON;
   bool NMEA_log_ON;
+  bool Victron_Enabled;
+  int Num_Victron_Devices;
 };
 struct MyColors {  // for later Day/Night settings
   uint16_t TextColor;
@@ -82,38 +84,39 @@ struct Phv {   // struct for int positions h v typically on screen
 
 /// for Victron stuff:
 
-// victron ble structures ?
+// victron data struct to use my display stuff ?
+/*struct instData {  // struct to hold instrument data AND the time it was updated.
+  double data = NMEA0183DoubleNA;
+  double lastdata = NMEA0183DoubleNA;
+  unsigned long updated;
+  bool displayed;  // displayed is used by Digital displays
+  bool greyed;     // when the data is OLD! 
+  bool graphed;    // is used by Graphs, so you can display digital and graph on same page!
+  int source;      // Ready to try an experiment with two GPS to see how they track .
+ 
+};*/
 
 struct Vicdevice {
-  char MacAddrstr[12];
-  char charKeystr [32];
-  char commentstr [10];
+  int Device_Type=0;   // selector equivalent to victronRecordType {1=solar 2=smartshunt..     }
+  double data; // use for main reading, assumed voltage
+  double lastdata ;
+  double data2 ; // use for secondary reading, assumed current
+  double lastdata2 ;
+  double data3 ; // use for tertiary reading, aux batt, temp? etc.. 
+  double lastdata3 ;
+  double data4; // use for quadrenary (?) reading, aux batt, temp? etc.. 
+  double lastdata4 ;
+  
+  unsigned long updated;
+  bool displayed;  // displayed is used by Digital displays
+  bool greyed;     // when the data is OLD! 
+  bool graphed;    // is used by Graphs, so you can display digital and graph on same page!
 };
 
-struct VicJSONstruct{   // equivalent to DISPLAYCONFIGStruct
-  char device1MacAddrstr[12];
-  char device1charKeystr [32];
-  char device1commentstr [10];
-
-  char device2MacAddrstr[12];
-  char device2charKeystr [32];
-  char device2commentstr [10];
-
-    char device3MacAddrstr[12];
-  char device3charKeystr [32];
-  char device3commentstr [10];
-
-    char device4MacAddrstr[12];
-  char device4charKeystr [32];
-  char device4commentstr [10];
-
-    char device5MacAddrstr[12];
-  char device5charKeystr [32];
-  char device5commentstr [10];
-
-    char device6MacAddrstr[12];
-  char device6charKeystr [32];
-  char device6commentstr [10];
+struct MyVictronDevices{   // equivalent to DISPLAYCONFIGStruct
+  char VICMacAddrstr[12][10];
+  char VICcharKeystr [32][10];
+  char VICcommentstr [15][10];
 
 };
 #endif  // _BoatData_H_
