@@ -33,7 +33,7 @@ bool Start_ESP_EXT() {  // start espnow and set interrupt to function Test_EspNO
   return success;
 }
 
-bool donotdisturb; 
+bool donotdisturb; // a semaphore to tell Test_EspNOW NOT to accept and overwrite nmea_ext_buffer
 char nmea_ext_buffer[1000];
 
 //EXT send function services the interrup when an esp-now arrives A NEW funcion UpdateEspNow is now used in loop to extract a line of data to NMEA-ext "esp_now"
@@ -77,7 +77,7 @@ void Test_EspNOW(const uint8_t* mac, const uint8_t* incomingData, int len) {
   donotdisturb=false;
   return _gotFirstLine;
 }
-extern struct DISPLAYCONFIGStruct Display_Config;
+extern struct _sDisplay_Config Display_Config;
 void EXTHeartbeat() {
   if (!EspNowIsRunning) { return; }
   if (Last_EXT_Sent + 10000 <= millis()) {  // 10 sec.

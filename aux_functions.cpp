@@ -123,7 +123,7 @@ double NMEA0183GetDouble(const char *data) {
 }
 */
 //revised 18/03 all NULL data should be set "grey"
-void toNewStruct(char *field, instData &data) {
+void toNewStruct(char *field, _sInstData &data) {
   data.greyed = true;
   data.updated = millis();
   data.lastdata = data.data;
@@ -135,7 +135,7 @@ void toNewStruct(char *field, instData &data) {
   data.graphed = false;
 }
 
-void toNewStruct(double field, instData &data) {  // allow update of struct with simple double data
+void toNewStruct(double field, _sInstData &data) {  // allow update of struct with simple double data
   data.greyed = true;
   data.updated = millis();
   data.lastdata = data.data;
@@ -150,7 +150,7 @@ void toNewStruct(double field, instData &data) {  // allow update of struct with
 
 
 
-bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array buf and places (updates) data if found in stringND
+bool processPacket(const char *buf, _sBoatData &BoatData) {  // reads char array buf and places (updates) data if found in stringND
   char *p;
   int Index;
   int Num_Conversions = 0;
@@ -189,7 +189,7 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
       toNewStruct(Field[1], BoatData.WindAngleApp);
       toNewStruct(Field[3], BoatData.WindSpeedK);
       // also try to compute Ground wind.. Relative to North
-      toNewStruct((BoatData.Variation + DoubleInstdataAdd(BoatData.WindAngleApp, BoatData.MagHeading)), BoatData.WindAngleGround);
+      toNewStruct((BoatData.Variation + Double_sInstDataAdd(BoatData.WindAngleApp, BoatData.MagHeading)), BoatData.WindAngleGround);
 
 
       return true;
@@ -250,18 +250,18 @@ bool processPacket(const char *buf, tBoatData &BoatData) {  // reads char array 
 
 
 
-int TopLeftYforthisLine(Button button, int printline) {
+int TopLeftYforthisLine(_sButton button, int printline) {
   return button.v + button.bordersize + (printline * (text_height + 2));
 }
 
 
 // no option for centered.. is equivalent to old CommonSubUpdateLinef
-void CommonCenteredSubUpdateLine(uint16_t color, int font, Button &button, const char *msg) {
+void CommonCenteredSubUpdateLine(uint16_t color, int font, _sButton &button, const char *msg) {
   CommonCenteredSubUpdateLine(true, false, color, font, button, msg);
 }
 
 // I think vertical centering may not be needed??
-void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t color, int font, Button &button, const char *msg) {
+void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t color, int font, _sButton &button, const char *msg) {
   int LinesOfType;
   int16_t x, y, TBx1, TBy1;
   uint16_t TBw1, TBh1;
@@ -325,7 +325,7 @@ void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t col
   setFont(local);
 }
 
-void UpdateLinef(uint16_t color, int font, Button &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
+void UpdateLinef(uint16_t color, int font, _sButton &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
   if (button.screenfull && button.debugpause) { return; }
   //Serial.printf(" lines  TypingspaceH =%i  number of lines=%i printing line <%i>\n",typingspaceH,LinesOfType,button.PrintLine);
   static char msg[300] = { '\0' };
@@ -340,7 +340,7 @@ void UpdateLinef(uint16_t color, int font, Button &button, const char *fmt, ...)
 
 
 
-void UpdateLinef(int font, Button &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
+void UpdateLinef(int font, _sButton &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
   if (button.screenfull && button.debugpause) { return; }
   static char msg[300] = { '\0' };
   va_list args;
@@ -356,7 +356,7 @@ void UpdateLinef(int font, Button &button, const char *fmt, ...) {  // Types seq
 
 
 
-void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool erase, int bigfont, int smallfont, Button button, instData &data, const char *fmt, ...) {  // TWO font print. separates at decimal point Centers text in space GREYS if data is OLD
+void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool erase, int bigfont, int smallfont, _sButton button, _sInstData &data, const char *fmt, ...) {  // TWO font print. separates at decimal point Centers text in space GREYS if data is OLD
   static char msg[300] = { '\0' };
   char digits[30];
   char decimal[30];
@@ -445,7 +445,7 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
   gfx->setTextBound(0, 0, 480, 480);  //MUST reset it for other functions that do not set it themselves!
 }
 
-void UpdateDataTwoSize(bool reset,const char *msg, const char *units,bool horizCenter, bool vertCenter, int bigfont, int smallfont, Button button, instData &data, const char *fmt) {
+void UpdateDataTwoSize(bool reset,const char *msg, const char *units,bool horizCenter, bool vertCenter, int bigfont, int smallfont, _sButton button, _sInstData &data, const char *fmt) {
   if (reset) {
     GFXBorderBoxPrintf(button, "");
     AddTitleInsideBox(9, 3, button, msg);
@@ -456,7 +456,7 @@ void UpdateDataTwoSize(bool reset,const char *msg, const char *units,bool horizC
 
 
 
-void UpdateDataTwoSize(bool horizCenter, bool vertCenter, int bigfont, int smallfont, Button button, instData &data, const char *fmt) {
+void UpdateDataTwoSize(bool horizCenter, bool vertCenter, int bigfont, int smallfont, _sButton button, _sInstData &data, const char *fmt) {
   if (data.data == NMEA0183DoubleNA) { return; }
 
   bool recent = (data.updated >= millis() - 6000);
@@ -479,7 +479,7 @@ void UpdateDataTwoSize(bool horizCenter, bool vertCenter, int bigfont, int small
 
 
 
-void UpdateDataTwoSize(int magnify, bool horizCenter, bool vertCenter, int bigfont, int smallfont, Button button, instData &data, const char *fmt) {
+void UpdateDataTwoSize(int magnify, bool horizCenter, bool vertCenter, int bigfont, int smallfont, _sButton button, _sInstData &data, const char *fmt) {
   if (data.data == NMEA0183DoubleNA) { return; }
 
   bool recent = (data.updated >= millis() - 6000);
@@ -502,7 +502,7 @@ void UpdateDataTwoSize(int magnify, bool horizCenter, bool vertCenter, int bigfo
   }
 }
 
-void GFXBorderBoxPrintf(Button button, const char *fmt, ...) {
+void GFXBorderBoxPrintf(_sButton button, const char *fmt, ...) {
   static char msg[300] = { '\0' };  // used in message buildup
   va_list args;
   va_start(args, fmt);
@@ -518,7 +518,7 @@ void GFXBorderBoxPrintf(Button button, const char *fmt, ...) {
   // WAS  WriteinBorderBox(button.h, button.v, button.width, button.height, button.bordersize, button.BackColor, button.TextColor, button.BorderColor, msg);
 }
 
-void AddTitleBorderBox(int font, Button button, const char *fmt, ...) {  // add a top left title to the box
+void AddTitleBorderBox(int font, _sButton button, const char *fmt, ...) {  // add a top left title to the box
   int Font_Before;
   //Serial.println("Font at start is %i",MasterFont);
   Font_Before = MasterFont;
@@ -543,7 +543,7 @@ void AddTitleBorderBox(int font, Button button, const char *fmt, ...) {  // add 
 }
 
 
-void AddTitleInsideBox(int font, int pos, Button button, const char *fmt, ...) {  // Pos 1 2 3 4 for top right, botom right etc. add a top left title to the box
+void AddTitleInsideBox(int font, int pos, _sButton button, const char *fmt, ...) {  // Pos 1 2 3 4 for top right, botom right etc. add a top left title to the box
   int Font_Before;
   //Serial.println("Font at start is %i",MasterFont);
   Font_Before = MasterFont;
@@ -624,7 +624,7 @@ void PfillCircle(Phv P1, int rad, uint16_t COLOUR) {
   gfx->fillCircle(P1.h, P1.v, rad, COLOUR);
 }
 
-void DrawGPSPlot(bool reset, Button button, tBoatData BoatData, double magnification) {
+void DrawGPSPlot(bool reset, _sButton button, _sBoatData BoatData, double magnification) {
   static double startposlat, startposlon;
   double LatD, LongD;  //deltas
   int h, v;
@@ -651,11 +651,11 @@ void DrawGPSPlot(bool reset, Button button, tBoatData BoatData, double magnifica
   }
 }
 
-// void DrawGraph(Button button, instData &DATA, double dmin, double dmax) {
+// void DrawGraph(_sButton button, _sInstData &DATA, double dmin, double dmax) {
 //   DrawGraph(button, DATA, dmin, dmax, 8, " ", " ");
 // }
 
-// void DrawGraph(Button button, instData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
+// void DrawGraph(_sButton button, _sInstData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
 //   if (DATA.displayed) { return; }
 //   if (DATA.data == NMEA0183DoubleNA) { return; }
 //   static int Displaypage = 0;  // where were we last called from ??
@@ -722,7 +722,7 @@ void DrawGPSPlot(bool reset, Button button, tBoatData BoatData, double magnifica
 // }
 
 
-void SCROLLGraph(bool reset,int instance, int dotsize, bool line, Button button, instData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
+void SCROLLGraph(bool reset,int instance, int dotsize, bool line, _sButton button, _sInstData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
   if (instance >> 1) {return;} // allow only instance 0 and 1
   if (DATA.graphed) { return; }
   if (DATA.data == NMEA0183DoubleNA) { return; }
@@ -772,7 +772,7 @@ void SCROLLGraph(bool reset,int instance, int dotsize, bool line, Button button,
    DATA.graphed = true;  //reset to false inside t-- to avoid confusion!.oNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
 }
 
-// void SCROLLGraph2(Button button, instData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
+// void SCROLLGraph2(_sButton button, _sInstData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
 //   if (DATA.displayed) { return; }
 //   if (DATA.data == NMEA0183DoubleNA) { return; }
 //   static int Displaypage ;  // where were we last called from ??
@@ -824,7 +824,7 @@ void SCROLLGraph(bool reset,int instance, int dotsize, bool line, Button button,
 
 
 
-double DoubleInstdataAdd(instData &data1, instData &data) {
+double Double_sInstDataAdd(_sInstData &data1, _sInstData &data) {
   double temp;
   temp = 0;
   if (data.data != NMEA0183DoubleNA) { temp += data.data; }

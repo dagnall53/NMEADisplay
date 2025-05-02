@@ -66,6 +66,8 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 //audio
 #include "Audio.h"
 
+#include "VICTRONBLE.h" //sets #ifndef Victronble_h
+
 const char soft_version[] = "Version 4.02";
 bool hasSD;
 
@@ -77,9 +79,10 @@ bool hasSD;
 const char* Setupfilename = "/config.txt";  // <- SD library uses 8.3 filenames
 // victron config structure for mac and keys (SD only not on eeprom)
 const char* VictronDevicesSetupfilename = "/vconfig.txt";  // <- SD library uses 8.3 filenames
-MyVictronDevices  Victron_Config;
+_sMyVictronDevices  victronDevices;
+char  VICTRONRES[120];  // way to transfer results in a way similar to NMEA text.
 
-
+_sVictronData VictronData;  // Victron sensor Data values, int double etc for use in graphics 
 
 
 //set up Audio
@@ -114,7 +117,7 @@ bool WIFIGFXBoxdisplaystarted;
 
 //********** All boat data (instrument readings) are stored as double in a single structure:
 
-tBoatData BoatData;  // BoatData values, int double etc
+_sBoatData BoatData;  // BoatData values, int double etc
 
 bool dataUpdated;  // flag that Nmea Data has been updated
 
@@ -127,10 +130,10 @@ char File_List[20][20];  //array of 20 (20 long) file names for listing..
 String runtimes[20];
 int file_num = 0;
 
-// MySettings (see structures.h) are the settings for the Display:
+// _sWiFi_settings_Config (see structures.h) are the settings for the Display:
 // If the structure is changed, be sure to change the Key (first figure) so that new defaults and struct can be set.
 //                                                                                    LOG off NMEAlog Off
-MySettings Default_Settings = { 17, "GUESTBOAT", "12345678", "2002", false, true, true, false, false };
+_sWiFi_settings_Config Default_Settings = { 17, "GUESTBOAT", "12345678", "2002", false, true, true, false, false };
 /*  char Mag_Var[15]; // got to save double variable as a string! east is positive
   int Start_Page ;
   char PanelName[25];
@@ -139,11 +142,11 @@ MySettings Default_Settings = { 17, "GUESTBOAT", "12345678", "2002", false, true
   strlcpy(config.FourWayBL, doc["FourWayBL"] | "DEPTH", sizeof(config.FourWayBL));
   strlcpy(config.FourWayTR, doc["FourWayTR"] | "WIND", sizeof(config.FourWayTR));
   strlcpy(config.FourWayTL, doc["FourWayTL"] | "STW */
-DISPLAYCONFIGStruct Default_JSON = { "0.5", 4, "nmeadisplay", "12345678","SOG","DEPTH","WIND","STW" }; // many display stuff set default circa 265 etc. 
-DISPLAYCONFIGStruct Display_Config;
+_sDisplay_Config Default_JSON = { "0.5", 4, "nmeadisplay", "12345678","SOG","DEPTH","WIND","STW" }; // many display stuff set default circa 265 etc. 
+_sDisplay_Config Display_Config;
 int Display_Page = 4;  //set last in setup(), but here for clarity?
-MySettings Saved_Settings;
-MySettings Current_Settings;
+_sWiFi_settings_Config Saved_Settings;
+_sWiFi_settings_Config Current_Settings;
 
 
 
@@ -161,82 +164,82 @@ int text_height = 12;      //so we can get them if we change heights etc inside 
 int text_offset = 12;      //offset is not equal to height, as subscripts print lower than 'height'
 int text_char_width = 12;  // useful for monotype? only NOT USED YET! Try gfx->getTextBounds(string, x, y, &x1, &y1, &w, &h);
 
-//****  My displays are based on 'Button' structures to define position, width height, borders and colours.
+//****  My displays are based on '_sButton' structures to define position, width height, borders and colours.
 // int h, v, width, height, bordersize;  uint16_t BackColor, TextColor, BorderColor;
-Button CurrentSettingsBox = { 0, 0, 480, 80, 2, BLUE, WHITE, BLACK };  //also used for showing the current settings
+_sButton CurrentSettingsBox = { 0, 0, 480, 80, 2, BLUE, WHITE, BLACK };  //also used for showing the current settings
 
-Button FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
+_sButton FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 
-//Button WindDisplay = { 0, 0, 480, 480, 0, BLUE, WHITE, BLACK };  // full screen no border
+//_sButton WindDisplay = { 0, 0, 480, 480, 0, BLUE, WHITE, BLACK };  // full screen no border
 
 //used for single data display
 // modified all to lift by 30 pixels to allow a common bottom row display (to show logs and get to settings)
-Button StatusBox = { 0, 450, 480, 30, 3, BLACK, WHITE, BLACK };
-Button WifiStatus = { 60, 180, 360, 120, 5, BLUE, WHITE, BLACK };  // big central box for wifi events to pop up - v3.5
+_sButton StatusBox = { 0, 450, 480, 30, 3, BLACK, WHITE, BLACK };
+_sButton WifiStatus = { 60, 180, 360, 120, 5, BLUE, WHITE, BLACK };  // big central box for wifi events to pop up - v3.5
 
-Button BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK };              // used for wind and graph displays
-Button BigSingleTopRight = { 240, 0, 240, 90, 5, BLUE, WHITE, BLACK };             //  ''
-Button BigSingleTopLeft = { 0, 0, 240, 90, 5, BLUE, WHITE, BLACK };                //  ''
-Button TopHalfBigSingleTopRight = { 240, 0, 240, 45, 5, BLUE, WHITE, BLACK };      //  ''
-Button BottomHalfBigSingleTopRight = { 240, 45, 240, 45, 5, BLUE, WHITE, BLACK };  //  ''
+_sButton BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK };              // used for wind and graph displays
+_sButton BigSingleTopRight = { 240, 0, 240, 90, 5, BLUE, WHITE, BLACK };             //  ''
+_sButton BigSingleTopLeft = { 0, 0, 240, 90, 5, BLUE, WHITE, BLACK };                //  ''
+_sButton TopHalfBigSingleTopRight = { 240, 0, 240, 45, 5, BLUE, WHITE, BLACK };      //  ''
+_sButton BottomHalfBigSingleTopRight = { 240, 45, 240, 45, 5, BLUE, WHITE, BLACK };  //  ''
 //used for nmea RMC /GPS display // was only three lines to start!
-Button Threelines0 = { 20, 30, 440, 80, 5, BLUE, WHITE, BLACK };
-Button Threelines1 = { 20, 130, 440, 80, 5, BLUE, WHITE, BLACK };
-Button Threelines2 = { 20, 230, 440, 80, 5, BLUE, WHITE, BLACK };
-Button Threelines3 = { 20, 330, 440, 80, 5, BLUE, WHITE, BLACK };
+_sButton Threelines0 = { 20, 30, 440, 80, 5, BLUE, WHITE, BLACK };
+_sButton Threelines1 = { 20, 130, 440, 80, 5, BLUE, WHITE, BLACK };
+_sButton Threelines2 = { 20, 230, 440, 80, 5, BLUE, WHITE, BLACK };
+_sButton Threelines3 = { 20, 330, 440, 80, 5, BLUE, WHITE, BLACK };
 // for the quarter screens on the main page
-Button topLeftquarter = { 0, 0, 240, 240 - 15, 5, BLUE, WHITE, BLACK };  //h  reduced by 15 to give 30 space at the bottom
-Button bottomLeftquarter = { 0, 240 - 15, 240, 240 - 15, 5, BLUE, WHITE, BLACK };
-Button topRightquarter = { 240, 0, 240, 240 - 15, 5, BLUE, WHITE, BLACK };
-Button bottomRightquarter = { 240, 240 - 15, 240, 240 - 15, 5, BLUE, WHITE, BLACK };
+_sButton topLeftquarter = { 0, 0, 240, 240 - 15, 5, BLUE, WHITE, BLACK };  //h  reduced by 15 to give 30 space at the bottom
+_sButton bottomLeftquarter = { 0, 240 - 15, 240, 240 - 15, 5, BLUE, WHITE, BLACK };
+_sButton topRightquarter = { 240, 0, 240, 240 - 15, 5, BLUE, WHITE, BLACK };
+_sButton bottomRightquarter = { 240, 240 - 15, 240, 240 - 15, 5, BLUE, WHITE, BLACK };
 
 
 
 // these were used for initial tests and for volume control - not needed for most people!! .. only used now for Range change in GPS graphic (?)
-Button TopLeftbutton = { 0, 0, 75, 45, 5, BLUE, WHITE, BLACK };
-Button TopRightbutton = { 405, 0, 75, 45, 5, BLUE, WHITE, BLACK };
-Button BottomRightbutton = { 405, 405, 75, 45, 5, BLUE, WHITE, BLACK };
-Button BottomLeftbutton = { 0, 405, 75, 45, 5, BLUE, WHITE, BLACK };
+_sButton TopLeftbutton = { 0, 0, 75, 45, 5, BLUE, WHITE, BLACK };
+_sButton TopRightbutton = { 405, 0, 75, 45, 5, BLUE, WHITE, BLACK };
+_sButton BottomRightbutton = { 405, 405, 75, 45, 5, BLUE, WHITE, BLACK };
+_sButton BottomLeftbutton = { 0, 405, 75, 45, 5, BLUE, WHITE, BLACK };
 
 // buttons for the wifi/settings pages
-Button TOPButton = { 20, 10, 430, 35, 5, WHITE, BLACK, BLUE };
-Button SecondRowButton = { 20, 60, 430, 35, 5, WHITE, BLACK, BLUE };
-Button ThirdRowButton = { 20, 100, 430, 35, 5, WHITE, BLACK, BLUE };
-Button FourthRowButton = { 20, 140, 430, 35, 5, WHITE, BLACK, BLUE };
-Button FifthRowButton = { 20, 180, 430, 35, 5, WHITE, BLACK, BLUE };
+_sButton TOPButton = { 20, 10, 430, 35, 5, WHITE, BLACK, BLUE };
+_sButton SecondRowButton = { 20, 60, 430, 35, 5, WHITE, BLACK, BLUE };
+_sButton ThirdRowButton = { 20, 100, 430, 35, 5, WHITE, BLACK, BLUE };
+_sButton FourthRowButton = { 20, 140, 430, 35, 5, WHITE, BLACK, BLUE };
+_sButton FifthRowButton = { 20, 180, 430, 35, 5, WHITE, BLACK, BLUE };
 
 #define sw_width 55
 //switches at line 180
-Button Switch1 = { 20, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
-Button Switch2 = { 100, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
-Button Switch3 = { 180, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
-Button Switch5 = { 260, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
-Button Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };  // big one for eeprom update
+_sButton Switch1 = { 20, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
+_sButton Switch2 = { 100, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
+_sButton Switch3 = { 180, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
+_sButton Switch5 = { 260, 180, sw_width, 35, 5, WHITE, BLACK, BLUE };
+_sButton Switch4 = { 345, 180, 120, 35, 5, WHITE, BLACK, BLUE };  // big one for eeprom update
 //switches at line 60
-Button Switch6 = { 20, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
-Button Switch7 = { 100, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
-Button Switch8 = { 180, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
-Button Switch9 = { 260, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
-Button Switch10 = { 340, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
-Button Switch11 = { 420, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+_sButton Switch6 = { 20, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+_sButton Switch7 = { 100, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+_sButton Switch8 = { 180, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+_sButton Switch9 = { 260, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+_sButton Switch10 = { 340, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
+_sButton Switch11 = { 420, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
 
 
-Button Terminal = { 0, 100, 480, 330, 5, WHITE, BLACK, WHITE };  //BORDER invisible as == background col) to try and help debug printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
+_sButton Terminal = { 0, 100, 480, 330, 5, WHITE, BLACK, WHITE };  //BORDER invisible as == background col) to try and help debug printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
 //for selections
-Button FullTopCenter = { 80, 0, 320, 50, 5, BLUE, WHITE, BLACK };
+_sButton FullTopCenter = { 80, 0, 320, 50, 5, BLUE, WHITE, BLACK };
 
-Button Full0Center = { 80, 55, 320, 50, 5, BLUE, WHITE, BLACK };
-Button Full1Center = { 80, 110, 320, 50, 5, BLUE, WHITE, BLACK };
-Button Full2Center = { 80, 165, 320, 50, 5, BLUE, WHITE, BLACK };
-Button Full3Center = { 80, 220, 320, 50, 5, BLUE, WHITE, BLACK };
-Button Full4Center = { 80, 275, 320, 50, 5, BLUE, WHITE, BLACK };
-Button Full5Center = { 80, 330, 320, 50, 5, BLUE, WHITE, BLACK };
-Button Full6Center = { 80, 385, 320, 50, 5, BLUE, WHITE, BLACK };  // inteferes with settings box do not use!
+_sButton Full0Center = { 80, 55, 320, 50, 5, BLUE, WHITE, BLACK };
+_sButton Full1Center = { 80, 110, 320, 50, 5, BLUE, WHITE, BLACK };
+_sButton Full2Center = { 80, 165, 320, 50, 5, BLUE, WHITE, BLACK };
+_sButton Full3Center = { 80, 220, 320, 50, 5, BLUE, WHITE, BLACK };
+_sButton Full4Center = { 80, 275, 320, 50, 5, BLUE, WHITE, BLACK };
+_sButton Full5Center = { 80, 330, 320, 50, 5, BLUE, WHITE, BLACK };
+_sButton Full6Center = { 80, 385, 320, 50, 5, BLUE, WHITE, BLACK };  // inteferes with settings box do not use!
 
 
 #define On_Off ? "ON " : "OFF"  // if 1 first case else second (0 or off) same number of chars to try and helps some flashing later
 #define True_False ? "true" : "false"
-bool LoadVictronConfiguration(const char* filename, MyVictronDevices& config) {
+bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) {
   // Open SD file for reading
   bool fault=false;
   if (!SD.exists(filename)) {
@@ -258,8 +261,8 @@ bool LoadVictronConfiguration(const char* filename, MyVictronDevices& config) {
     fault=true;
   }
     for (int index=0;index<=Current_Settings.Num_Victron_Devices;index++){
-    strlcpy(config.VICMacAddrstr[index], doc["device"+String(index)+".mac"] | "-mac-", sizeof(config.VICMacAddrstr[index]));
-    strlcpy(config.VICcharKeystr[index], doc["device"+String(index)+".key"] | "-key-", sizeof(config.VICcharKeystr[index]));
+    strlcpy(config.charMacAddr[index], doc["device"+String(index)+".mac"] | "-mac-", sizeof(config.charMacAddr[index]));
+    strlcpy(config.charKey[index], doc["device"+String(index)+".key"] | "-key-", sizeof(config.charKey[index]));
     strlcpy(config.VICcommentstr[index], doc["device"+String(index)+".comment"] | "-comment-", sizeof(config.VICcommentstr[index]));
   } 
     // Close the file (Curiously, File's destructor doesn't close the file)
@@ -267,7 +270,7 @@ bool LoadVictronConfiguration(const char* filename, MyVictronDevices& config) {
  
  return !fault; // report success
 }
-void SaveVictronConfiguration(const char* filename, MyVictronDevices& config) {
+void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) {
   // Delete existing file, otherwise the configuration is appended to the file
   SD.remove(filename);
   char buff[15];
@@ -281,8 +284,8 @@ void SaveVictronConfiguration(const char* filename, MyVictronDevices& config) {
   // Allocate a temporary JsonDocument
   JsonDocument doc;
   for (int index=0;index<=Current_Settings.Num_Victron_Devices;index++){
-    doc["device"+String(index)+".mac"]=config.VICMacAddrstr[index];
-    doc["device"+String(index)+".key"]=config.VICcharKeystr[index];
+    doc["device"+String(index)+".mac"]=config.charMacAddr[index];
+    doc["device"+String(index)+".key"]=config.charKey[index];
     doc["device"+String(index)+".comment"]=config.VICcommentstr[index];
   }
 
@@ -295,7 +298,7 @@ void SaveVictronConfiguration(const char* filename, MyVictronDevices& config) {
   PrintJsonFile("Check after Saving configuration ", filename);
 }
 
-bool LoadConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySettings& settings) {
+bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_settings_Config& settings) {
   // Open SD file for reading
   if (!SD.exists(filename)) {
     Serial.printf("**JSON file %s did not exist\n Using defaults\n", filename);
@@ -378,7 +381,7 @@ bool LoadConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySett
 }
 
 
-void SaveConfiguration(const char* filename, DISPLAYCONFIGStruct& config, MySettings& settings) {
+void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_settings_Config& settings) {
   // Delete existing file, otherwise the configuration is appended to the file
   SD.remove(filename);
   char buff[15];
@@ -448,7 +451,7 @@ void PrintJsonFile( const char* comment, const char* filename) {
 
 //****************  GRAPHICS STUFF ************************
 // Draw the compass pointer at an angle in degrees
-void WindArrow2(Button button, instData Speed, instData& Wind) {
+void WindArrow2(_sButton button, _sInstData Speed, _sInstData& Wind) {
   // Serial.printf(" ** DEBUG  speed %f    wind %f ",Speed.data,Wind.data);
   bool recent = (Wind.updated >= millis() - 3000);
   if (!Wind.graphed) {  //EventTiming("START");
@@ -460,7 +463,7 @@ void WindArrow2(Button button, instData Speed, instData& Wind) {
   if (!recent && !Wind.greyed) { WindArrowSub(button, Speed, Wind); }
 }
 
-void WindArrowSub(Button button, instData Speed, instData& wind) {
+void WindArrowSub(_sButton button, _sInstData Speed, _sInstData& wind) {
   //Serial.printf(" ** DEBUG WindArrowSub speed %f    wind %f \n",Speed.data,wind.data);
   bool recent = (wind.updated >= millis() - 3000);
   Phv center;
@@ -523,7 +526,7 @@ Phv translate(Phv center, double angle, int rad) {  // 'full version with full a
 // }
 
 
-void DrawCompass(Button button) {
+void DrawCompass(_sButton button) {
   //x y are center in drawcompass
   int x, y, rad;
   x = button.h + button.width / 2;
@@ -553,7 +556,7 @@ void DrawCompass(Button button) {
   for (int i = 0; i < (360 / 10); i++) { gfx->fillArc(x, y, rad, Rad4, i * 10, (i * 10) + 1, BLACK); }  // dots at 10 degrees
 }
 
-void ShowToplinesettings(MySettings A, String Text) {
+void ShowToplinesettings(_sWiFi_settings_Config A, String Text) {
   // int local;
   // local = MasterFont;
   // SETS MasterFont, so cannot use MasterFont directly in last line and have to save it!
@@ -571,7 +574,7 @@ void ShowToplinesettings(String Text) {
   ShowToplinesettings(Current_Settings, Text);
 }
 
-void ShowGPSinBox(int font, Button button){
+void ShowGPSinBox(int font, _sButton button){
   static double lastTime;
   //Serial.printf("In ShowGPSinBox  %i\n",int(BoatData.GPSTime));
    if ((BoatData.GPSTime != NMEA0183DoubleNA) && (BoatData.GPSTime != lastTime))  {
@@ -624,7 +627,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
   static unsigned int slowdown, timer2;
   //static float wind, SOG, Depth;
   float temp;
-  static instData LocalCopy ; // needed only where two digital displays wanted for the same data variable.
+  static _sInstData LocalCopy ; // needed only where two digital displays wanted for the same data variable.
   static int fontlocal;
   static int FileIndex, Playing;  // static to hold after selection and before pressing play!
   static int V_offset;            // used in the audio file selection to sort print area
@@ -1688,10 +1691,10 @@ void setup() {
     Serial.println(" USING EEPROM data, display set to defaults");
   }
   
-  if (LoadVictronConfiguration(VictronDevicesSetupfilename,Victron_Config)){
+  if (LoadVictronConfiguration(VictronDevicesSetupfilename,victronDevices)){
     Serial.println(" USING JSON for Victron data settings");
     }else { Serial.println("\n\n***FAILED TO GET Victron JSON FILE****\n**** SAVING DEFAULT and Making File on SD****\n\n");
-    SaveVictronConfiguration(VictronDevicesSetupfilename,Victron_Config);// should write a default file if it was missing?
+    SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices);// should write a default file if it was missing?
     }
   // set up anything BoatData from the configs
   //Serial.print("now.. magvar:");Serial.println(BoatData.Variation);
@@ -1723,6 +1726,7 @@ void setup() {
   Display_Page = Display_Config.Start_Page;// select first page from the JSON. to show or use non defined page to start with default
   Serial.printf(" Starting display page<%i> \n", Display_Config.Start_Page);
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
+  BLEsetup(); // setup Victron BLE interface
   }
 
 void loop() {
@@ -1733,6 +1737,7 @@ void loop() {
   //EventTiming("START");
   delay(1);
   ts.read();
+  if(Current_Settings.Victron_Enabled){BLEloop();}
   CheckAndUseInputs();
   Display(Display_Page);  //EventTiming("STOP");
   EXTHeartbeat();
@@ -1842,7 +1847,7 @@ void TouchCrosshair(int point, int size, uint16_t colour) {
 // }
 
 
-bool CheckButton(Button& button) {  // trigger on release. needs index (s) to remember which button!
+bool CheckButton(_sButton& button) {  // trigger on release. needs index (s) to remember which button!
   //trigger on release! does not sense !isTouched ..  use Keypressed in each button struct to keep track!
   if (ts.isTouched && !button.Keypressed && (millis() - button.LastDetect >= 250)) {
     if (XYinBox(ts.points[0].x, ts.points[0].y, button.h, button.v, button.width, button.height)) {
@@ -1864,7 +1869,10 @@ void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
   MAXScanInterval=millis()+500;
   if ((Current_Settings.ESP_NOW_ON) ) {  // ESP_now can work even if not actually 'connected', so for now, do not risk the while loop! 
    // old.. only did one line of nmea_EXT..  if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
-    while (UpdateEspNow() && (millis()<=MAXScanInterval)) {UseNMEA(nmea_EXT, 3);// runs multiple times to clear the buffer.. use delay to allow other things to work.. print to show if this is the cause of start delays while debugging!
+    while (UpdateEspNow() && (millis()<=MAXScanInterval)) {UseNMEA(nmea_EXT, 3);
+      // runs multiple times to clear the buffer.. use delay to allow other things to work.. print to show if this is the cause of start delays while debugging!
+      audio.loop();
+      vTaskDelay(1);
     } 
  }
 
@@ -1874,11 +1882,16 @@ void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
   if (Current_Settings.UDP_ON) {
     if (Test_U()) { UseNMEA(nmea_U, 2); }
   }
+
+   if (Current_Settings.Victron_Enabled) {
+    if (VICTRONRES[0]!=0) { UseNMEA(VICTRONRES, 4); }
+  }
 }
 void UseNMEA(char* buf, int type) {
   if (buf[0] != 0) {
     // print serial version if on the wifi page terminal window page.
     // data log raw NMEA and when and where it came from.
+    // type 4 is Victron data
     if (Current_Settings.NMEA_log_ON) {
       if (type == 1) { NMEALOG("%.3f SER:%s", float(millis()) / 1000, buf); }
       if (type == 2) { NMEALOG("%.3f UDP:%s", float(millis()) / 1000, buf); }
@@ -1889,6 +1902,10 @@ void UseNMEA(char* buf, int type) {
     // 0 is 8pt mono thin,
     //3 is 8pt mono bold
     if ((Display_Page == -21)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
+        if (type == 4) {
+        UpdateLinef(GREEN, 8, Terminal, "Victron:%s", buf);  // 7 small enough to avoid line wrap issue?
+      }
+
       if (type == 2) {
         UpdateLinef(BLUE, 8, Terminal, "UDP:%s", buf);  // 7 small enough to avoid line wrap issue?
       }
@@ -1898,15 +1915,18 @@ void UseNMEA(char* buf, int type) {
       if (type == 1) { UpdateLinef(RED, 8, Terminal, "Ser:%s", buf); }
     }
     // now decode it for the displays to use
+    if (type !=4 ){
     pTOKEN = buf;                                               // pToken is used in processPacket to separate out the Data Fields
     if (processPacket(buf, BoatData)) { dataUpdated = true; };  // NOTE processPacket will search for CR! so do not remove it and then do page updates if true ?
+       }
+    /// WILNEED new process packet equivalent to deal with VICTRN data and place into the new _sVicdevice equivalent to boatdata
     buf[0] = 0;                                                 //clear buf  when finished!
     return;
   }
 }
 
 //*********** EEPROM functions *********
-void EEPROM_WRITE(DISPLAYCONFIGStruct B, MySettings A) {
+void EEPROM_WRITE(_sDisplay_Config B, _sWiFi_settings_Config A) {
   // save my current settings
   // ALWAYS Write the Default display page!  may change this later and save separately?!!
   Serial.printf("SAVING EEPROM\n key:%i \n", A.EpromKEY);
@@ -1916,7 +1936,7 @@ void EEPROM_WRITE(DISPLAYCONFIGStruct B, MySettings A) {
   delay(50);
   //NEW also save as a JSON on the SD card SD card will overwrite current settings on setup..
   SaveConfiguration(Setupfilename, B, A);
- // SaveVictronConfiguration(VictronDevicesSetupfilename,Victron_Config); // should write a default file if it was missing?
+ // SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices); // should write a default file if it was missing?
 }
 void EEPROM_READ() {
   int key;
@@ -1938,7 +1958,7 @@ void EEPROM_READ() {
 }
 
 
-boolean CompStruct(MySettings A, MySettings B) {  // Does NOT compare the display page number or key!
+boolean CompStruct(_sWiFi_settings_Config A, _sWiFi_settings_Config B) {  // Does NOT compare the display page number or key!
   bool same = true;
   // have to check each variable individually
   //if (A.EpromKEY == B.EpromKEY) { same = true; }
@@ -2072,8 +2092,8 @@ void SD_Setup() {
 }
 //  ************  WIFI support functions *****************
 
-void WifiGFXinterrupt(int font, Button& button, const char* fmt, ...) {  //quick interrupt of gfx to show WIFI events..
-  if (Display_Page <= -1){return;} // do not interrupt the settings pages!                                                                       // version of add centered text, multi line from /void MultiLineInButton(int font, Button &button,const char *fmt, ...)
+void WifiGFXinterrupt(int font, _sButton& button, const char* fmt, ...) {  //quick interrupt of gfx to show WIFI events..
+  if (Display_Page <= -1){return;} // do not interrupt the settings pages!                                                                       // version of add centered text, multi line from /void MultiLineInButton(int font, _sButton &button,const char *fmt, ...)
   static char msg[300] = { '\0' };
   va_list args;
   va_start(args, fmt);

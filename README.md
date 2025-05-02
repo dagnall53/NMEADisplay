@@ -123,7 +123,7 @@ The "DISPLAY" function in the main ino is a (huge) 'switch' function that define
 There is a 'button' structure that defines the size and shape and colours of all boxes on the screen. 
 
 In simplified form: 
-A GFXBorderBoxPrintf(Button button, const char* fmt, ...) function will print any data in center of the defined 'button'.
+A GFXBorderBoxPrintf(_sButton button, const char* fmt, ...) function will print any data in center of the defined 'button'.
 eg: GFXBorderBoxPrintf(BigSingleTopLeft, BoatData.SOG, "%2.1fkt"); will print the Button box "BigSingleTopLeft" with borders and the SOG with one decimal place.
 
 To speed up screen updates I use a second function to just update the text and not redraw the box and borders:

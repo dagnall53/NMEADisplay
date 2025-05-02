@@ -50,28 +50,28 @@ extern bool hasSD;
 static bool INSTlogFileStarted = false;
 static bool NMEAINSTlogFileStarted = false;
 
-extern DISPLAYCONFIGStruct Display_Config;
+extern _sDisplay_Config Display_Config;
 
 extern const char *Setupfilename;  // <- SD library uses 8.3 filenames
-extern bool LoadConfiguration(const char *filename, DISPLAYCONFIGStruct &config, MySettings &settings);
-extern MySettings Current_Settings;
-extern void EEPROM_WRITE(DISPLAYCONFIGStruct B,MySettings A);
+extern bool LoadConfiguration(const char *filename, _sDisplay_Config &config, _sWiFi_settings_Config &settings);
+extern _sWiFi_settings_Config Current_Settings;
+extern void EEPROM_WRITE(_sDisplay_Config B,_sWiFi_settings_Config A);
 
 
 extern const char* VictronDevicesSetupfilename;  // <- SD library uses 8.3 filenames
-extern MyVictronDevices  Victron_Config;
-extern void SaveVictronConfiguration(const char* filename, MyVictronDevices& config);
+extern _sMyVictronDevices  victronDevices;
+extern void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config);
 extern void PrintJsonFile( const char* comment, const char* filename);
-extern bool LoadVictronConfiguration(const char* filename, MyVictronDevices& config);
+extern bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config);
 
 // extern Arduino_ST7701_RGBPanel *gfx ;  // declare the gfx structure so I can use GFX commands in Keyboard.cpp and here...
 extern Arduino_RGB_Display *gfx;  //  change if alternate (not 'Arduino_RGB_Display' ) display !
 extern void setFont(int);
 extern const char soft_version[];
 //const char *host = "NMEADisplay";
-extern tBoatData BoatData;
-extern void WifiGFXinterrupt(int font, Button& button, const char* fmt, ...) ;
-extern Button WifiStatus;
+extern _sBoatData BoatData;
+extern void WifiGFXinterrupt(int font, _sButton& button, const char* fmt, ...) ;
+extern _sButton WifiStatus;
 extern int Display_Page;
 extern void Display(bool reset, int page);
 WebServer server(80);
@@ -476,10 +476,10 @@ void SetupWebstuff() {
     server.on("/Save", HTTP_GET, []() {
     handleRoot();
     if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {Serial.println("***Updating EEPROM");EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
-    if (LoadVictronConfiguration(VictronDevicesSetupfilename,Victron_Config)) { 
+    if (LoadVictronConfiguration(VictronDevicesSetupfilename,victronDevices)) { 
       PrintJsonFile(" Check settings after Web initiated SAVE ",VictronDevicesSetupfilename); Serial.println("***Updating Victron data settings");}
     else {Serial.println("***SETTING UP DEFAULT VICTRON SETTINGS JSON FILE****\n");
-          SaveVictronConfiguration(VictronDevicesSetupfilename,Victron_Config); }       // should write a default file if it was missing?
+          SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices); }       // should write a default file if it was missing?
     
     delay(50);Display(true,Display_Page);delay(50);
   });
