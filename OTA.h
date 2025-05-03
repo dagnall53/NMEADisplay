@@ -469,6 +469,7 @@ void SetupWebstuff() {
   server.on("/Reset", HTTP_GET, []() {
     handleRoot();
     if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
+    SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices);// save config with bytes ??
     server.sendHeader("Connection", "close");delay(150);
     WiFi.disconnect();
     ESP.restart();

@@ -261,9 +261,9 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     fault=true;
   }
     for (int index=0;index<=Current_Settings.Num_Victron_Devices;index++){
-    strlcpy(config.charMacAddr[index], doc["device"+String(index)+".mac"] | "-mac-", sizeof(config.charMacAddr[index]));
-    strlcpy(config.charKey[index], doc["device"+String(index)+".key"] | "-key-", sizeof(config.charKey[index]));
-    strlcpy(config.VICcommentstr[index], doc["device"+String(index)+".comment"] | "-comment-", sizeof(config.VICcommentstr[index]));
+    strlcpy(config.charMacAddr[index], doc["device"+String(index)+".mac"] | "macaddress", sizeof(config.charMacAddr[index]));
+    strlcpy(config.charKey[index], doc["device"+String(index)+".key"] | "key", sizeof(config.charKey[index]));
+    strlcpy(config.VICcommentstr[index], doc["device"+String(index)+".comment"] | "?name?", sizeof(config.VICcommentstr[index]));
   } 
     // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
@@ -724,6 +724,33 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
 
       break;
+ case -86:                                              // page for display of Vicron data 
+      if (RunSetup) { GFXBorderBoxPrintf(Terminal, ""); }  // only for setup, not changed data
+      if (RunSetup || DataChanged) {
+        setFont(3);
+        GFXBorderBoxPrintf(FullTopCenter, "VICTRON DATA DISPLAY ");
+        if (!Terminal.debugpause) {
+          AddTitleBorderBox(0, Terminal, "Display");
+        } else {
+          AddTitleBorderBox(0, Terminal, "-Paused-");
+        }
+        DataChanged = false;
+      }
+      // if (millis() > slowdown + 500) {
+      //   slowdown = millis();
+      // }
+      if (CheckButton(FullTopCenter)) { Display_Page = 0; }
+      if (CheckButton(Terminal)) {
+        Terminal.debugpause = !Terminal.debugpause;
+        DataChanged = true;
+      }
+    
+      break;
+
+
+
+
+
 
     case -20:  // Experimental / extra stuff
       if (RunSetup || DataChanged) {
@@ -1727,7 +1754,7 @@ void setup() {
   Display_Page = Display_Config.Start_Page;// select first page from the JSON. to show or use non defined page to start with default
   Serial.printf(" Starting display page<%i> \n", Display_Config.Start_Page);
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
-  BLEsetup(); // setup Victron BLE interface
+  BLEsetup(); // setup Victron BLE interface (does not do much!!)
   }
 unsigned long Interval;// may also be used in sub functions during debug chasing delays.. Serial.printf(" s<%i>",millis()-Interval);Interval=millis();
 void loop() {
@@ -1739,7 +1766,7 @@ void loop() {
   //EventTiming("START");
   delay(1);
   ts.read();
-  if(Current_Settings.BLE_enable){BLEloop();}
+  if((Current_Settings.BLE_enable) && (Display_Page== -86)){BLEloop();}   //ONLY on  Display_Page -86!! or it interrupts eveything! 
   //Serial.printf(" 1<%i>",millis()-Interval);Interval=millis();
   CheckAndUseInputs();
    //Serial.printf(" 2<%i>",millis()-Interval);Interval=millis();
@@ -1897,6 +1924,7 @@ void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
   }
 // Serial.printf(" ce<%i>\n",millis()-Interval);Interval=millis();
 }
+
 void UseNMEA(char* buf, int type) {
   if (buf[0] != 0) {
     // print serial version if on the wifi page terminal window page.
@@ -1911,10 +1939,16 @@ void UseNMEA(char* buf, int type) {
     // 7 is smallest
     // 0 is 8pt mono thin,
     //3 is 8pt mono bold
-    if ((Display_Page == -21)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
+    if ((Display_Page == -86)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
         if (type == 4) {
         UpdateLinef(BLACK, 8, Terminal, "Victron:%s", buf);  // 7 small enough to avoid line wrap issue?
       }
+    }
+
+    if ((Display_Page == -21)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
+        if (type == 4) {
+        UpdateLinef(BLACK, 8, Terminal, "Victron:%s", buf);  // 7 small enough to avoid line wrap issue?
+        }
 
       if (type == 2) {
         UpdateLinef(BLUE, 8, Terminal, "UDP:%s", buf);  // 7 small enough to avoid line wrap issue?
@@ -1929,7 +1963,7 @@ void UseNMEA(char* buf, int type) {
     pTOKEN = buf;                                               // pToken is used in processPacket to separate out the Data Fields
     if (processPacket(buf, BoatData)) { dataUpdated = true; };  // NOTE processPacket will search for CR! so do not remove it and then do page updates if true ?
        }
-    /// WILNEED new process packet equivalent to deal with VICTRN data and place into the new _sVicdevice equivalent to boatdata
+    /// WILL NEED new process packet equivalent to deal with VICTRON data 
     buf[0] = 0;                                                 //clear buf  when finished!
     return;
   }

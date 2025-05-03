@@ -48,8 +48,9 @@ int GraphRange( double data, int low, int high, double dmin ,double dmax );
 void toNewStruct(char *field, _sInstData &data); 
 double Double_sInstDataAdd(_sInstData &data1, _sInstData &data);//returns a double of value data.data +data1.data;
 
-// not used?
-//void DrawGraph (_sButton button, _sInstData &DATA, double dmin, double dmax, int font,const char *msg,const char *units);
+int HexStringToBytes(const char *hexStr,
+                     unsigned char *output,
+                     unsigned int *outputLen);
 
 
 #endif

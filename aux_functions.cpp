@@ -772,55 +772,6 @@ void SCROLLGraph(bool reset,int instance, int dotsize, bool line, _sButton butto
    DATA.graphed = true;  //reset to false inside t-- to avoid confusion!.oNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
 }
 
-// void SCROLLGraph2(_sButton button, _sInstData &DATA, double dmin, double dmax, int font, const char *msg, const char *units) {
-//   if (DATA.displayed) { return; }
-//   if (DATA.data == NMEA0183DoubleNA) { return; }
-//   static int Displaypage ;  // where were we last called from ??
-//   #define Hmax 200               // how many points fill screen width
-//   static Phv graph[Hmax + 2];  //phv is a point H,V structure
-//   int dotsize;
-//   double data;
-//   data = DATA.data;
-//   dotsize = 3;
-//   if (Displaypage != Display_Page) {
-//     Serial.printf(" RESETTING SCROLLGRAPH2  %i  %i ",Display_Page, Displaypage); 
-//     Displaypage = Display_Page;
-//     Serial.printf(" after..   %i  %i \n",Display_Page, Displaypage); 
-
-//     for (int x = 0; x <= Hmax; x++) {  //set all horizontal points !!
-//       graph[x].v = (button.v + button.bordersize + (button.height / 2));
-//       graph[x].h = GraphRange(x, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
-//     }
-//     gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
-//     gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
-//                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
-//       // end of setup....
-//   }
-//   // clear plot area and re-add titles as they may get overwritten
-//    gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
-//                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
-//     AddTitleInsideBox(font, 3, button, " %s", msg);
-//     AddTitleInsideBox(font, 1, button, " %4.0f%s", dmax, units);
-//     AddTitleInsideBox(font, 2, button, " %4.0f%s", dmin, units);
-//   bool LINE = true; //Or just blobs.. 
-//   // scroll the existing data values left:
-//   for (int x = 0; x <= Hmax; x++) {
-//        graph[x-1].v=graph[x].v;
-//         graph[x].h = GraphRange(x, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
-//   } // slide the v VALUES only, not the horizontal positions! 
-//        //add the new data 
-//   graph[Hmax].v = GraphRange(data, button.v + button.height - button.bordersize - dotsize, button.v + button.bordersize + dotsize, dmin, dmax);
-//   //graph[Hmax].h = GraphRange(Hmax, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
-//      for (int x =1; x<= Hmax;x++){
-//      if (LINE && (x >= 1)) {
-//         Pdrawline(graph[x-1], graph[x], button.TextColor);
-//            }
-//         PfillCircle(graph[x], dotsize, button.TextColor);
-//    }
-//    DATA.displayed = true;  //reset to false inside t-- to avoid confusion!.oNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
-// }
-
-
 
 
 
@@ -830,4 +781,34 @@ double Double_sInstDataAdd(_sInstData &data1, _sInstData &data) {
   if (data.data != NMEA0183DoubleNA) { temp += data.data; }
   if (data1.data != NMEA0183DoubleNA) { temp += data1.data; }
   return temp;
+}
+
+//https://gist.github.com/xsleonard/7341172?permalink_comment_id=2372748
+int HexStringToBytes(const char *hexStr,
+                     unsigned char *output,
+                     unsigned int *outputLen)
+{
+    size_t len = strlen(hexStr);
+    if (len % 2 != 0) {
+        return -1;
+    }
+    size_t finalLen = len / 2;
+    *outputLen = finalLen;
+    for (size_t inIdx = 0, outIdx = 0; outIdx < finalLen; inIdx += 2, outIdx++) {
+        if ((hexStr[inIdx] - 48) <= 9 && (hexStr[inIdx + 1] - 48) <= 9) {
+            goto convert;
+        } else {
+            if (((hexStr[inIdx] - 65) <= 5 && (hexStr[inIdx + 1] - 65) <= 5) || ((hexStr[inIdx] - 97) <= 5 && (hexStr[inIdx + 1] - 97) <= 5)) {
+                goto convert;
+            } else {
+                *outputLen = 0;
+                return -1;
+            }
+        }
+    convert:
+        output[outIdx] =
+            (hexStr[inIdx] % 32 + 9) % 25 * 16 + (hexStr[inIdx + 1] % 32 + 9) % 25;
+    }
+    output[finalLen] = '\0';
+    return 0;
 }
