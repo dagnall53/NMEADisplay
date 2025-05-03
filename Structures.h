@@ -31,7 +31,7 @@ struct _sWiFi_settings_Config {  // MAINLY WIFI AND DATA LOGGING key,ssid,PW,udp
   bool ESP_NOW_ON;
   bool Log_ON;
   bool NMEA_log_ON;
-  bool Victron_Enabled;
+  bool BLE_enable;
   int Num_Victron_Devices;
 };
 struct MyColors {  // for later Day/Night settings
@@ -121,7 +121,7 @@ struct _sVictronData {
 };
 struct _sMyVictronDevices{   // equivalent to _sDisplay_Config all known victron devices MAc and encryption keys.
                 //10 index for multiple saved instrument settings first 
-  char charMacAddr[10][13];   // a 12 char (+1!) array  typ= "ea9df3ebc625"
+  char charMacAddr[10][13];   // a 12 char (+1!) array  typ= "ea9df3ebc625"  
   char charKey [10][33];      //32 etc...
   char VICcommentstr [10][16];
   byte byteMacAddr[10][7];        // 6 bytes for MAC - initialized by setup() from quoted strings  ???NOPE!!!

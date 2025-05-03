@@ -68,7 +68,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 #include "VICTRONBLE.h" //sets #ifndef Victronble_h
 
-const char soft_version[] = "Version 4.02";
+const char soft_version[] = "Version 4.03";
 bool hasSD;
 
 
@@ -80,7 +80,7 @@ const char* Setupfilename = "/config.txt";  // <- SD library uses 8.3 filenames
 // victron config structure for mac and keys (SD only not on eeprom)
 const char* VictronDevicesSetupfilename = "/vconfig.txt";  // <- SD library uses 8.3 filenames
 _sMyVictronDevices  victronDevices;
-char  VICTRONRES[120];  // way to transfer results in a way similar to NMEA text.
+char  VictronBuffer[800];  // way to transfer results in a way similar to NMEA text.
 
 _sVictronData VictronData;  // Victron sensor Data values, int double etc for use in graphics 
 
@@ -368,8 +368,8 @@ bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   settings.NMEA_log_ON= (strcmp(temp,"false"));
   }
 
-  strlcpy(temp,doc["Victron_Enabled"]|"false",sizeof(temp));
-  settings.Victron_Enabled= (strcmp(temp,"false"));
+  strlcpy(temp,doc["BLE_enable"]|"false",sizeof(temp));
+  settings.BLE_enable= (strcmp(temp,"false"));
   
   settings.Num_Victron_Devices =doc["Number_of_Victron"]| 3;
 
@@ -417,7 +417,7 @@ void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   doc["ESP"] = settings.ESP_NOW_ON True_False;
   doc["LOG"] = settings.Log_ON True_False;
   doc["NMEALOG"] = settings.NMEA_log_ON True_False;
-  doc["Victron_Enabled"]=settings.Victron_Enabled True_False;
+  doc["BLE_enable"]=settings.BLE_enable True_False;
   doc["Number_of_Victron"]= settings.Num_Victron_Devices;
 
 
@@ -1652,6 +1652,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Starting NMEA Display ");
   Serial.println(soft_version);
+  
   ts.begin();
   Serial.println("ts has begun");
   ts.setRotation(ROTATION_INVERTED);
@@ -1671,12 +1672,12 @@ void setup() {
   setFont(4);
   gfx->setCursor(40, 20);
   gfx->println(F("***Display Started***"));
-
-  SD_Setup();
+  SD_Setup();Audio_setup();
+ // try earlier? one source says audio needs to be started before gfx display //SD_Setup();Audio_setup();
   gfx->println(F("Started SD Card"));
   // gfx->setCursor(140, 140);
   // gfx->println(soft_version);
-  Audio_setup();
+  
   
   EEPROM_READ();  // setup and read Saved_Settings (saved variables)
   Current_Settings = Saved_Settings;
@@ -1728,27 +1729,31 @@ void setup() {
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
   BLEsetup(); // setup Victron BLE interface
   }
-
+unsigned long Interval;// may also be used in sub functions during debug chasing delays.. Serial.printf(" s<%i>",millis()-Interval);Interval=millis();
 void loop() {
-  static unsigned long LogInterval;
+   static unsigned long LogInterval;
   static unsigned long SSIDSearchInterval;
+  //Serial.printf(" s<%i>",millis()-Interval);Interval=millis();
   yield();
   server.handleClient();  // for OTA;
   //EventTiming("START");
   delay(1);
   ts.read();
-  if(Current_Settings.Victron_Enabled){BLEloop();}
+  if(Current_Settings.BLE_enable){BLEloop();}
+  //Serial.printf(" 1<%i>",millis()-Interval);Interval=millis();
   CheckAndUseInputs();
+   //Serial.printf(" 2<%i>",millis()-Interval);Interval=millis();
   Display(Display_Page);  //EventTiming("STOP");
+  // Serial.printf(" 3<%i>",millis()-Interval);Interval=millis();
   EXTHeartbeat();
   audio.loop();
-
+ // Serial.printf(" 4<%i>",millis()-Interval);Interval=millis();
   if (!AttemptingConnect && !IsConnected && (millis() >= SSIDSearchInterval)) { // repeat at intervals to check..
     SSIDSearchInterval = millis() + scansearchinterval; // 
     if (StationsConnectedtomyAP==0){ // avoid scanning if we have someone connected to AP as it will/may disconnect! 
     ScanAndConnect(true);} // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared 
   }  
-
+  //Serial.printf(" 5<%i>",millis()-Interval);Interval=millis();
   
 
    // NMEALOG is done in CheckAndUseInputs
@@ -1759,12 +1764,13 @@ void loop() {
         int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
         BoatData.STW.data,  BoatData.WaterDepth.data, BoatData.WindSpeedK.data,BoatData.WindAngleApp.data);
   }
-
+ //Serial.printf(" 6<%i>",millis()-Interval);Interval=millis();
   if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000) && (!AttemptingConnect))  {
     WIFIGFXBoxdisplaystarted = false;
     Display(true, Display_Page);delay(50); // change page back, having set zero above which alows the graphics to reset up the boxes etc.
     }
- 
+ //Serial.printf(" 7<%i>",millis()-Interval);Interval=millis();
+ //Serial.printf(" end<%i>\n",millis()-Interval);Interval=millis();
 }
 
 
@@ -1867,25 +1873,29 @@ bool CheckButton(_sButton& button) {  // trigger on release. needs index (s) to 
 void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
   static unsigned long MAXScanInterval; 
   MAXScanInterval=millis()+500;
+ // Serial.printf(" C&U<%i>",millis()-Interval);Interval=millis();
   if ((Current_Settings.ESP_NOW_ON) ) {  // ESP_now can work even if not actually 'connected', so for now, do not risk the while loop! 
-   // old.. only did one line of nmea_EXT..  if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
-    while (UpdateEspNow() && (millis()<=MAXScanInterval)) {UseNMEA(nmea_EXT, 3);
+   // old.. only did one line of nmea_EXT..  
+       // if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
+    while (Test_ESP_NOW() && (millis()<=MAXScanInterval)) {UseNMEA(nmea_EXT, 3);
       // runs multiple times to clear the buffer.. use delay to allow other things to work.. print to show if this is the cause of start delays while debugging!
       audio.loop();
       vTaskDelay(1);
     } 
  }
-
+// Serial.printf(" ca<%i>",millis()-Interval);Interval=millis();
   if (Current_Settings.Serial_on) {
     if (Test_Serial_1()) { UseNMEA(nmea_1, 1); }
   }
+ // Serial.printf(" cb<%i>",millis()-Interval);Interval=millis();
   if (Current_Settings.UDP_ON) {
     if (Test_U()) { UseNMEA(nmea_U, 2); }
   }
-
-   if (Current_Settings.Victron_Enabled) {
-    if (VICTRONRES[0]!=0) { UseNMEA(VICTRONRES, 4); }
+ //Serial.printf(" cd<%i>",millis()-Interval);Interval=millis();
+   if (Current_Settings.BLE_enable) {
+    if (VictronBuffer[0]!=0) { UseNMEA(VictronBuffer, 4); }
   }
+// Serial.printf(" ce<%i>\n",millis()-Interval);Interval=millis();
 }
 void UseNMEA(char* buf, int type) {
   if (buf[0] != 0) {
@@ -1903,16 +1913,16 @@ void UseNMEA(char* buf, int type) {
     //3 is 8pt mono bold
     if ((Display_Page == -21)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
         if (type == 4) {
-        UpdateLinef(GREEN, 8, Terminal, "Victron:%s", buf);  // 7 small enough to avoid line wrap issue?
+        UpdateLinef(BLACK, 8, Terminal, "Victron:%s", buf);  // 7 small enough to avoid line wrap issue?
       }
 
       if (type == 2) {
         UpdateLinef(BLUE, 8, Terminal, "UDP:%s", buf);  // 7 small enough to avoid line wrap issue?
       }
       if (type == 3) {
-        UpdateLinef(BLACK, 8, Terminal, "ESP:%s", buf);
+        UpdateLinef(RED, 8, Terminal, "ESP:%s", buf);
       }
-      if (type == 1) { UpdateLinef(RED, 8, Terminal, "Ser:%s", buf); }
+      if (type == 1) { UpdateLinef(GREEN, 8, Terminal, "Ser:%s", buf); }
     }
     // now decode it for the displays to use
     if (type !=4 ){

@@ -19,38 +19,39 @@ wifi_second_chan_t* secondch;
  enumerator WIFI_SECOND_CHAN_BELOW the channel width is HT40 and the secondary channel is below the primary channel
  */
 
-bool Start_ESP_EXT() {  // start espnow and set interrupt to function Test_EspNOW() when data is seen / sent
+bool Start_ESP_EXT() {  // start espnow and set interrupt to function Update_ESPNOW() when data is seen / sent
   bool success = false;
   EspNowIsRunning = false;
   memcpy(peerInfo.peer_addr, peerAddress_def, 6);
   peerInfo.encrypt = false;
   peerInfo.channel = 0;
   if (esp_now_init() == ESP_OK) { EspNowIsRunning = true; }
-  esp_now_register_recv_cb(Test_EspNOW);
+  esp_now_register_recv_cb(Update_ESPNOW);
   if (esp_now_add_peer(&peerInfo) == ESP_OK) { success = true; }
   esp_wifi_get_channel(espnowchannel,secondch);
   Serial.println(" ESP-Now setup completed"); 
   return success;
 }
 
-bool donotdisturb; // a semaphore to tell Test_EspNOW NOT to accept and overwrite nmea_ext_buffer
+bool donotdisturb; // a semaphore to tell Update_ESPNOW NOT to accept and overwrite nmea_ext_buffer
 char nmea_ext_buffer[1000];
 
-//EXT send function services the interrup when an esp-now arrives A NEW funcion UpdateEspNow is now used in loop to extract a line of data to NMEA-ext "esp_now"
-void Test_EspNOW(const uint8_t* mac, const uint8_t* incomingData, int len) {
+//EXT send function services the ESP_NOW interrupt when an esp-now arrives.. A NEW funcion Test_ESP_NOW is now used in loop to extract a line of data to NMEA-ext. Similar to Test UDP etc..
+void Update_ESPNOW(const uint8_t* mac, const uint8_t* incomingData, int len) {
     EspNowIsRunning = true;
     char rxdata[249];//incoming ESP seem to be always 248 long, so make sre we are big enough
-    if (!donotdisturb){ 
-    if (strlen(nmea_ext_buffer)<=752){
+  //OLD.. no buffer, just overwrites  nmea_EXT 
+   // memcpy(&rxdata,incomingData,sizeof(rxdata));  strcat(nmea_EXT, rxdata); 
+   if (!donotdisturb){ 
+   if (strlen(nmea_ext_buffer)<=752){
       memcpy(&rxdata,incomingData,sizeof(rxdata));
-  //  Serial.print(" **Esp nmea_Ext is<");Serial.print(strlen(nmea_EXT));Serial.print("> rxdata is<");Serial.print(strlen(rxdata));Serial.print(">long  NMEAext isnow <");
-   // OLD  strcat(nmea_EXT, rxdata);   
-     strcat(nmea_ext_buffer, rxdata);}
+           //  Serial.print(" **Esp nmea_Ext is<");Serial.print(strlen(nmea_EXT));Serial.print("> rxdata is<");Serial.print(strlen(rxdata));Serial.print(">long  NMEAext isnow <");
+      strcat(nmea_ext_buffer, rxdata);}
    }
-   // Serial.print(nmea_EXT);Serial.print("> length now<");Serial.print(strlen(nmea_EXT));Serial.println(">");
+           // Serial.print(nmea_EXT);Serial.print("> length now<");Serial.print(strlen(nmea_EXT));Serial.println(">");
  }
 
- bool UpdateEspNow() {    // returns true if it extracts a line of text into nmea_EXT from nmea_ext_buffer
+ bool Test_ESP_NOW() {    // returns true if it extracts a line of text into nmea_EXT from nmea_ext_buffer
   bool _gotFirstLine ;
   int offset ;
   // DO NOT WANT interrupt to corrupt/add to nmea_ext_buffer whilst we are fiddling with it
