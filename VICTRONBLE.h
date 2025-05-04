@@ -14,8 +14,6 @@
 //   };
 
 // victron ble structures
-
-// explore VICTRON_SENSOR_TYPE::BATTERY_VOLTAGE: in C:\Users\admin\Downloads\esphome-victron_ble-main (1)\esphome-victron_ble-main\components\victron_ble\sensor\victron_sensor.cpp
 /* 
 see: 
 C:\Users\admin\Downloads\esphome-victron_ble-main (1)\esphome-victron_ble-main\components\victron_ble\victron_ble.h  
@@ -36,7 +34,6 @@ struct VICTRON_BLE_RECORD_BATTERY_MONITOR {  // NOLINT(readability-identifier-na
 
 
 
-for enums see C:\Users\admin\Downloads\esphome-victron_ble-main (1)\esphome-victron_ble-main\components\victron_ble\victron_custom_type.h
 
 struct VICTRON_BLE_RECORD_SOLAR_CHARGER {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   VE_REG_DEVICE_STATE device_state;
@@ -47,8 +44,54 @@ struct VICTRON_BLE_RECORD_SOLAR_CHARGER {  // NOLINT(readability-identifier-nami
   vic_16bit_1_positive pv_power;   //u_int16_t;
   vic_9bit_0_1_negative load_current : 9;  //// 0.1 A, 0 .. 51.0 A enum vic_9bit_0_1_negative : u_int16_t;
 } __attribute__((packed));
+
+
+
 */
-typedef struct {                      
+
+// for record type list see line 300 on https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
+// for structures see(circa line 600..) https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
+// for data types and ranges see https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_custom_type.h
+// types include range data etc, to allow range setting 
+// Later edit.. I have added typedef aliases  to allow for (nearly) direct copy transcription.. changing by hand is tedious..! 
+/*
+
+
+enum vic_16bit_0_01_noNAN : int16_t;
+
+// 0.01 kWh, 0 .. 655.34 kWh
+// 0.01 V, 0 .. 655.34 V
+
+*/
+typedef uint8_t VE_REG_CHR_ERROR_CODE;
+typedef uint8_t VE_REG_DEVICE_STATE;
+typedef u_int16_t vic_16bit_1_positive; // 1 W, 0 .. 65534 W // 1 min, 0 .. 65534 min (~1092 hours, ~45.5 days)// 1 VA, 0 .. 65534 VA
+typedef int16_t vic_16bit_0_1; // 0.1 A, -3276.8 .. 3276.6 A
+typedef int16_t vic_16bit_0_01;// 0.01 V, -327.68 .. 327.66 V
+typedef u_int16_t vic_16bit_0_01_positive; // 0.01 V, 0 .. 655.34 V //// 0.01 kWh, 0 .. 655.34 kWh
+typedef u_int16_t vic_13bit_0_01_positive;  //// 0.01 V, 0 .. 81.90 V
+typedef u_int16_t vic_11bit_0_1_positive; // // 0.1 A, 0 .. 204.6 A
+typedef u_int16_t vic_temperature_7bit;   /// 1 °C, -40 .. 86 °C - Temperature = Record value - 40
+typedef u_int16_t vic_9bit_0_1_positive;  //// 0.1 A, 0 .. 51.0 A
+typedef u_int16_t vic_9bit_0_1_negative; //// 0.1 A, 0 .. 51.0 A 
+
+//https://stackoverflow.com/questions/44990068/using-c-typedef-using-type-alias
+//using vic_9bit_0_1_negative = u_int16_t;
+
+typedef struct  {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
+  uint8_t device_state;
+  uint8_t charger_error;;
+  vic_13bit_0_01_positive battery_voltage_1 : 13;
+  vic_11bit_0_1_positive battery_current_1 : 11;
+  vic_13bit_0_01_positive battery_voltage_2 : 13;
+  vic_11bit_0_1_positive battery_current_2 : 11;
+  vic_13bit_0_01_positive battery_voltage_3 : 13;
+  vic_11bit_0_1_positive battery_current_3 : 11;
+  vic_temperature_7bit temperature : 7;
+  vic_9bit_0_1_positive ac_current : 9;
+} __attribute__((packed))VICTRON_BLE_RECORD_AC_CHARGER;
+
+typedef struct  {                      
   u_int16_t time_to_go;
   int16_t battery_voltage;
   int16_t alarm_reason;
@@ -57,28 +100,24 @@ typedef struct {
   int32_t battery_current : 22;
   u_int32_t consumed_ah : 20;
   u_int16_t state_of_charge : 10;
-} __attribute__((packed)) VICTRON_BLE_RECORD_BATTERY_MONITOR;
+} __attribute__((packed))VICTRON_BLE_RECORD_BATTERY_MONITOR;
 
-
-
-
-typedef struct {                       // see C:\Users\admin\Downloads\esphome-victron_ble-main (1)\esphome-victron_ble-main\components\victron_ble\sensor\victron_sensor.cpp
-  uint8_t deviceState;
-  uint8_t errorCode;
-  int16_t batteryVoltage;
-  int16_t batteryCurrent;
-  uint16_t todayYield;              // starter battery on Smart shunt
-  uint16_t inputPower;              // Load current 2's complement on Smart Shunt
-  uint8_t outputCurrentLo;  // Low 8 bits of output current (in 0.1 Amp increments)
-  uint8_t outputCurrentHi;  // High 1 bit of ourput current (must mask off unused bits)
-  uint8_t unused[4];
+typedef struct  {  // struct from Fabian Schmidt NOLINT(readability-identifier-naming,altera-struct-pack-align)
+  uint8_t device_state;
+  uint8_t charger_error;
+  int16_t battery_voltage; // 0.01 V, -327.68 .. 327.66 V enum vic_16bit_0_01 : int16_t;
+  int16_t battery_current; // 0.1 A, -3276.8 .. 3276.6 A enum vic_16bit_0_1 : int16_t;
+  u_int16_t yield_today;  //// 0.01 kWh, 0 .. 655.34 kWh
+  u_int16_t pv_power;
+  vic_9bit_0_1_negative load_current : 9; //// 0.1 A, 0 .. 51.0 A // just this one with the original type to test I can use extra typdef!!
 } __attribute__((packed)) VICTRON_BLE_RECORD_SOLAR_CHARGER;
+
 
 typedef struct {
   uint16_t vendorID;                 // vendor ID
   uint8_t beaconType;                // Should be 0x10 (Product Advertisement) for the packets we want
   uint8_t unknownData1[3];           // Unknown data
-  uint8_t victronRecordType;         // Should be 0x01 (Solar Charger) for the packets we want
+  uint8_t victronRecordType;         // will be eg 0x01 (Solar Charger) 
   uint16_t nonceDataCounter;         // Nonce
   uint8_t encryptKeyMatch;           // Should match pre-shared encryption key byte 0
   uint8_t victronEncryptedData[21];  // (31 bytes max per BLE spec - size of previous elements)

@@ -17,6 +17,7 @@
 // also includes Arduino etc, so variable names are understood
 #include "Structures.h"
 #include "VICTRONBLE.h"
+#include "aux_functions.h"
 
 #include <BLEDevice.h>
 #include <BLEScan.h>
@@ -36,11 +37,14 @@ extern _sMyVictronDevices victronDevices;
 
 BLEScan *pBLEScan;
 
+_sButton TempButton = { 0, 0, 75, 75, 5, BLUE, WHITE, BLACK };  // will be used when I move button H V offsets
+_sButton BatteryDisp = { 0, 0, 75, 75, 5, BLUE, WHITE, BLACK }; // for Victron battery display 
+
 
 #define AES_KEY_BITS 128
 
 int scanTime = 1;  // BLE scan time (seconds)
-
+#define _BLESCANINTERVAL 10000   // run scan every 10 secs, (results in lockout of all other functions  for scanTime)
 char savedDeviceName[32];  // cached copy of the device name (31 chars max) + \0
 
 // Victron docs on the manufacturer data in advertisement packets can be found at:
@@ -187,16 +191,19 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
           victronDeviceIndex = i;
            }
       }  //loop of our known devices loop to set  victronDeviceIndex
+      // // for record type list see line 300 on https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
+
+
       int KnownDataType;
       KnownDataType = -1;
       if (vicData->victronRecordType == 0x01) { KnownDataType = 1; }  //Solar Charger
-      if (vicData->victronRecordType == 2) { KnownDataType = 2; }     //smart shunt
-
+      if (vicData->victronRecordType == 0x02) { KnownDataType = 2; }     //Battery Monitr / smart shunt
+       if (vicData->victronRecordType == 0x08) { KnownDataType = 2; }     //smart shunt
         snprintf(debugMsg, 120, "Indexmatched :<%i>type<%i> ", victronDeviceIndex, vicData->victronRecordType);
         strcat(VictronBuffer, debugMsg);
         char deviceName[32];  // 31 characters + \0
-        // Get the device name (if there's one in this packet)or use the name from the json associated with the mac if we do not have a better one from the device
-        strcpy(deviceName, victronDevices.VICcommentstr[victronDeviceIndex]);
+        // Get the device name (if there's one for this device in the index
+        strcpy(deviceName, victronDevices.FileCommentName[victronDeviceIndex]);
         bool deviceNameFound = false;
         if (advertisedDevice.haveName()) {
           strcpy(deviceName, advertisedDevice.getName().c_str());  // This works the same whether getName() returns String or std::string.
@@ -204,9 +211,6 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
         }
         // The manufacturer data from Victron contains a byte that's supposed to match the first byte
         // of the device's encryption key. If they don't match, when we don't have the right key for
-        // I would prefer to use charKey if I could, but for now, byteKey is (was! / should have been) set up on reading the json file
-        // if (vicData->encryptKeyMatch != victronDevices.charKey[victronDeviceIndex][0]) {  //was byteKey
-        //   Serial.printf("key mismatch with charKey version - it may work later when I get it running?\n");
         // }  also have HexStringToBytes to be tested... 
 
         Serial.printf("hex to byte  input %s \n",victronDevices.charKey[victronDeviceIndex]);
@@ -226,11 +230,9 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
           return;
         }
 
-        //Serial.printf(" RSSI: %i \n",RSSI);
         // Now that the packet received has met all the criteria for being displayed, let's decrypt and decode the manufacturer data.
         byte inputData[16];
         byte outputData[16] = { 0 };
-
         // The number of encrypted bytes is given by the number of bytes in the manufacturer
         // data as a while minus the number of bytes (10) in the header part of the data.
         int encrDataSize = manDataSize - 10;
@@ -261,42 +263,46 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
           return;
         }
         esp_aes_free(&ctx);
-        // decrypt data here?
+
+
+
         if (KnownDataType == 1) {
           VICTRON_BLE_RECORD_SOLAR_CHARGER *victronData = (VICTRON_BLE_RECORD_SOLAR_CHARGER *)outputData;
 
-          byte deviceState = victronData->deviceState;  // this is really more like "Charger State"
-          byte errorCode = victronData->errorCode;
-          float batteryVoltage = float(victronData->batteryVoltage) * 0.01;  //OK for smart shunt as well
-          float batteryCurrent = float(victronData->batteryCurrent) * 0.1;   // not battery current on smart shunt..
-          float todayYield = float(victronData->todayYield) * 0.01 * 1000;   // solar charger use
-          uint16_t inputPower = victronData->inputPower;
-          // Getting the (solar charger) output current takes some magic. vic_9bit_0_1_negative load_current : 9;  //// 0.1 A, 0 .. 51.0 A enum vic_9bit_0_1_negative : u_int16_t;
-          int integerOutputCurrent = ((victronData->outputCurrentHi & 0x01) << 9) | victronData->outputCurrentLo;
+          byte device_state = victronData->device_state;  // this is really more like "Charger State"
+          byte charger_error = victronData->charger_error;
+          float battery_voltage = float(victronData->battery_voltage) * 0.01;  
+          float battery_current = float(victronData->battery_current) * 0.1;   
+          float yield_today = float(victronData->yield_today) * 0.01 * 1000; //we use wattHr not kwHr.. 
+          uint16_t pv_power = victronData->pv_power;
+          float load_current= float(victronData->load_current)* 0.1;
           char chargeStateName[6];
-          sprintf(chargeStateName, "%4d?", deviceState);
-          if (deviceState >= 0 && deviceState <= 7) { strcpy(chargeStateName, chargeStateNames[deviceState]); }
-          snprintf(debugMsg, 120, "%-31s SOLAR Batt:%6.2f Volts %6.2f Amps\n %6d Watts  Yield:%4.0f Wh  \nLoad: %5.1fA  Charger:%-13s Err: %2d RSSI:%d\n",
-                   victronDevices.VICcommentstr[victronDeviceIndex],
-                   batteryVoltage, batteryCurrent,
-                   inputPower, todayYield,
-                   integerOutputCurrent, chargeStateName, errorCode, RSSI);
+          sprintf(chargeStateName, "%4d?", device_state);
+          if (device_state >= 0 && device_state <= 7) { strcpy(chargeStateName, chargeStateNames[device_state]); }
+          snprintf(debugMsg, 120, "<%-31s> <%s> Batt:%6.2f Volts %6.2f Amps\n %6d Watts  Yield:%4.0f Wh  \nLoad: %5.1fA  Charger:%-13s Err: %2d RSSI:%d\n",
+                   victronDevices.FileCommentName[victronDeviceIndex],deviceName,
+                   battery_voltage, battery_current,
+                   pv_power, yield_today,
+                   load_current, chargeStateName, charger_error, RSSI);
           Serial.println(debugMsg);
          // strcat(VictronBuffer, debugMsg);
         }
         if (KnownDataType == 2) {
           VICTRON_BLE_RECORD_BATTERY_MONITOR *victronData = (VICTRON_BLE_RECORD_BATTERY_MONITOR *)outputData;
-          float batteryVoltage = float(victronData->battery_voltage) * 0.01;
-          float batteryCurrent = float(victronData->battery_current) * 0.001;  //4194
+          float battery_voltage = float(victronData->battery_voltage) * 0.01;
+          float battery_current = float(victronData->battery_current) * 0.001;  //4194
           int auxtype = victronData->aux_input_type;
           float AuxInput = float(victronData->aux_input) * 0.01;  // starter battery for Shunt
           float stateofcharge = float(victronData->state_of_charge) * 0.1;
-          snprintf(debugMsg, 120, "%s %2.3Fv  %2.3FA  Aux<%i> is %2.2Fv SOC:%2.1Fpercent  RSSI:%d\n",
-                   deviceName, batteryVoltage, batteryCurrent, auxtype, AuxInput, stateofcharge, RSSI);
+          snprintf(debugMsg, 120, "<%s> <%s> %2.3Fv  %2.3FA  Aux<%i> is %2.2Fv SOC:%2.1Fpercent  RSSI:%d\n",
+                   victronDevices.FileCommentName[victronDeviceIndex],deviceName, battery_voltage, battery_current, auxtype, AuxInput, stateofcharge, RSSI);
           Serial.println(debugMsg);
+          /// test, can I use GFXBorderBoxPrintf directly here? 
+          GFXBorderBoxPrintf(BatteryDisp, "BATTERY");
+
          // strcat(VictronBuffer, debugMsg);
         }
-      
+      // any more to add to the debug message in the VictronBuffer?
       strcat(VictronBuffer, debugMsg);
 
       packetReceived = true;
@@ -305,32 +311,8 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 };
 
 
-
-
-
-
-
 void BLEsetup() {
-  Serial.printf("Setting up BLE Victron keys for %d devices\n", Current_Settings.Num_Victron_Devices);
-  // byteMacAddr is not used anymore
-  // byteKey is set up when JSON is read, from the charKey that is recieved by JSON
-  //  for (int i = 0; i < Current_Settings.Num_Victron_Devices; i++) {
-
-  //  // hexCharStrToByteArray(victronDevices.charMacAddr[i], victronDevices.byteMacAddr[i]);
-  //   hexCharStrToByteArray(victronDevices.charKey[i], victronDevices.byteKey[i]);
-  //   strcpy(victronDevices.VICcommentstr[i], "(unknown)"); // WHY!
-  // }
-  // for (int i = 0; i < Current_Settings.Num_Victron_Devices; i++) {
-  //   Serial.printf("  %-16s   charKey<%s>", victronDevices.VICcommentstr[i],victronDevices.charKey[i]);
-  //  // Serial.printf("  Mac:   ");
-  //  // for (int j = 0; j < 6; j++) {
-  //  //   Serial.printf(" %2.2x", victronDevices.byteMacAddr[i][j]);
-  //  // }
-  //   Serial.printf("    byteKey: ");
-  //   for (int j = 0; j < 16; j++) {
-  //     Serial.printf("%2.2x", victronDevices.byteKey[i][j]);
-  //   }
-  // }
+  Serial.print("Setting up BLE..");
   delay(500);
   BLEDevice::init("");
   pBLEScan = BLEDevice::getScan();  //create new scan
@@ -338,13 +320,13 @@ void BLEsetup() {
   pBLEScan->setActiveScan(true);  //active scan uses more power, but gets results faster
   pBLEScan->setInterval(100);
   pBLEScan->setWindow(99);  // less or equal setInterval value
-  Serial.println(F("\n BLE setup() complete."));
+  Serial.println(F(" BLE setup() complete."));
 }
 void BLEloop() {
   // Serial.print(" BLE Scanning...");
   static unsigned long BLESCANINTERVAL;
   if (millis() >= BLESCANINTERVAL) {
-    BLESCANINTERVAL = millis() + 10000;                              //!
+    BLESCANINTERVAL = millis() + _BLESCANINTERVAL;                              //!
     BLEScanResults foundDevices = pBLEScan->start(scanTime, false);  // what does the iscontinue do? (the true/false is set false in examples. )
     pBLEScan->clearResults();                                        // delete results fromBLEScan buffer to release memory
   }

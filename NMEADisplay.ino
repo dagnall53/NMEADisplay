@@ -236,7 +236,6 @@ _sButton Full4Center = { 80, 275, 320, 50, 5, BLUE, WHITE, BLACK };
 _sButton Full5Center = { 80, 330, 320, 50, 5, BLUE, WHITE, BLACK };
 _sButton Full6Center = { 80, 385, 320, 50, 5, BLUE, WHITE, BLACK };  // inteferes with settings box do not use!
 
-
 #define On_Off ? "ON " : "OFF"  // if 1 first case else second (0 or off) same number of chars to try and helps some flashing later
 #define True_False ? "true" : "false"
 bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) {
@@ -263,7 +262,10 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     for (int index=0;index<=Current_Settings.Num_Victron_Devices;index++){
     strlcpy(config.charMacAddr[index], doc["device"+String(index)+".mac"] | "macaddress", sizeof(config.charMacAddr[index]));
     strlcpy(config.charKey[index], doc["device"+String(index)+".key"] | "key", sizeof(config.charKey[index]));
-    strlcpy(config.VICcommentstr[index], doc["device"+String(index)+".comment"] | "?name?", sizeof(config.VICcommentstr[index]));
+    strlcpy(config.FileCommentName[index], doc["device"+String(index)+".comment"] | "?name?", sizeof(config.FileCommentName[index]));
+   config.displayH[index]= doc["device"+String(index)+".DisplayH"];
+   config.displayV[index]= doc["device"+String(index)+".DisplayV"];
+
   } 
     // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
@@ -271,7 +273,8 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
  return !fault; // report success
 }
 void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) {
-  // Delete existing file, otherwise the configuration is appended to the file
+  // USED for adding extra devices or for creating a new file if missing 
+  //Delete existing file, otherwise the configuration is appended to the file
   SD.remove(filename);
   char buff[15];
   // Open file for writing
@@ -286,7 +289,9 @@ void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
   for (int index=0;index<=Current_Settings.Num_Victron_Devices;index++){
     doc["device"+String(index)+".mac"]=config.charMacAddr[index];
     doc["device"+String(index)+".key"]=config.charKey[index];
-    doc["device"+String(index)+".comment"]=config.VICcommentstr[index];
+    doc["device"+String(index)+".comment"]=config.FileCommentName[index];
+    doc["device"+String(index)+".DisplayH"]=config.displayH[index];
+    doc["device"+String(index)+".DisplayV"]=config.displayV[index];
   }
 
   // Serialize JSON to file
@@ -724,7 +729,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
 
       break;
- case -86:                                              // page for display of Vicron data 
+ case -87:    // page for graphic display of Vicron data 
+
+
+    break;
+ case -86:                                              // page for text display of Vicron data 
       if (RunSetup) { GFXBorderBoxPrintf(Terminal, ""); }  // only for setup, not changed data
       if (RunSetup || DataChanged) {
         setFont(3);
