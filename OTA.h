@@ -52,18 +52,24 @@ static bool NMEAINSTlogFileStarted = false;
 
 extern _sDisplay_Config Display_Config;
 
-extern const char *Setupfilename;  // <- SD library uses 8.3 filenames
+extern const char *Setupfilename;  
 extern bool LoadConfiguration(const char *filename, _sDisplay_Config &config, _sWiFi_settings_Config &settings);
+// NB no SaveConfiguration function used in webpages!
 extern _sWiFi_settings_Config Current_Settings;
 extern void EEPROM_WRITE(_sDisplay_Config B,_sWiFi_settings_Config A);
 
-
-extern const char* VictronDevicesSetupfilename;  // <- SD library uses 8.3 filenames
-extern _sMyVictronDevices  victronDevices;
-extern void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config);
 extern void PrintJsonFile( const char* comment, const char* filename);
+extern const char* VictronDevicesSetupfilename;  
+extern _sMyVictronDevices  victronDevices;
+// nb if victron or display settings are missing, '/save' will create them 
 extern bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config);
+extern void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config);
 
+extern bool LoadDisplayConfiguration(const char* filename, _MyColors& set);
+extern void SaveDisplayConfiguration(const char* filename, _MyColors& set);
+extern const char* ColorsFilename ; 
+extern _MyColors ColorSettings;
+extern void showPicture(const char* name);
 // extern Arduino_ST7701_RGBPanel *gfx ;  // declare the gfx structure so I can use GFX commands in Keyboard.cpp and here...
 extern Arduino_RGB_Display *gfx;  //  change if alternate (not 'Arduino_RGB_Display' ) display !
 extern void setFont(int);
@@ -77,9 +83,8 @@ extern void Display(bool reset, int page);
 WebServer server(80);
 File uploadFile;
 
-// for placing startws here and not on SD  -
-// So I can modify the Display Panel Name! but also so that OTA works even without SD card present
-//
+
+
 
 // Slightly more flexible way of defining page.. allows if statements ..required for changed displayname.. 
 String html_Question() {
@@ -97,6 +102,8 @@ String html_Question() {
   st += "</body></html>";
   return st;
 }
+// So I can modify the Display Panel Name! but also so that OTA works even without SD card present
+//
 /*the main html web page, with modified names etc    */
 String html_startws() {
 String st =
@@ -148,45 +155,45 @@ String serverIndex =
   "<h1>OTA Interface for NMEA DISPLAY</h1>"
   "<br><center>"
   + String(soft_version) + "</center> <br>"
-                           "<label id='file-input' for='file'>   Choose file...</label>"
-                           "<input type='submit' class=btn value='Update'>"
-                           "<br><br>"
-                           "<div id='prg'></div>"
-                           "<br><div id='prgbar'><div id='bar'></div></div><br></form>"
-                           "<script>"
-                           "function sub(obj){"
-                           "var fileName = obj.value.split('\\\\');"
-                           "document.getElementById('file-input').innerHTML = '   '+ fileName[fileName.length-1];"
-                           "};"
-                           "$('form').submit(function(e){"
-                           "e.preventDefault();"
-                           "var form = $('#upload_form')[0];"
-                           "var data = new FormData(form);"
-                           "$.ajax({"
-                           "url: '/update',"
-                           "type: 'POST',"
-                           "data: data,"
-                           "contentType: false,"
-                           "processData:false,"
-                           "xhr: function() {"
-                           "var xhr = new window.XMLHttpRequest();"
-                           "xhr.upload.addEventListener('progress', function(evt) {"
-                           "if (evt.lengthComputable) {"
-                           "var per = evt.loaded / evt.total;"
-                           "$('#prg').html('progress: ' + Math.round(per*100) + '%');"
-                           "$('#bar').css('width',Math.round(per*100) + '%');"
-                           "}"
-                           "}, false);"
-                           "return xhr;"
-                           "},"
-                           "success:function(d, s) {"
-                           "console.log('success!') "
-                           "},"
-                           "error: function (a, b, c) {"
-                           "}"
-                           "});"
-                           "});"
-                           "</script>"
+  "<label id='file-input' for='file'>   Choose file...</label>"
+  "<input type='submit' class=btn value='Update'>"
+  "<br><br>"
+  "<div id='prg'></div>"
+  "<br><div id='prgbar'><div id='bar'></div></div><br></form>"
+  "<script>"
+  "function sub(obj){"
+  "var fileName = obj.value.split('\\\\');"
+  "document.getElementById('file-input').innerHTML = '   '+ fileName[fileName.length-1];"
+  "};"
+  "$('form').submit(function(e){"
+  "e.preventDefault();"
+  "var form = $('#upload_form')[0];"
+  "var data = new FormData(form);"
+  "$.ajax({"
+  "url: '/update',"
+  "type: 'POST',"
+  "data: data,"
+  "contentType: false,"
+  "processData:false,"
+  "xhr: function() {"
+  "var xhr = new window.XMLHttpRequest();"
+  "xhr.upload.addEventListener('progress', function(evt) {"
+  "if (evt.lengthComputable) {"
+  "var per = evt.loaded / evt.total;"
+  "$('#prg').html('progress: ' + Math.round(per*100) + '%');"
+  "$('#bar').css('width',Math.round(per*100) + '%');"
+  "}"
+  "}, false);"
+  "return xhr;"
+  "},"
+  "success:function(d, s) {"
+  "console.log('success!') "
+  "},"
+  "error: function (a, b, c) {"
+  "}"
+  "});"
+  "});"
+  "</script>"
   + style;
 
 
@@ -211,7 +218,7 @@ bool loadFromSdCard(String path) {
   if (path.endsWith("/")) {  // send our local version with modified path!
     handleRoot();
     return true;
-    //wilnot get here now!
+    //will not get here now!
     path += "startws.htm";  // start our html file from  the SD !
   }
 
@@ -481,7 +488,11 @@ void SetupWebstuff() {
       PrintJsonFile(" Check settings after Web initiated SAVE ",VictronDevicesSetupfilename); Serial.println("***Updating Victron data settings");}
     else {Serial.println("***SETTING UP DEFAULT VICTRON SETTINGS JSON FILE****\n");
           SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices); }       // should write a default file if it was missing?
-    
+    if (LoadDisplayConfiguration(ColorsFilename,ColorSettings)){
+    Serial.println(" USING JSON for Colours data settings");
+    }else { Serial.println("\n\n***FAILED TO GET Colours JSON FILE****\n**** SAVING DEFAULT and Making File on SD****\n\n");
+    SaveDisplayConfiguration(ColorsFilename,ColorSettings);// should write a default file if it was missing?
+    }
     delay(50);Display(true,Display_Page);delay(50);
   });
 
@@ -508,9 +519,12 @@ void SetupWebstuff() {
     []() {
       HTTPUpload &upload = server.upload();
       if (upload.status == UPLOAD_FILE_START) {
-        setFont(10);
-        gfx->setTextColor(WHITE);
+        setFont(8);
+        gfx->setTextColor(BLACK); 
         gfx->fillScreen(BLUE);
+        showPicture("/loading.jpg");
+        
+        
         gfx->setCursor(0, 40);
         gfx->setTextWrap(true);
         gfx->printf("Update: %s\n", upload.filename.c_str());

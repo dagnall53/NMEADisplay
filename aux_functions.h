@@ -20,7 +20,9 @@ void UpdateDataTwoSize(bool horizCenter, bool vertCenter,int bigfont, int smallf
 void UpdateDataTwoSize(int magnify,bool horizCenter, bool vertCenter,int bigfont, int smallfont,_sButton button, _sInstData &data, const char *fmt);
 // NEW version that will update the box etc on starting Simplifies the Display page settings when selecting by JSON..
 void UpdateDataTwoSize(bool reset,const char *msg, const char *units,bool horizCenter, bool vertCenter, int bigfont, int smallfont, _sButton button, _sInstData &data, const char *fmt) ;
-
+  
+  //Simpler   TWO font print of (any) data. For Victron displays separates at decimal point Centers text in space GREYS if data is OLD
+void UpdateTwoSize_simple(int magnify, bool horizCenter, bool vertCenter, bool erase, int bigfont, int smallfont, _sButton button, const char *fmt, ...); 
 
 // Sub function to update (multiple) lines in a button (uses \n to separate lines )
 void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t color, int font, _sButton &button, const char *msg);

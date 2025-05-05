@@ -40,13 +40,13 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 #include <EEPROM.h>
 #include "FONTS/fonts.h"  // have to use reserved directory name src/ for arduino?
-#include "FONTS/FreeSansBold6pt7b.h"
-#include "FONTS/FreeSansBold8pt7b.h"
-#include "FONTS/FreeSansBold12pt7b.h"
-#include "FONTS/FreeSansBold18pt7b.h"
-#include "FONTS/FreeSansBold27pt7b.h"
-#include "FONTS/FreeSansBold40pt7b.h"
-#include "FONTS/FreeSansBold60pt7b.h"
+#include "FONTS/FreeSansBold6pt7b.h"    //font 7  9 high
+#include "FONTS/FreeSansBold8pt7b.h"    //font 8  11 high 
+#include "FONTS/FreeSansBold12pt7b.h"   // font 9  18 pixels high
+#include "FONTS/FreeSansBold18pt7b.h"   //font 10  27 pixels 
+#include "FONTS/FreeSansBold27pt7b.h"   // font 11 39 pixels
+#include "FONTS/FreeSansBold40pt7b.h"   //font 12 59 pixels 
+#include "FONTS/FreeSansBold60pt7b.h"   //font 13  88 pixels 
 
 
 
@@ -68,7 +68,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 #include "VICTRONBLE.h" //sets #ifndef Victronble_h
 
-const char soft_version[] = "Version 4.03";
+const char soft_version[] = "Version 4.05";
 bool hasSD;
 
 
@@ -84,6 +84,8 @@ char  VictronBuffer[800];  // way to transfer results in a way similar to NMEA t
 
 _sVictronData VictronData;  // Victron sensor Data values, int double etc for use in graphics 
 
+const char* ColorsFilename = "/colortest.txt";  // <- SD library uses 8.3 filenames?
+_MyColors ColorSettings;
 
 //set up Audio
 Audio audio;
@@ -174,7 +176,7 @@ _sButton FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 
 //used for single data display
 // modified all to lift by 30 pixels to allow a common bottom row display (to show logs and get to settings)
-_sButton StatusBox = { 0, 450, 480, 30, 3, BLACK, WHITE, BLACK };
+_sButton StatusBox = { 0, 455, 480, 25, 3, BLACK, WHITE, BLACK };
 _sButton WifiStatus = { 60, 180, 360, 120, 5, BLUE, WHITE, BLACK };  // big central box for wifi events to pop up - v3.5
 
 _sButton BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK };              // used for wind and graph displays
@@ -302,6 +304,71 @@ void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
   file.close();
   PrintJsonFile("Check after Saving configuration ", filename);
 }
+void SaveDisplayConfiguration(const char* filename, _MyColors& set) {
+  // Delete existing file, otherwise the configuration is appended to the file
+  SD.remove(filename);
+  char buff[15];
+  // Open file for writing
+  File file = SD.open(filename, FILE_WRITE);
+  if (!file) {
+    Serial.println(F("JSON: Failed to create SD file"));
+    return;
+  }
+  // Allocate a temporary JsonDocument
+  JsonDocument doc;
+  // Set the values in the JSON file.. // NOT ALL ARE read yet!!
+  //modify how the display works
+  doc["_comments_"] = "Colours as integers";
+  doc["WHITE"]=WHITE;
+  doc["BLUE"]=BLUE;
+  doc["BLACK"]=BLACK;
+  doc["GREEN"]=GREEN;
+  doc["RED"]=RED;
+
+  doc["TextColor"]= set.TextColor; 
+  doc["BackColor"]= set.BackColor;  
+  doc["BorderColor"]=set.BackColor; 
+  doc["_comments_"] = "These sizes below are for some font tests in victron display!";
+  doc["BoxH"]=set.BoxH; 
+  doc["BoxW"]=set.BoxW; 
+  doc["FontH"]=set.FontH; 
+  doc["FontS"]=set.FontS; 
+
+  // Serialize JSON to file
+  if (serializeJsonPretty(doc, file) == 0) {  // use 'pretty format' with line feeds
+    Serial.println(F("JSON: Failed to write to SD file"));
+  }
+  // Close the file, but print serial as a check
+  file.close();
+  PrintJsonFile("Check after Saving configuration ", filename);
+}
+bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
+  // Open SD file for reading
+ File file = SD.open(filename, FILE_READ);
+  if (!file) {
+    Serial.println(F("**Failed to read JSON file"));
+    }
+  // Allocate a temporary JsonDocument
+  char temp[15];
+  JsonDocument doc;
+  // Deserialize the JSON document
+  DeserializationError error = deserializeJson(doc, file);
+  if (error) {
+    Serial.println(F("**Failed to deserialise JSON file"));
+  }
+  // gett here means we can set defaults, regardless!
+  set.TextColor = doc["TextColor"] | BLACK;  
+  set.BackColor = doc["BackColor"] | WHITE;  
+  set.BackColor = doc["BorderColor"] | BLUE; 
+  set.BoxW = doc["BoxW"] | 100; 
+  set.BoxH = doc["BoxH"] | 50; 
+  set.FontH = doc["FontH"] | WHITE; 
+  set.FontS = doc["FontS"] | WHITE; 
+  // Close the file (Curiously, File's destructor doesn't close the file)
+  file.close();
+  if (!error) { return true; }
+  return false;
+}
 
 bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_settings_Config& settings) {
   // Open SD file for reading
@@ -407,10 +474,7 @@ void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   doc["Mag_Var"] = buff;
   doc["PanelName"] = config.PanelName;
   doc["APpassword"] = config.APpassword;
-  doc["FourWayBR"] = config.FourWayBR;
-  doc["FourWayBL"] = config.FourWayBL;
-  doc["FourWayTR"] = config.FourWayTR;
-  doc["FourWayTL"] = config.FourWayTL;
+
 
 
   //now the settings WIFI etc..
@@ -422,6 +486,17 @@ void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   doc["ESP"] = settings.ESP_NOW_ON True_False;
   doc["LOG"] = settings.Log_ON True_False;
   doc["NMEALOG"] = settings.NMEA_log_ON True_False;
+  doc["_comment_1"]= "These settings allow modification of the bottom two 'quad' displays";
+  doc["_comment_2"]= "options are : SOG SOGGRAPH STW STWGRAPH GPS DEPTH DGRAPH DGRAPH2 ";
+  doc["_comment_3"]= "DGRAPH  and DGRAPH2 display 10 and 30 m ranges respectively";
+  doc["FourWayBR"] = config.FourWayBR;
+  doc["FourWayBL"] = config.FourWayBL;
+  doc["_comment_4"]= "Top row right can be WIND or TIME";
+  doc["FourWayTR"] = config.FourWayTR;
+  doc["FourWayTL"] = config.FourWayTL;
+
+
+  doc["_comment_"]= "These settings below apply only to Victron display pages";
   doc["BLE_enable"]=settings.BLE_enable True_False;
   doc["Number_of_Victron"]= settings.Num_Victron_Devices;
 
@@ -612,7 +687,10 @@ void Display(int page) {
   Display(false, page);
 }
 
-
+void showPicture(const char* name){
+   jpegDraw(name, jpegDrawCallback, true /* useBigEndian */,
+                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+}
 
 void Display(bool reset, int page) {  // setups for alternate pages to be selected by page.
   static unsigned long flashinterval;
@@ -668,8 +746,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
   switch (page) {  // just show the logos on the sd card top page
     case -200:
       if (RunSetup) {
-        jpegDraw("/logo.jpg", jpegDrawCallback, true /* useBigEndian */,
-                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+        showPicture("/logo.jpg");
+        // jpegDraw("/logo.jpg", jpegDrawCallback, true /* useBigEndian */,
+        //          0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
         GFXBorderBoxPrintf(Full0Center, "Jpg tests -Return to Menu-");
         GFXBorderBoxPrintf(Full1Center, "logo.jpg");
         GFXBorderBoxPrintf(Full2Center, "logo1.jpg");
@@ -730,8 +809,13 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
       break;
  case -87:    // page for graphic display of Vicron data 
+     if (RunSetup) {
+        jpegDraw("/vicback.jpg", jpegDrawCallback, true /* useBigEndian */,
+                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+       }
 
-
+     // all graphics done in VICTRONBLE 
+     if (CheckButton(FullTopCenter)) { Display_Page = -86; }
     break;
  case -86:                                              // page for text display of Vicron data 
       if (RunSetup) { GFXBorderBoxPrintf(Terminal, ""); }  // only for setup, not changed data
@@ -748,7 +832,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       // if (millis() > slowdown + 500) {
       //   slowdown = millis();
       // }
-      if (CheckButton(FullTopCenter)) { Display_Page = 0; }
+      if (CheckButton(FullTopCenter)) { Display_Page = -87; }
       if (CheckButton(Terminal)) {
         Terminal.debugpause = !Terminal.debugpause;
         DataChanged = true;
@@ -1733,6 +1817,12 @@ void setup() {
     }else { Serial.println("\n\n***FAILED TO GET Victron JSON FILE****\n**** SAVING DEFAULT and Making File on SD****\n\n");
     SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices);// should write a default file if it was missing?
     }
+  if (LoadDisplayConfiguration(ColorsFilename,ColorSettings) ){
+    Serial.println(" USING JSON for Colours data settings");
+    }else { Serial.println("\n\n***FAILED TO GET Colours JSON FILE****\n**** SAVING DEFAULT and Making File on SD****\n\n");
+    SaveDisplayConfiguration(ColorsFilename,ColorSettings);// should write a default file if it was missing?
+    }
+    
   // set up anything BoatData from the configs
   //Serial.print("now.. magvar:");Serial.println(BoatData.Variation);
 
@@ -1751,7 +1841,7 @@ void setup() {
   // print config files
   PrintJsonFile(" Display and wifi config file...",Setupfilename);
   PrintJsonFile(" Victron JSON config file..",VictronDevicesSetupfilename);
-
+  PrintJsonFile(" Display colour  config file..",ColorsFilename);
   ConnectWiFiusingCurrentSettings();
   SetupWebstuff();
  
@@ -1775,7 +1865,7 @@ void loop() {
   //EventTiming("START");
   delay(1);
   ts.read();
-  if((Current_Settings.BLE_enable) && (Display_Page== -86)){BLEloop();}   //ONLY on  Display_Page -86!! or it interrupts eveything! 
+  if((Current_Settings.BLE_enable) && ((Display_Page== -86)||(Display_Page== -87)) ){BLEloop();}   //ONLY on  victron Display_Page -86 and -87!! or it interrupts eveything! 
   //Serial.printf(" 1<%i>",millis()-Interval);Interval=millis();
   CheckAndUseInputs();
    //Serial.printf(" 2<%i>",millis()-Interval);Interval=millis();

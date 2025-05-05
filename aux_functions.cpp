@@ -353,7 +353,90 @@ void UpdateLinef(int font, _sButton &button, const char *fmt, ...) {  // Types s
 }
 
 
+void UpdateTwoSize_simple(int magnify, bool horizCenter, bool vertCenter, bool erase, int bigfont, int smallfont, _sButton button, const char *fmt, ...) {  // TWO font print. separates at decimal point Centers text in space GREYS if data is OLD
+  //Serial.print(" UD2S: ");Serial.println(data); this version does not use the border for the height evaluation ! 
+  static char msg[300] = { '\0' };
+  char digits[30];
+  char decimal[30];
+  static char *token;
+  const char delimiter[2] = ".";  // Or space, etc.
+  int16_t x, y, TBx1, TBy1, TBx2, TBy2, TBx3, TBy3;
+  uint16_t TBw1, TBh1, TBw2, TBh2, TBw3, TBh3;
+  int typingspaceH, typingspaceW;
+  ////// buttton width and height are for the OVERALL box. subtract border! for sides only as this function may be used in lines..
+  typingspaceH = button.height -2;// (2 * button.bordersize);
+  typingspaceW = button.width - 2- (2 * button.bordersize);  // small one pixel inset either side
+  if (horizCenter || vertCenter) {
+    gfx->setTextWrap(false);
+  } else {
+    gfx->setTextWrap(true);
+  }
+ gfx->setTextSize(magnify);//is now set in used in message buildup
+  va_list args;  // extract the fmt..
+  va_start(args, fmt);
+  vsnprintf(msg, 300, fmt, args);
+  va_end(args);
+  int len = strlen(msg);
+  // split msg at the decimal point .. so must have decimal point!
+  // if (typingspaceW >=300){
+  // Serial.printf("** Debug Msg is <%s> typingspacew=%i \n",msg,typingspaceW);
 
+  if (strcspn(msg, delimiter) != strlen(msg)) {
+    token = strtok(msg, delimiter);
+    strcpy(digits, token);
+    token = strtok(NULL, delimiter);
+    strcpy(decimal, delimiter);
+    decimal[1] = 0;          // add dp to the decimal delimiter and the critical null so the strcat works !! (not re0uqired now const char delimiter[2] = "."; )
+    strcat(decimal, token);  // Concatenate (add) the decimals to the dp..
+  } else {
+    strcpy(digits, msg);  // missing dp, so just put the whole message in 'digits'.
+    decimal[0] = 0;
+  }
+  setFont(bigfont);                                                // here so the text_offset is correct for bigger font
+  x = button.h + button.bordersize + 1;                            //starting point left..
+  y = button.v + button.bordersize + 1 + (magnify * text_offset);  // starting bpoint 'down' allow for magnify !! bigger font for front half
+  //gfx->setTextBound(button.h + button.bordersize+1, button.v + button.bordersize+1, typingspaceW-2, typingspaceH-2);
+  gfx->setTextBound(0, 0, 480, 480);  // test.. set a full (width) text bound to be certain that the get does not take into account any 'wrap'
+
+  gfx->getTextBounds(digits, 0, 0, &TBx1, &TBy1, &TBw1, &TBh1);  // get text bound for digits use 0,0 for start to ensure we get a usable TBx1 and TBx2 later
+  setFont(smallfont);
+  gfx->getTextBounds(decimal, 0, 0, &TBx2, &TBy2, &TBw2, &TBh2);    // get text bounds for decimal
+                                                                    // if (typingspaceW >=300){
+                                                                    //   Serial.printf("digits<%s>:decimal<%s> Total %i tbx1: %i tbx2: %i   TBW1: %i TBW2: %i  ",digits,decimal,TBw1+TBw2,TBx1,TBx2, TBw1, TBw2);
+                                                                    //   }
+  if (((TBw1 + TBw2) >= typingspaceW) || (TBh1 >= typingspaceH)) {  // too big!!
+    if ((TBw1 <= typingspaceW) && (TBh1 <= typingspaceH)) {         //just print digits not decimals
+      TBw2 = 0;
+      decimal[0] = 0;
+      decimal[1] = 0;
+    } else {  // Serial.print("***DEBUG <"); Serial.print(msg);Serial.print("> became <");Serial.print(digits);
+              // Serial.print(decimal);Serial.println("> and was too big to print in box");
+      gfx->setTextBound(0, 0, 480, 480);
+      return;
+    }
+  }
+  setFont(bigfont);                                                                                                // Reset to big font for Digits..
+  if (horizCenter) { x = button.h + button.bordersize + ((typingspaceW - (TBw1 + TBw2)) / 2); }                    //offset to horizontal center
+  if (vertCenter) { y = button.v + button.bordersize + (magnify * text_offset) + ((typingspaceH - (TBh1)) / 2); }  // vertical centering
+  if (erase) {
+    gfx->setTextColor(button.BackColor);
+  } else {
+    gfx->setTextColor(button.TextColor);
+  }
+  gfx->setTextBound(button.h + button.bordersize, button.v + button.bordersize, typingspaceW, typingspaceH);
+  x = x - TBx1;  // NOTE TBx1 is normally zero for most fonts, but some print with offsets that will be corrected by TBx1.
+  gfx->setCursor(x, y);
+  gfx->print(digits);
+  x = gfx->getCursorX();
+  if (TBw2 != 0) {
+    setFont(smallfont);
+    gfx->setCursor((x - TBx2), y);  // Set decimals start position based on where Digits ended and allow for any font start offset TBx2
+    gfx->print(decimal);
+  }
+  gfx->setTextColor(button.TextColor);
+  gfx->setTextBound(0, 0, 480, 480);  //MUST reset it for other functions that do not set it themselves!
+  gfx->setTextSize(1);
+}
 
 
 void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool erase, int bigfont, int smallfont, _sButton button, _sInstData &data, const char *fmt, ...) {  // TWO font print. separates at decimal point Centers text in space GREYS if data is OLD

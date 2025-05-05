@@ -34,10 +34,14 @@ struct _sWiFi_settings_Config {  // MAINLY WIFI AND DATA LOGGING key,ssid,PW,udp
   bool BLE_enable;
   int Num_Victron_Devices;
 };
-struct MyColors {  // for later Day/Night settings
+struct _MyColors {  // for later Day/Night settings
   uint16_t TextColor;
   uint16_t BackColor;
   uint16_t BorderColor;
+  int BoxW;
+  int BoxH;
+  int FontH;
+  int FontS;
 };
 
 struct _sInstData {  // struct to hold instrument data AND the time it was updated.
@@ -83,17 +87,6 @@ struct Phv {   // struct for int positions h v typically on screen
 
 /// for Victron stuff:
 
-// victron data struct to use my display stuff ?
-/*struct _sInstData {  // struct to hold instrument data AND the time it was updated.
-  double data = NMEA0183DoubleNA;
-  double lastdata = NMEA0183DoubleNA;
-  unsigned long updated;
-  bool displayed;  // displayed is used by Digital displays
-  bool greyed;     // when the data is OLD! 
-  bool graphed;    // is used by Graphs, so you can display digital and graph on same page!
-  int source;      // Ready to try an experiment with two GPS to see how they track .
- 
-};*/
 
 
 
