@@ -7,6 +7,14 @@
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
 
+
+// for record type list see line 300 on https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
+// for structures see(circa line 600..) https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
+// for data types and ranges see https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_custom_type.h
+// types include range data etc, to allow range setting 
+// Later edit.. I have added typedef aliases  to allow for (nearly) direct copy transcription.. changing by hand is tedious..! 
+
+
 // onResult includes serial print of results but will be changed once I understand it..
 // class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks 
 //   {public:
@@ -49,11 +57,6 @@ struct VICTRON_BLE_RECORD_SOLAR_CHARGER {  // NOLINT(readability-identifier-nami
 
 */
 
-// for record type list see line 300 on https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
-// for structures see(circa line 600..) https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
-// for data types and ranges see https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_custom_type.h
-// types include range data etc, to allow range setting 
-// Later edit.. I have added typedef aliases  to allow for (nearly) direct copy transcription.. changing by hand is tedious..! 
 /*
 
 
@@ -112,17 +115,60 @@ typedef struct  {  // struct from Fabian Schmidt NOLINT(readability-identifier-n
   vic_9bit_0_1_negative load_current : 9; //// 0.1 A, 0 .. 51.0 A // just this one with the original type to test I can use extra typdef!!
 } __attribute__((packed)) VICTRON_BLE_RECORD_SOLAR_CHARGER;
 
+/*  trying to rebuild the victronManufacturerData based on Fabian Schmittdata:
+// Max documented message size is 16 byte. Maximum length of a record is 20 bytes = 4 byte header
+// (VICTRON_BLE_RECORD_BASE minus VICTRON_BLE_MANUFACTURER_DATA) + 16 byte payload
 
+
+struct VICTRON_BLE_RECORD_BASE {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
+  VICTRON_BLE_MANUFACTURER_DATA manufacturer_base; 
+  VICTRON_BLE_RECORD_TYPE record_type;
+  u_int8_t data_counter_lsb;
+  u_int8_t data_counter_msb;
+  // Byte 0 of the encryption key (bindkey)
+  u_int8_t encryption_key_0;
+} __attribute__((packed));
+
+
+
+struct VICTRON_BLE_MANUFACTURER_DATA {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
+  VICTRON_MANUFACTURER_RECORD_TYPE manufacturer_record_type;
+  u_int8_t manufacturer_record_length;
+  VICTRON_PRODUCT_ID product_id;
+} __attribute__((packed));
+
+
+I deduce: BASE struct is actually... 
+I needed this because the Smart shunt and smart battery sensor both use the same struct, but the SBS misses the Current! It would be nice to separately identify SBS and SS device?
+The app obviously has this data as it give a little picture of the detected device (even without decrypt of data or pairing"!)
+So this information must be in the unencrypted part 
+
+*/
 typedef struct {
-  uint16_t vendorID;                 // vendor ID
-  uint8_t beaconType;                // Should be 0x10 (Product Advertisement) for the packets we want
-  uint8_t unknownData1[3];           // Unknown data
-  uint8_t victronRecordType;         // will be eg 0x01 (Solar Charger) 
-  uint16_t nonceDataCounter;         // Nonce
-  uint8_t encryptKeyMatch;           // Should match pre-shared encryption key byte 0
-  uint8_t victronEncryptedData[21];  // (31 bytes max per BLE spec - size of previous elements)
-  uint8_t nullPad;                   // extra byte because toCharArray() adds a \0 byte.
+ uint16_t vendorID; // properly manufacturer_record_type; //VICTRON_MANUFACTURER_RECORD_TYPE  PRODUCT_ADVERTISEMENT = 0x10,
+ // what happend to this! u_int8_t manufacturer_record_length;
+ uint8_t beaconType;
+ uint8_t unknownData;
+ uint16_t product_id; //device. VICTRON_PRODUCT_ID ?? the actual device type = BlueSolar. A042..A04f  SmartSolar A050..A065 
+ uint8_t victronRecordType;//VICTRON_BLE_RECORD_TYPE 00 = solar charger 01 = battery monitor .. etc ()
+ uint16_t nonceDataCounter; // deal with this later, it seems to work and Hoben reconverts to lsb/msb??
+                            // u_int8_t data_counter_lsb;
+                            //u_int8_t data_counter_msb;
+ uint8_t encryption_key_0; // Byte 0 of the encryption key (bindkey)
+ uint8_t victronEncryptedData[21]; // not modifying as proven to work,
+ uint8_t nullPad;
 } __attribute__((packed)) victronManufacturerData;
+
+// typedef struct {
+//   uint16_t vendorID;                 // vendor ID
+//   uint8_t beaconType;                // Should be 0x10 (Product Advertisement) for the packets we want
+//   uint8_t unknownData1[3];           // Unknown data 
+//   uint8_t victronRecordType;         // u_int8_t VICTRON_BLE_RECORD_TYPE will be eg 0x01 (Solar Charger) one of only 13 record types 
+//   uint16_t nonceDataCounter;         // Nonce  ??see line 340 .. u_int8_t data_counter_lsb;  u_int8_t data_counter_msb;
+//   uint8_t encryption_key_0;           // Should match pre-shared encryption key byte 0
+//   uint8_t victronEncryptedData[21];  // (31 bytes max per BLE spec - size of previous elements)
+//   uint8_t nullPad;                   // extra byte because toCharArray() adds a \0 byte.
+// } __attribute__((packed)) victronManufacturerData;
 
 
 void hexCharStrToByteArray(char * hexCharStr, byte * byteArray); // called in LoadVictronConfiguration to set byte version of the input string 

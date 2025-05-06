@@ -42,6 +42,8 @@ struct _MyColors {  // for later Day/Night settings
   int BoxH;
   int FontH;
   int FontS;
+  bool Simulate;
+  int Simpanel;
 };
 
 struct _sInstData {  // struct to hold instrument data AND the time it was updated.

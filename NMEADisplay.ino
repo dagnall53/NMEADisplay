@@ -68,7 +68,10 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 #include "VICTRONBLE.h" //sets #ifndef Victronble_h
 
-const char soft_version[] = "Version 4.05";
+//const char soft_version[] = "Version 4.05";
+//const char compile_date[] = __DATE__ " " __TIME__;
+const char soft_version[] = "Version 4.06" __DATE__ " " __TIME__;
+
 bool hasSD;
 
 
@@ -333,6 +336,9 @@ void SaveDisplayConfiguration(const char* filename, _MyColors& set) {
   doc["BoxW"]=set.BoxW; 
   doc["FontH"]=set.FontH; 
   doc["FontS"]=set.FontS; 
+  doc["Simulate"]=set.Simulate True_False;
+  doc["Simpanel"]=set.Simpanel;
+  
 
   // Serialize JSON to file
   if (serializeJsonPretty(doc, file) == 0) {  // use 'pretty format' with line feeds
@@ -362,8 +368,12 @@ bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
   set.BackColor = doc["BorderColor"] | BLUE; 
   set.BoxW = doc["BoxW"] | 100; 
   set.BoxH = doc["BoxH"] | 50; 
+  
   set.FontH = doc["FontH"] | WHITE; 
   set.FontS = doc["FontS"] | WHITE; 
+  strlcpy(temp,doc["Simulate"] |"false",sizeof(temp));
+  set.Simulate =(strcmp(temp,"false"));
+  set.Simpanel=doc["Simpanel"]|1;
   // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
   if (!error) { return true; }
