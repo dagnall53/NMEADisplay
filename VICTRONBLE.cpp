@@ -35,6 +35,7 @@ extern char VictronBuffer[];  // to get the data out as a string char
 extern _sWiFi_settings_Config Current_Settings;
 extern _sMyVictronDevices victronDevices;
 extern _MyColors ColorSettings;
+extern int Display_Page;
 
 BLEScan *pBLEScan;
 // int h, v, width, height, bordersize;  uint16_t BackColor, TextColor, BorderColor;
@@ -44,9 +45,9 @@ _sButton Inst_Disp = { 0, 5, 146, 46, 5, WHITE, BLACK, BLUE };  // for Victron b
 
 #define AES_KEY_BITS 128
 
-int scanTime = 1;               // BLE scan time (seconds)
+int scanTime = 1;              // BLE scan time (seconds)
 #define _BLESCANINTERVAL 2000  // run scan every 10 secs, (results in lockout of all other functions  for scanTime)
-char savedDeviceName[32];       // cached copy of the device name (31 chars max) + \0
+char savedDeviceName[32];      // cached copy of the device name (31 chars max) + \0
 
 // Victron docs on the manufacturer data in advertisement packets can be found at:
 //   https://community.victronenergy.com/storage/attachments/48745-extra-manufacturer-data-2022-12-14.pdf
@@ -186,6 +187,50 @@ _sButton Setup_N_Display(_sButton &box, int numlines, int shiftH, int shiftV, ch
 
 
 
+void DebugBLEMessage(BLEAdvertisedDevice advertisedDevice) {
+  char debugMsg[300];
+  char outbuffer[400];
+  snprintf(debugMsg, 120, "\n--Advertised device: MAC(%s)", advertisedDevice.getAddress().toString().c_str());
+  strcat(outbuffer, debugMsg);
+  if (advertisedDevice.haveAppearance() == true) {
+    snprintf(debugMsg, 120, "appearance_int16<%i>\n", advertisedDevice.getAppearance());
+    strcat(outbuffer, debugMsg);
+    Serial.print(debugMsg);
+  }
+  if (advertisedDevice.haveName() == true) {
+    snprintf(debugMsg, 120, " Name<%s>\n", advertisedDevice.getName().c_str());
+    strcat(outbuffer, debugMsg);
+    Serial.print(debugMsg);
+  }
+
+    if (advertisedDevice.haveRSSI() == true) {
+    snprintf(debugMsg, 120, " RSSI<%i>\n", advertisedDevice.getRSSI());
+    strcat(outbuffer, debugMsg);
+    Serial.print(debugMsg);
+  }
+  if (advertisedDevice.haveServiceData() == true) {
+    snprintf(debugMsg, 120, " service data count(%i)  (%s)", advertisedDevice.getServiceDataCount(), advertisedDevice.getServiceData().c_str());
+    strcat(outbuffer, debugMsg);
+    Serial.print(debugMsg);
+  }
+  if (advertisedDevice.haveServiceUUID() == true) {
+    snprintf(debugMsg, 120, " has ServiceUUID data count (%i)", advertisedDevice.getServiceUUIDCount());
+    strcat(outbuffer, debugMsg);
+    Serial.print(debugMsg);
+  }
+  if (advertisedDevice.haveTXPower() == true) {
+    snprintf(debugMsg, 120, " TXpwr<%i>\n", advertisedDevice.getTXPower());
+    strcat(outbuffer, debugMsg);
+    Serial.print(debugMsg);
+  }
+  snprintf(debugMsg, 120, "-- end AD data ");
+  Serial.println(outbuffer);
+  strcat(VictronBuffer, outbuffer);
+}
+
+
+
+
 // generic for displays to modify will start with setting relative to Inst_Disp :
 _sButton display;
 _sButton DisplayOuterbox;
@@ -196,66 +241,87 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 
   void onResult(BLEAdvertisedDevice advertisedDevice) {
     char debugMsg[200];
-#define manDataSizeMax 31  // BLE specs say no more than 31 bytes, but... see hoben comments
-// commenting out the USE_String and placing on line ends. until and if I move to v3 compiler! to make code easier to follow
-    // See if we have manufacturer data and then look to see if it's coming from a Victron device.
-    if (advertisedDevice.haveManufacturerData() == true) { 
+#define manDataSizeMax 31  // BLE specs say no more than 31 bytes, but... see hoben comments \
+                           // commenting out the USE_String and placing on line ends. until and if I move to v3 compiler! to make code easier to follow
+    // ONLY bother with the message if it has "manufacturerdata" and then look to see if it's coming from a Victron device.
+    if (advertisedDevice.haveManufacturerData() == true) {
       //snprintf(debugMsg, 120, " BLE seen "); strcat(VictronBuffer, debugMsg);Serial.print(debugMsg);
-      uint8_t manCharBuf[manDataSizeMax + 1];   // #ifdef USE_String  // String manData = advertisedDevice.getManufacturerData();  // lib code returns String. // #else
+      uint8_t manCharBuf[manDataSizeMax + 1];                        // #ifdef USE_String  // String manData = advertisedDevice.getManufacturerData();  // lib code returns String. // #else
       std::string manData = advertisedDevice.getManufacturerData();  // lib code returns std::string  // #endif
       int manDataSize = manData.length();
       if (manDataSize > manDataSizeMax) {  // Limit size just in case we get a malformed packet.
         Serial.printf("  Note: Truncating malformed %2d byte manufacturer data to max %d byte array size\n", manDataSize, manDataSizeMax);
         manDataSize = manDataSizeMax;
       }
+
+
       // Now copy the data from the String to a byte array. Must have the +1 so we
       //   #ifdef USE_String      // //manData.toCharArray((char *)manCharBuf,manDataSize+1);// memcpy(manCharBuf, manData.c_str(), manDataSize);//    #else //manData.copy((char *)manCharBuf, manDataSize + 1);
-      manData.copy((char *)manCharBuf, manDataSize);   // #endif
-     
+      manData.copy((char *)manCharBuf, manDataSize);  // #endif
+
       // Get the Basic stuff from the message that we need later:  strength (RSSI) of the beacon so we can show it in debug -if necessary, regardless of device and manufacturer.
       int RSSI = advertisedDevice.getRSSI();
       std::string getName = advertisedDevice.getName().c_str();
       // uint16_t appearance =advertisedDevice.getAppearance();
       char receivedMacStr[18];
-      strcpy(receivedMacStr, advertisedDevice.getAddress().toString().c_str());
+      strcpy(receivedMacStr, advertisedDevice.getAddress().toString().c_str());  // == toString()(convert a string object into a string) with a null (c_str(): Returns a pointer to a null-terminated C-style string representation)
       // snprintf(debugMsg, 120, "\nGot:<%s> appearance<%i>Received mac<%s>",
       //                          advertisedDevice.getName().c_str(), advertisedDevice.getAppearance(),receivedMacStr);
-    
+
       // Now let's use a struct to get to the data more cleanly.
       victronManufacturerData *vicData = (victronManufacturerData *)manCharBuf;
       // NORMALLY: ignore this packet if the Vendor ID isn't Victron. https://gist.github.com/angorb/f92f76108b98bb0d81c74f60671e9c67
-     // snprintf(debugMsg, 120, "  id:%#x Rssi:%i", vicData->vendorID, RSSI);strcat(VictronBuffer, debugMsg); Serial.println(debugMsg);
-      
-      
-      if (vicData->vendorID != 0x02e1) {return; }
-      // IS Victrion.. it a KNOWN device ? work with mac first:
-     
-      // Get the MAC address of the device we're hearing, and then use that to look up the encryption key
+      // snprintf(debugMsg, 120, "  id:%#x Rssi:%i", vicData->vendorID, RSSI);strcat(VictronBuffer, debugMsg); Serial.println(debugMsg);
+
+
+      if (vicData->vendorID != 0x02e1) { return; }
+      // IS Victron.. it a KNOWN device ? work with mac first:
+ 
+ // char outbuffer[400];
+  snprintf(debugMsg, 120, "\nDevice:MAC(%s)", advertisedDevice.getAddress().toString().c_str());
+ //  snprintf(debugMsg, 120, "\n--Advertised device:(%s) ---", advertisedDevice.toString().c_str());
+  strcat(VictronBuffer, debugMsg);
+  Serial.println(debugMsg);
+       // Get the MAC address "xx:xx...xx:xx"of the device we're hearing, and then use that to look up the encryption key
       // for the device from our table
-     
+
       int victronDeviceIndex = -1;
       for (int i = 0; i < Current_Settings.Num_Victron_Devices; i++) {
         if (CompareString_Mac(receivedMacStr, victronDevices.charMacAddr[i])) {
           victronDeviceIndex = i;
-         }
+        }
       }
-      
-      snprintf(debugMsg, 120, "type<%i> Indexmatches :<%i> ", vicData->victronRecordType, victronDeviceIndex);
-      strcat(VictronBuffer, debugMsg);Serial.print(debugMsg);
+
       //loop of our known devices loop to set  victronDeviceIndex
       // // for record type list see line 300 on https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
-      // snprintf(debugMsg, 120, "product_id{%x} victronRecordType{%x} ", vicData->product_id, vicData->victronRecordType);
-      // strcat(VictronBuffer, debugMsg);
+       snprintf(debugMsg, 120, "beacon{%x} unknown{%x} productID{%x} VRT{%x} \n",vicData->beaconType,vicData->manufacturer_record_length, vicData->product_id, vicData->victronRecordType);
+       strcat(VictronBuffer, debugMsg);
+       Serial.println(debugMsg);
 
       int KnownDataType;
       KnownDataType = -1;
       if (vicData->victronRecordType == 0x01) { KnownDataType = 1; }  //Solar Charger
       if (vicData->victronRecordType == 0x02) { KnownDataType = 2; }  //Battery Monitor / smart shunt
       if (vicData->victronRecordType == 0x08) { KnownDataType = 3; }  //VICTRON_BLE_RECORD_AC_CHARGER
+    /* my notes: assuming that beacon[10] is essential.. (as I have seen others! )
+    nothing seems to match the Product ID as per https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h#L299
+     Shunts ea:9d:f3:eb:c6:25 beacon{10} unknown{2} productID{c038} VRT{2} 
+             d6:6d:d6:7c:a2:c1 beacon{10} unknown{2} productID{a389} VRT{2} 
+       Batt monitor c4:7f:ae:b7:6f:80 gives beacon{10} unknown{0} productID{a3a5} VRT{2} 
 
-   if (ColorSettings.Simulate){KnownDataType=ColorSettings.Simpanel;victronDeviceIndex=1;
-    snprintf(debugMsg, 120, "Simulating<%i> at Index :<%i> ", vicData->victronRecordType, victronDeviceIndex);
-      strcat(VictronBuffer, debugMsg);Serial.print(debugMsg);}
+      // solar fa50a60e0734 beacon{10} unknown{2} productID{a055} VRT{1} 
+      // d0:44:98:44:33:d2 beacon{10} unknown{2} productID{a053} VRT{1} 
+       e
+
+  */    
+
+      if (ColorSettings.Simulate) {
+        KnownDataType = ColorSettings.Simpanel;
+        victronDeviceIndex = 1;
+        snprintf(debugMsg, 120, "Simulating<%i> at Index :<%i> ", vicData->victronRecordType, victronDeviceIndex);
+        strcat(VictronBuffer, debugMsg);
+        Serial.print(debugMsg);
+      }
 
       char deviceName[32];  // 31 characters + \0
       // Get the device name (if there's one for this device in the index
@@ -280,7 +346,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
       //    Serial.printf("%2.2x", localbyteKey[j]);
       // }
       //  Serial.println();
-      
+
       if (!ColorSettings.Simulate && (vicData->encryption_key_0 != localbyteKey[0])) {  //disable for simulate to illustrate panels is or was!! working  byteKey
         snprintf(debugMsg, 120, "BUT key is MIS-MATCHED\n");
         Serial.println(debugMsg);
@@ -337,11 +403,11 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
         sprintf(chargeStateName, "%4d?", device_state);
         if (device_state >= 0 && device_state <= 7) { strcpy(chargeStateName, chargeStateNames[device_state]); }
         if (ColorSettings.Simulate) {
-           battery_voltage =12.75;
-           battery_current = 1.2;
-           yield_today=11;
-           pv_power=50;
-           load_current=1.02;
+          battery_voltage = 12.75;
+          battery_current = 1.2;
+          yield_today = 11;
+          pv_power = 50;
+          load_current = 1.02;
         }
         snprintf(debugMsg, 120, "<%-31s> <%s> Batt:%6.2f Volts %6.2f Amps\n %6d Watts  Yield:%4.0f Wh  \nLoad: %5.1fA  Charger:%-13s Err: %2d RSSI:%d\n",
                  victronDevices.FileCommentName[victronDeviceIndex], deviceName,
@@ -350,21 +416,22 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
                  load_current, chargeStateName, charger_error, RSSI);
         Serial.println(debugMsg);
         strcat(VictronBuffer, debugMsg);
-
-        DisplayOuterbox = Inst_Disp;
-        display = Inst_Disp;
-        // after 'fiddling with the settings , remove these and set Inst_Disp properly!!
-        display.height = ColorSettings.BoxH;
-        display.width = ColorSettings.BoxW;
-        snprintf(debugMsg, 120, "for reference: running equivalent to (%i, %i, %i, %i) \n", display.h, display.v, display.width, display.height);
-        Serial.println(debugMsg);
-        DisplayOuterbox = Setup_N_Display(display, 3, victronDevices.displayH[victronDeviceIndex], victronDevices.displayV[victronDeviceIndex], victronDevices.FileCommentName[victronDeviceIndex]);
-        display = Shift(0, 10, display);
-        UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%3dw", pv_power);
-        display = Shift(0, display.height, display);
-        UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%2.1FA", battery_current);
-        display = Shift(0, display.height, display);
-        UpdateTwoSize_simple(1, true, true, false, 9, 8, display, "load %5.1fA", load_current);
+        if (Display_Page == -87) {
+          DisplayOuterbox = Inst_Disp;
+          display = Inst_Disp;
+          // after 'fiddling with the settings , remove these and set Inst_Disp properly!!
+          display.height = ColorSettings.BoxH;
+          display.width = ColorSettings.BoxW;
+          snprintf(debugMsg, 120, "for reference: running equivalent to (%i, %i, %i, %i) \n", display.h, display.v, display.width, display.height);
+          Serial.println(debugMsg);
+          DisplayOuterbox = Setup_N_Display(display, 3, victronDevices.displayH[victronDeviceIndex], victronDevices.displayV[victronDeviceIndex], victronDevices.FileCommentName[victronDeviceIndex]);
+          display = Shift(0, 10, display);
+          UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%3dw", pv_power);
+          display = Shift(0, display.height, display);
+          UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%2.1FA", battery_current);
+          display = Shift(0, display.height, display);
+          UpdateTwoSize_simple(1, true, true, false, 9, 8, display, "load %5.1fA", load_current);
+        }
       }
       if (KnownDataType == 2) {
         VICTRON_BLE_RECORD_BATTERY_MONITOR *victronData = (VICTRON_BLE_RECORD_BATTERY_MONITOR *)outputData;
@@ -374,48 +441,45 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
         float aux_input = float(victronData->aux_input) * 0.01;  // starter battery for Shunt
         float state_of_charge = float(victronData->state_of_charge) * 0.1;
         if (ColorSettings.Simulate) {
-           battery_voltage =12.75;
-           battery_current = 1.2;
-           auxtype= 2;
-           aux_input=300;
+          battery_voltage = 12.75;
+          battery_current = 1.2;
+          auxtype = 2;
+          aux_input = 300;
         }
 
-        snprintf(debugMsg, 120, "ListName<%s> deviceName<%s> %2.3Fv  %2.3FA  Aux<%i> is %2.2Fv SOC:%2F %%  RSSI:%d\n",
-                 victronDevices.FileCommentName[victronDeviceIndex], deviceName, battery_voltage, battery_current, auxtype, aux_input, state_of_charge, RSSI);
-        Serial.println(debugMsg);
-        _sButton DisplayBox;
-        // TEST  adjust height width using settings
-        strcat(VictronBuffer, debugMsg);
-        DisplayOuterbox = Inst_Disp;
-        display = Inst_Disp;
-        // after 'fiddling with the settings , remove these and set Inst_Disp properly!!
-        // display.height = ColorSettings.BoxH;
-        // display.width = ColorSettings.BoxW;
-        // snprintf(debugMsg, 120, "for reference: running equivalent to (%i, %i, %i, %i) \n", display.h, display.v, display.width, display.height);
-        // Serial.println(debugMsg);
-        DisplayOuterbox = Setup_N_Display(display, 3, victronDevices.displayH[victronDeviceIndex], victronDevices.displayV[victronDeviceIndex], victronDevices.FileCommentName[victronDeviceIndex]);
-        if (battery_current <= 2096) {  // the simple battery monitor seems to send current 2098A and has no state of charge 
-         DrawBar(DisplayOuterbox, victronDevices.FileCommentName[victronDeviceIndex], GREEN, state_of_charge);  // with name !
-         display = Shift(0, 10, display);
-        UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%2.1FV", battery_voltage);
-          display = Shift(0, display.height, display);
-          UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%2.1FA", battery_current);
-        }else { UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%2.1FV", battery_voltage);}
-        if (auxtype == 2) {  //temperature 3rd line
-          display = Shift(0, display.height, display);
-          UpdateTwoSize_simple(1, true, true, false, 9, 8, display, "%2.1f deg", aux_input - 273.15);  //this for deg C original data  is in kelvin. Fabian says only 1degree, but I think it is 0.1 resolution and only 1 degree resolution !
-        }
-        if (auxtype == 0) {
-          display = Shift(0, display.height, display);
-          UpdateTwoSize_simple(1, true, true, false, 9, 8, display, "Starter %2.1fV", aux_input); 
-          //  display = Shift(0, display.height, display);
-          //  UpdateTwoSize_simple(1, true, false, false, 10, 9, display, "%d%%", int(state_of_charge));
-          // DisplayOuterbox = Shift(-((display.width - (2 * display.bordersize)) + display.bordersize), 0, DisplayOuterbox);
-          // GFXBorderBoxPrintf(DisplayOuterbox, "");  //Used to blank the previous stuff!
-          // AddTitleBorderBox(0, DisplayOuterbox, "Starter Bat");
-          // display.h = DisplayOuterbox.h;
-          // display.v = DisplayOuterbox.v + DisplayOuterbox.bordersize;  //reset at top position..
-          // UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%2.1fV", aux_input);
+      //  snprintf(debugMsg, 120, "ListName<%s> deviceName<%s> %2.3Fv  %2.3FA  Aux<%i> is %2.2Fv SOC:%2F %%  RSSI:%d\n",
+      //           victronDevices.FileCommentName[victronDeviceIndex], deviceName, battery_voltage, battery_current, auxtype, aux_input, state_of_charge, RSSI);
+      //  strcat(VictronBuffer, debugMsg);
+      //  Serial.println(debugMsg);
+        if (Display_Page == -87) {
+          _sButton DisplayBox;
+          // TEST  adjust height width using settings
+
+          DisplayOuterbox = Inst_Disp;
+          display = Inst_Disp;
+          // after 'fiddling with the settings , remove these and set Inst_Disp properly!!
+          // display.height = ColorSettings.BoxH;
+          // display.width = ColorSettings.BoxW;
+          // snprintf(debugMsg, 120, "for reference: running equivalent to (%i, %i, %i, %i) \n", display.h, display.v, display.width, display.height);
+          // Serial.println(debugMsg);
+          DisplayOuterbox = Setup_N_Display(display, 3, victronDevices.displayH[victronDeviceIndex], victronDevices.displayV[victronDeviceIndex], victronDevices.FileCommentName[victronDeviceIndex]);
+          if (vicData->manufacturer_record_length==2) {        // discriminator for Shunt to monitor??                                                                    // the simple battery monitor seems to send current 2098A and has no state of charge
+            DrawBar(DisplayOuterbox, victronDevices.FileCommentName[victronDeviceIndex], GREEN, state_of_charge);  // with name !
+            display = Shift(0, 10, display);
+            UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%2.1FV", battery_voltage);
+            display = Shift(0, display.height, display);
+            UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%2.1FA", battery_current);
+          } else {
+            UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%2.1FV", battery_voltage);
+          }
+          if (auxtype == 2) {  //temperature 3rd line
+            display = Shift(0, display.height, display);
+            UpdateTwoSize_simple(1, true, true, false, 9, 8, display, "%2.1f deg", aux_input - 273.15);  //this for deg C original data  is in kelvin. Fabian says only 1degree, but I think it is 0.1 resolution and only 1 degree resolution !
+          }
+          if (auxtype == 0) {
+            display = Shift(0, display.height, display);
+            UpdateTwoSize_simple(1, true, true, false, 9, 8, display, "Starter %2.1fV", aux_input);
+          }
         }
       }
       packetReceived = true;

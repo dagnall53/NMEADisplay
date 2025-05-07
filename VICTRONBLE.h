@@ -148,8 +148,8 @@ typedef struct {
  uint16_t vendorID; // properly manufacturer_record_type; //VICTRON_MANUFACTURER_RECORD_TYPE  PRODUCT_ADVERTISEMENT = 0x10,
  // what happend to this! u_int8_t manufacturer_record_length;
  uint8_t beaconType;
- uint8_t unknownData;
- uint16_t product_id; //device. VICTRON_PRODUCT_ID ?? the actual device type = BlueSolar. A042..A04f  SmartSolar A050..A065 
+ uint8_t manufacturer_record_length;
+ uint16_t product_id; //??? device. VICTRON_PRODUCT_ID ?? the actual device type = BlueSolar. A042..A04f  SmartSolar A050..A065 
  uint8_t victronRecordType;//VICTRON_BLE_RECORD_TYPE 00 = solar charger 01 = battery monitor .. etc ()
  uint16_t nonceDataCounter; // deal with this later, it seems to work and Hoben reconverts to lsb/msb??
                             // u_int8_t data_counter_lsb;
@@ -162,7 +162,7 @@ typedef struct {
 // typedef struct {
 //   uint16_t vendorID;                 // vendor ID
 //   uint8_t beaconType;                // Should be 0x10 (Product Advertisement) for the packets we want
-//   uint8_t unknownData1[3];           // Unknown data 
+//   uint8_t manufacturer_record_length1[3];           // Unknown data 
 //   uint8_t victronRecordType;         // u_int8_t VICTRON_BLE_RECORD_TYPE will be eg 0x01 (Solar Charger) one of only 13 record types 
 //   uint16_t nonceDataCounter;         // Nonce  ??see line 340 .. u_int8_t data_counter_lsb;  u_int8_t data_counter_msb;
 //   uint8_t encryption_key_0;           // Should match pre-shared encryption key byte 0

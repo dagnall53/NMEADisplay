@@ -70,7 +70,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "Version 4.06" __DATE__ " " __TIME__;
+const char soft_version[] = "Version 4.07" __DATE__ " " __TIME__;
 
 bool hasSD;
 
@@ -2043,6 +2043,7 @@ void UseNMEA(char* buf, int type) {
       if (type == 1) { NMEALOG("%.3f SER:%s", float(millis()) / 1000, buf); }
       if (type == 2) { NMEALOG("%.3f UDP:%s", float(millis()) / 1000, buf); }
       if (type == 3) { NMEALOG("%.3f ESP:%s", float(millis()) / 1000, buf); }
+      if (type == 4) { NMEALOG("\n %.3f VIC:%s", float(millis()) / 1000, buf); }
     }
     // 8 is snasBold8pt small font and seems to wrap to give a space before the second line
     // 7 is smallest

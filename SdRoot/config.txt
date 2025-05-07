@@ -1,7 +1,7 @@
 {
   "Start_Page": -86,
   "Mag_Var": "0.200",
-  "PanelName": "nmeadisplay",
+  "PanelName": "NMEADis1",
   "APpassword": "12345678",
   "ssid": "GUESTBOAT",
   "password": "12345678",
@@ -21,5 +21,5 @@
   "FourWayTL": "STW",
   "_comment_": "These settings below apply only to Victron display pages",
   "BLE_enable": "true",
-  "Number_of_Victron": 5
+  "Number_of_Victron": 6
 }
