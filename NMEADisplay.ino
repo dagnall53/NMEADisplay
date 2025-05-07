@@ -70,7 +70,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "Version 4.07" __DATE__ " " __TIME__;
+const char soft_version[] = "Version 4.09" __DATE__ " " __TIME__;
 
 bool hasSD;
 
