@@ -165,6 +165,7 @@ ThIS SD file access allows wireless viewing and modification of the log and othe
 OTA allows update by downloading an updated NMEADisplay Binary. 
 
 # Victron BLE device display
+![victrondisplay](https://github.com/user-attachments/assets/a0685f92-06f6-4189-8c27-e6e044bc54d0)
 The Victron_Test branch adds BLE scanning for Victron devices and a screen display of parameters. This is immensley powerful, but interrupts th emain wifi for one second every tim eit scans for BLE devices.
 It cannot therefore be used simultaneously with the standard NMEA display routines. 
 However, the Victron display (accessible bvia "experimental") is also allowing me a location to explore more ways to allow the user to define the display, by having settings in a text file.
