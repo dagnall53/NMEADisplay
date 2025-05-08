@@ -15,6 +15,8 @@ extern int MasterFont;
 extern void setFont(int);
 extern int text_height;
 extern int Display_Page;
+extern _MyColors ColorSettings;
+extern void showPictureFrame(_sButton &button,const char* name);
 
 extern double NMEA0183GetDouble(const char *data);  // have to do this as its local to NMEA0183Messagesmessages.cpp!
 
@@ -595,6 +597,9 @@ void GFXBorderBoxPrintf(_sButton button, const char *fmt, ...) {
   gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
   gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
                 button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
+  if (ColorSettings.Frame){showPictureFrame(button,"/frame.jpg");}
+  
+
   //  int local;
   //local = MasterFont;// DO NOT USE MULTI LINE messages in GFXBorderBoxPrintf!!
   CommonCenteredSubUpdateLine(true, true, button.TextColor, MasterFont, button, msg);

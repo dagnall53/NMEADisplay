@@ -44,6 +44,7 @@ struct _MyColors {  // for later Day/Night settings
   int FontS;
   bool Simulate;
   int Simpanel;
+  bool Frame;
 };
 
 struct _sInstData {  // struct to hold instrument data AND the time it was updated.
@@ -92,7 +93,7 @@ struct Phv {   // struct for int positions h v typically on screen
 
 
 
-
+//not used -- maybe later? 
 struct _sVicdevice {  // will need a new equivalent to toNewStruct(char *field, _sInstData &data); 
   int Device_Type=0;   // selector equivalent to victronRecordType {1=solar 2=smartshunt..     }
   double data; // use for main reading, assumed voltage
@@ -114,6 +115,8 @@ struct _sVictronData {
   _sVicdevice MainBatteryshunt, AuxbatteryShunt, EngineBatteryshunt,
   Mainsolar, Secondsolar, mainscharger;
 };
+
+
 struct _sMyVictronDevices{   // equivalent to _sDisplay_Config all known victron devices MAc and encryption keys.
                 //10 index for multiple saved instrument settings first 
   char charMacAddr[10][13];   // a 12 char (+1!) array  typ= "ea9df3ebc625"  
@@ -121,9 +124,9 @@ struct _sMyVictronDevices{   // equivalent to _sDisplay_Config all known victron
   char FileCommentName [10][32];
   int displayV[10];
   int displayH[10];
-  //byte byteMacAddr[10][7];        // 6 bytes for MAC - initialized by setup() from quoted strings  ???NOPE!!!
- // byte byteKey[10][17];           // 16 bytes for encryption key - initialized by setup() from quoted strings
- // char cachedDeviceName[10][33];
+  int identifier[10];  // to be used to help differentiate devices that give similar victronRecordType but need more information for a good display
+  // eg the battery monitor(No current data etc)  and the Smart shunt.  
+
 };
 
 #endif  // _Structures_H_

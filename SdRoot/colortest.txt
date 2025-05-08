@@ -12,6 +12,7 @@
   "BoxW": 146,
   "FontH": 11,
   "FontS": 10,
-  "Simulate": "true",
-  "Simpanel": 1
+  "Simulate": "false",
+  "Simpanel": 1,
+  "Frame": "false"
 }

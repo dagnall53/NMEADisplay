@@ -70,7 +70,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "Version 4.09" __DATE__ " " __TIME__;
+const char soft_version[] = "Version 4.10" __DATE__ " " __TIME__;
 
 bool hasSD;
 
@@ -270,6 +270,7 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     strlcpy(config.FileCommentName[index], doc["device"+String(index)+".comment"] | "?name?", sizeof(config.FileCommentName[index]));
    config.displayH[index]= doc["device"+String(index)+".DisplayH"];
    config.displayV[index]= doc["device"+String(index)+".DisplayV"];
+   config.identifier[index]= doc["device"+String(index)+".ProdID"];
 
   } 
     // Close the file (Curiously, File's destructor doesn't close the file)
@@ -297,6 +298,7 @@ void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     doc["device"+String(index)+".comment"]=config.FileCommentName[index];
     doc["device"+String(index)+".DisplayH"]=config.displayH[index];
     doc["device"+String(index)+".DisplayV"]=config.displayV[index];
+    doc["device"+String(index)+".ProdID"]=config.displayV[index];
   }
 
   // Serialize JSON to file
@@ -338,6 +340,7 @@ void SaveDisplayConfiguration(const char* filename, _MyColors& set) {
   doc["FontS"]=set.FontS; 
   doc["Simulate"]=set.Simulate True_False;
   doc["Simpanel"]=set.Simpanel;
+  doc["Frame"]=set.Frame True_False;
   
 
   // Serialize JSON to file
@@ -373,6 +376,8 @@ bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
   set.FontS = doc["FontS"] | WHITE; 
   strlcpy(temp,doc["Simulate"] |"false",sizeof(temp));
   set.Simulate =(strcmp(temp,"false"));
+  strlcpy(temp,doc["Frame"] |"false",sizeof(temp));
+  set.Frame =(strcmp(temp,"false"));
   set.Simpanel=doc["Simpanel"]|1;
   // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
@@ -701,6 +706,12 @@ void showPicture(const char* name){
    jpegDraw(name, jpegDrawCallback, true /* useBigEndian */,
                  0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
 }
+void showPictureFrame(_sButton &button,const char* name){
+   jpegDraw(name, jpegDrawCallback, true /* useBigEndian */,
+                 button.h /* x */, button.v /* y */, button.width /* widthLimit */, button.height /* heightLimit */);
+   gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
+                button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
+}
 
 void Display(bool reset, int page) {  // setups for alternate pages to be selected by page.
   static unsigned long flashinterval;
@@ -742,11 +753,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
     if ((millis() >= flashinterval)) {
     flashinterval = millis() + 1000;
     StatusBox.PrintLine = 0;  // always start / only use / the top line 0  of this box
-    UpdateLinef(3, StatusBox, "Page:%i  Log Status %s NMEA %s click for settings", Display_Page,
-                    Current_Settings.Log_ON On_Off, Current_Settings.NMEA_log_ON On_Off);
+    UpdateLinef(3, StatusBox, "Page:%i  Log Status %s NMEA %s  %s", Display_Page,
+                    Current_Settings.Log_ON On_Off, Current_Settings.NMEA_log_ON On_Off,Display_Config.PanelName);
     if (Current_Settings.Log_ON || Current_Settings.NMEA_log_ON) {
       flash = !flash;
-    if (!flash) {UpdateLinef(3, StatusBox, "Page:%i  Log Status     NMEA     click for settings", Display_Page);
+    if (!flash) {UpdateLinef(3, StatusBox, "Page:%i  Log Status     NMEA     %s", Display_Page,Display_Config.PanelName);
       } }
     }
   // add any other generic stuff here

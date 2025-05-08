@@ -36,7 +36,7 @@ extern _sWiFi_settings_Config Current_Settings;
 extern _sMyVictronDevices victronDevices;
 extern _MyColors ColorSettings;
 extern int Display_Page;
-
+extern void showPictureFrame(_sButton &button, const char *name);
 BLEScan *pBLEScan;
 // int h, v, width, height, bordersize;  uint16_t BackColor, TextColor, BorderColor;
 
@@ -203,7 +203,7 @@ void DebugBLEMessage(BLEAdvertisedDevice advertisedDevice) {
     Serial.print(debugMsg);
   }
 
-    if (advertisedDevice.haveRSSI() == true) {
+  if (advertisedDevice.haveRSSI() == true) {
     snprintf(debugMsg, 120, " RSSI<%i>\n", advertisedDevice.getRSSI());
     strcat(outbuffer, debugMsg);
     Serial.print(debugMsg);
@@ -235,6 +235,7 @@ void DebugBLEMessage(BLEAdvertisedDevice advertisedDevice) {
 _sButton display;
 _sButton DisplayOuterbox;
 
+int VictronSimulateIndex;
 
 // read https://github.com/hoberman/Victron_BLE_Scanner_Display/blob/main/BLE_Adv_Callback.ino for comments.
 class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
@@ -275,35 +276,44 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 
 
       if (vicData->vendorID != 0x02e1) { return; }
+      //  if ((!ColorSettings.Simulate) && (vicData->vendorID != 0x02e1)) { return; }
       // IS Victron.. it a KNOWN device ? work with mac first:
- 
- // char outbuffer[400];
-  snprintf(debugMsg, 120, "\nDevice:MAC(%s)", advertisedDevice.getAddress().toString().c_str());
- //  snprintf(debugMsg, 120, "\n--Advertised device:(%s) ---", advertisedDevice.toString().c_str());
-  strcat(VictronBuffer, debugMsg);
-  Serial.println(debugMsg);
-       // Get the MAC address "xx:xx...xx:xx"of the device we're hearing, and then use that to look up the encryption key
+
+      // char outbuffer[400];
+      snprintf(debugMsg, 120, "\nDevice:MAC(%s)", advertisedDevice.getAddress().toString().c_str());
+      //  snprintf(debugMsg, 120, "\n--Advertised device:(%s) ---", advertisedDevice.toString().c_str());
+      strcat(VictronBuffer, debugMsg);
+      Serial.println(debugMsg);
+      // Get the MAC address "xx:xx...xx:xx"of the device we're hearing, and then use that to look up the encryption key
       // for the device from our table
 
       int victronDeviceIndex = -1;
-      for (int i = 0; i < Current_Settings.Num_Victron_Devices; i++) {
-        if (CompareString_Mac(receivedMacStr, victronDevices.charMacAddr[i])) {
-          victronDeviceIndex = i;
+      if (ColorSettings.Simulate) {
+        VictronSimulateIndex++;
+        if (VictronSimulateIndex >= Current_Settings.Num_Victron_Devices) { VictronSimulateIndex = 0; }
+        victronDeviceIndex = VictronSimulateIndex;
+      } else {
+        for (int i = 0; i < Current_Settings.Num_Victron_Devices; i++) {
+          if (CompareString_Mac(receivedMacStr, victronDevices.charMacAddr[i])) {
+            victronDeviceIndex = i;
+          }
         }
       }
+      //  loop through our settings !
+
 
       //loop of our known devices loop to set  victronDeviceIndex
       // // for record type list see line 300 on https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
-       snprintf(debugMsg, 120, "beacon{%x} unknown{%x} productID{%x} VRT{%x} \n",vicData->beaconType,vicData->manufacturer_record_length, vicData->product_id, vicData->victronRecordType);
-       strcat(VictronBuffer, debugMsg);
-       Serial.println(debugMsg);
+      snprintf(debugMsg, 120, "beacon{%x} unknown{%x} productID{%x} VRT{%x} \n", vicData->beaconType, vicData->Unknown_data, vicData->product_id, vicData->victronRecordType);
+      strcat(VictronBuffer, debugMsg);
+      Serial.println(debugMsg);
 
       int KnownDataType;
       KnownDataType = -1;
       if (vicData->victronRecordType == 0x01) { KnownDataType = 1; }  //Solar Charger
-      if (vicData->victronRecordType == 0x02) { KnownDataType = 2; }  //Battery Monitor / smart shunt
+      if (vicData->victronRecordType == 0x02) { KnownDataType = 2; }  //Battery Monitor / smart shunt  or 102 for monitor only !!
       if (vicData->victronRecordType == 0x08) { KnownDataType = 3; }  //VICTRON_BLE_RECORD_AC_CHARGER
-    /* my notes: assuming that beacon[10] is essential.. (as I have seen others! )
+                                                                      /* my notes: assuming that beacon[10] is essential.. (as I have seen others! )
     nothing seems to match the Product ID as per https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h#L299
      Shunts ea:9d:f3:eb:c6:25 beacon{10} unknown{2} productID{c038} VRT{2} 
              d6:6d:d6:7c:a2:c1 beacon{10} unknown{2} productID{a389} VRT{2} 
@@ -313,15 +323,16 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
       // d0:44:98:44:33:d2 beacon{10} unknown{2} productID{a053} VRT{1} 
        e
 
-  */    
+  */
 
       if (ColorSettings.Simulate) {
-        KnownDataType = ColorSettings.Simpanel;
-        victronDeviceIndex = 1;
+        // old method KnownDataType = ColorSettings.Simpanel;
+        KnownDataType= victronDevices.identifier[victronDeviceIndex];
         snprintf(debugMsg, 120, "Simulating<%i> at Index :<%i> ", vicData->victronRecordType, victronDeviceIndex);
         strcat(VictronBuffer, debugMsg);
         Serial.print(debugMsg);
       }
+
 
       char deviceName[32];  // 31 characters + \0
       // Get the device name (if there's one for this device in the index
@@ -346,12 +357,13 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
       //    Serial.printf("%2.2x", localbyteKey[j]);
       // }
       //  Serial.println();
-
-      if (!ColorSettings.Simulate && (vicData->encryption_key_0 != localbyteKey[0])) {  //disable for simulate to illustrate panels is or was!! working  byteKey
-        snprintf(debugMsg, 120, "BUT key is MIS-MATCHED\n");
-        Serial.println(debugMsg);
-        strcat(VictronBuffer, debugMsg);
-        return;
+      if (!ColorSettings.Simulate) {
+        if (vicData->encryption_key_0 != localbyteKey[0]) {  //disable for simulate to illustrate panels is or was!! working  byteKey
+          snprintf(debugMsg, 120, "BUT key is MIS-MATCHED\n");
+          Serial.println(debugMsg);
+          strcat(VictronBuffer, debugMsg);
+          return;
+        }
       }
 
       // Now that the packet received has met all the criteria for being displayed, let's decrypt and decode the manufacturer data.
@@ -368,10 +380,12 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
       esp_aes_init(&ctx);
       // or localbyteKey ?
       auto status = esp_aes_setkey(&ctx, localbyteKey, AES_KEY_BITS);
-      if (status != 0) {
-        Serial.printf("  Error during esp_aes_setkey operation (%i).\n", status);
-        esp_aes_free(&ctx);
-        return;
+      if (!ColorSettings.Simulate) {
+        if (status != 0) {
+          Serial.printf("  Error during esp_aes_setkey operation (%i).\n", status);
+          esp_aes_free(&ctx);
+          return;
+        }
       }
 
       byte data_counter_lsb = (vicData->nonceDataCounter) & 0xff;
@@ -381,10 +395,12 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 
       size_t nonce_offset = 0;
       status = esp_aes_crypt_ctr(&ctx, encrDataSize, &nonce_offset, nonce_counter, stream_block, inputData, outputData);
-      if (status != 0) {
-        Serial.printf("Error during esp_aes_crypt_ctr operation (%i).", status);
-        esp_aes_free(&ctx);
-        return;
+      if (!ColorSettings.Simulate) {
+        if (status != 0) {
+          Serial.printf("Error during esp_aes_crypt_ctr operation (%i).", status);
+          esp_aes_free(&ctx);
+          return;
+        }
       }
       esp_aes_free(&ctx);
 
@@ -392,6 +408,8 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 
       if (KnownDataType == 1) {
         VICTRON_BLE_RECORD_SOLAR_CHARGER *victronData = (VICTRON_BLE_RECORD_SOLAR_CHARGER *)outputData;
+
+
         byte device_state = victronData->device_state;  // this is really more like "Charger State"
         byte charger_error = victronData->charger_error;
         float battery_voltage = float(victronData->battery_voltage) * 0.01;
@@ -402,12 +420,13 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
         char chargeStateName[6];
         sprintf(chargeStateName, "%4d?", device_state);
         if (device_state >= 0 && device_state <= 7) { strcpy(chargeStateName, chargeStateNames[device_state]); }
+
         if (ColorSettings.Simulate) {
-          battery_voltage = 12.75;
-          battery_current = 1.2;
-          yield_today = 11;
-          pv_power = 50;
-          load_current = 1.02;
+          battery_voltage = random(10.9, 13.5);
+          battery_current = random(-2.2, 20.6);
+          yield_today = random(1, 200);
+          pv_power = random(1, 120);
+          load_current = random(0, 10);
         }
         snprintf(debugMsg, 120, "<%-31s> <%s> Batt:%6.2f Volts %6.2f Amps\n %6d Watts  Yield:%4.0f Wh  \nLoad: %5.1fA  Charger:%-13s Err: %2d RSSI:%d\n",
                  victronDevices.FileCommentName[victronDeviceIndex], deviceName,
@@ -433,37 +452,33 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
           UpdateTwoSize_simple(1, true, true, false, 9, 8, display, "load %5.1fA", load_current);
         }
       }
-      if (KnownDataType == 2) {
+      if ((KnownDataType == 2) || (KnownDataType == 102)){
         VICTRON_BLE_RECORD_BATTERY_MONITOR *victronData = (VICTRON_BLE_RECORD_BATTERY_MONITOR *)outputData;
+
         float battery_voltage = float(victronData->battery_voltage) * 0.01;
         float battery_current = float(victronData->battery_current) * 0.001;  //4194
         int auxtype = victronData->aux_input_type;
         float aux_input = float(victronData->aux_input) * 0.01;  // starter battery for Shunt
         float state_of_charge = float(victronData->state_of_charge) * 0.1;
+
         if (ColorSettings.Simulate) {
-          battery_voltage = 12.75;
-          battery_current = 1.2;
+          battery_voltage = random(10.9, 13.5);
+          battery_current = random(-2.2, 20.6);
           auxtype = 2;
           aux_input = 300;
         }
-
-      //  snprintf(debugMsg, 120, "ListName<%s> deviceName<%s> %2.3Fv  %2.3FA  Aux<%i> is %2.2Fv SOC:%2F %%  RSSI:%d\n",
-      //           victronDevices.FileCommentName[victronDeviceIndex], deviceName, battery_voltage, battery_current, auxtype, aux_input, state_of_charge, RSSI);
-      //  strcat(VictronBuffer, debugMsg);
-      //  Serial.println(debugMsg);
+        //  snprintf(debugMsg, 120, "ListName<%s> deviceName<%s> %2.3Fv  %2.3FA  Aux<%i> is %2.2Fv SOC:%2F %%  RSSI:%d\n",
+        //           victronDevices.FileCommentName[victronDeviceIndex], deviceName, battery_voltage, battery_current, auxtype, aux_input, state_of_charge, RSSI);
+        //  strcat(VictronBuffer, debugMsg);
+        //  Serial.println(debugMsg);
         if (Display_Page == -87) {
           _sButton DisplayBox;
           // TEST  adjust height width using settings
 
           DisplayOuterbox = Inst_Disp;
           display = Inst_Disp;
-          // after 'fiddling with the settings , remove these and set Inst_Disp properly!!
-          // display.height = ColorSettings.BoxH;
-          // display.width = ColorSettings.BoxW;
-          // snprintf(debugMsg, 120, "for reference: running equivalent to (%i, %i, %i, %i) \n", display.h, display.v, display.width, display.height);
-          // Serial.println(debugMsg);
           DisplayOuterbox = Setup_N_Display(display, 3, victronDevices.displayH[victronDeviceIndex], victronDevices.displayV[victronDeviceIndex], victronDevices.FileCommentName[victronDeviceIndex]);
-          if (abs(battery_current)<=700) {        // discriminator for Shunt to monitor??                                                                    // the simple battery monitor seems to send current 2098A and has no state of charge
+          if (!(KnownDataType == 102)){ //   102 is my identifier for simple monitor, 2 is the more complex shunt                                                                    // discriminator for Shunt to monitor??                                                                    // the simple battery monitor seems to send current 2098A and has no state of charge
             DrawBar(DisplayOuterbox, victronDevices.FileCommentName[victronDeviceIndex], GREEN, state_of_charge);  // with name !
             display = Shift(0, 10, display);
             UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%2.1FV", battery_voltage);
@@ -472,7 +487,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
           } else {
             UpdateTwoSize_simple(1, true, true, false, 11, 10, display, "%2.1FV", battery_voltage);
           }
-          if (auxtype == 2) {  //temperature 3rd line
+          if (auxtype == 2) {  //temperature 3rd line // use identifier ?? config.identifier[index]
             display = Shift(0, display.height, display);
             UpdateTwoSize_simple(1, true, true, false, 9, 8, display, "%2.1f deg", aux_input - 273.15);  //this for deg C original data  is in kelvin. Fabian says only 1degree, but I think it is 0.1 resolution and only 1 degree resolution !
           }
