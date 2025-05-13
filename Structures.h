@@ -32,8 +32,7 @@ struct _sWiFi_settings_Config {  // MAINLY WIFI AND DATA LOGGING key,ssid,PW,udp
   bool Log_ON;
   bool NMEA_log_ON;
   bool BLE_enable;
-  int Num_Victron_Devices;
-};
+ };
 struct _MyColors {  // for later Day/Night settings
   uint16_t TextColor;
   uint16_t BackColor;
@@ -118,13 +117,13 @@ struct _sVictronData {
 
 
 struct _sMyVictronDevices{   // equivalent to _sDisplay_Config all known victron devices MAc and encryption keys.
-                //10 index for multiple saved instrument settings first 
+                //10 index for multiple saved instrument settings first
   char charMacAddr[10][13];   // a 12 char (+1!) array  typ= "ea9df3ebc625"  
   char charKey [10][33];      //32 etc...
   char FileCommentName [10][32];
   int displayV[10];
   int displayH[10];
-  int identifier[10];  // to be used to help differentiate devices that give similar victronRecordType but need more information for a good display
+  char identifier[10][10];  // to be used to help differentiate devices that give similar victronRecordType but need more information for a good display
   // eg the battery monitor(No current data etc)  and the Smart shunt.  
 
 };

@@ -63,7 +63,7 @@ extern const char* VictronDevicesSetupfilename;
 extern _sMyVictronDevices  victronDevices;
 // nb if victron or display settings are missing, '/save' will create them 
 extern bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config);
-extern void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config);
+//extern void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config);
 
 extern bool LoadDisplayConfiguration(const char* filename, _MyColors& set);
 extern void SaveDisplayConfiguration(const char* filename, _MyColors& set);
@@ -82,7 +82,7 @@ extern int Display_Page;
 extern void Display(bool reset, int page);
 WebServer server(80);
 File uploadFile;
-
+char SavedFile[30];
 
 
 
@@ -122,6 +122,10 @@ String st =
   " <h2>Software :";
   st+= String(soft_version);
   st+= "</h2></a>"
+ "<h1 ><a style='color:white;' href='http://";
+  st+= String(Display_Config.PanelName);
+  st+= ".local/logs/nmea.log'>View NMEA Log</a></h1>"
+
   "<h1 ><a style='color:white;' href='http://";
   st+= String(Display_Config.PanelName);
   st+= ".local/edit/index.htm'>SD File Access</a></h1>"
@@ -283,11 +287,8 @@ void handleFileUpload() {
     uploadFile = SD.open(upload.filename.c_str(), FILE_WRITE);
     Serial.print("Upload: START, filename: ");
     Serial.println(upload.filename);
-    //maybe add equivalent to web initiated save here if the upload.filename filename is the config.txt or vconfig.txt?
-    // so that the saved settings are actuallt used by the display - rather than waiting for the save button or
-    //  power off.  
-
-    // TBD!
+    strcpy(SavedFile,upload.filename.c_str());
+     
   } else if (upload.status == UPLOAD_FILE_WRITE) {
     if (uploadFile) {
       uploadFile.write(upload.buf, upload.currentSize);
@@ -299,7 +300,25 @@ void handleFileUpload() {
       uploadFile.close();
     }
     Serial.print("Upload: END, Size: ");
-    Serial.println(upload.totalSize);
+    Serial.print(upload.totalSize);
+    Serial.print(" filename: <");Serial.print(SavedFile); Serial.print("> lookfor:eg. <");
+    Serial.print(ColorsFilename);Serial.println(">");
+    //Add equivalent to web initiated save here if the upload.filename filename is the config.txt or vconfig.txt?
+    // so that the saved settings are actually used immediately by the display - rather than waiting for the save button or
+    //  power off.  
+    //File will have been saved, so 'load' it into the actual code. 
+    // remember strcmp returns zero if equal! or a number of the place the characters do not match
+    if (strcmp(SavedFile,Setupfilename)==0) {Serial.println("Re-Loading Config");
+      LoadConfiguration(Setupfilename, Display_Config, Current_Settings);
+      delay(50);Display(true,Display_Config.Start_Page);delay(50);
+      }
+    if (strcmp(SavedFile,VictronDevicesSetupfilename)==0) {Serial.println("Re-Loading Victron Config");
+      LoadVictronConfiguration(VictronDevicesSetupfilename,victronDevices);
+      delay(50);Display(true,Display_Page);delay(50);}
+    if (strcmp(SavedFile,ColorsFilename)==0) {Serial.println("Re-Loading Colour Config");
+      LoadDisplayConfiguration(ColorsFilename,ColorSettings);
+      delay(50);Display(true,Display_Page);delay(50);}
+    SavedFile[0]=0;
   }
 }
 
@@ -476,18 +495,16 @@ void SetupWebstuff() {
   server.on("/Reset", HTTP_GET, []() {
     handleRoot();
     if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
-    SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices);// save config with bytes ??
+    // Victron is never set up by the touchscreen only via SD editor so NO SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices);// save config with bytes ??
     server.sendHeader("Connection", "close");delay(150);
     WiFi.disconnect();
     ESP.restart();
   });
-    server.on("/Save", HTTP_GET, []() {
+  server.on("/Save", HTTP_GET, []() {
     handleRoot();
-    if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {Serial.println("***Updating EEPROM");EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
+    if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {Serial.println("***Updating EEPROM from ");EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
     if (LoadVictronConfiguration(VictronDevicesSetupfilename,victronDevices)) { 
-      PrintJsonFile(" Check settings after Web initiated SAVE ",VictronDevicesSetupfilename); Serial.println("***Updating Victron data settings");}
-    else {Serial.println("***SETTING UP DEFAULT VICTRON SETTINGS JSON FILE****\n");
-          SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices); }       // should write a default file if it was missing?
+      PrintJsonFile(" Check Updated Victron settings after Web initiated SAVE ",VictronDevicesSetupfilename); Serial.println("***Updated Victron data settings");}
     if (LoadDisplayConfiguration(ColorsFilename,ColorSettings)){
     Serial.println(" USING JSON for Colours data settings");
     }else { Serial.println("\n\n***FAILED TO GET Colours JSON FILE****\n**** SAVING DEFAULT and Making File on SD****\n\n");

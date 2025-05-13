@@ -23,10 +23,10 @@ void UpdateDataTwoSize(bool reset,const char *msg, const char *units,bool horizC
   
   //Simpler   TWO font print of (any) data. For Victron displays separates at decimal point Centers text in space GREYS if data is OLD
 void UpdateTwoSize_simple(int magnify, bool horizCenter, bool vertCenter, bool erase, int bigfont, int smallfont, _sButton button, const char *fmt, ...); 
-
+void UpdateTwoSize_MultiLine(int magnify, bool horizCenter, bool erase, int bigfont, int smallfont, _sButton &button, const char *fmt, ...);
 // Sub function to update (multiple) lines in a button (uses \n to separate lines )
-void CommonCenteredSubUpdateLine(bool horizCenter, bool vertCenter, uint16_t color, int font, _sButton &button, const char *msg);
-void CommonCenteredSubUpdateLine(uint16_t color, int font, _sButton &button, const char *msg); // default horizontal center only..
+void CommonSub_UpdateLine(bool horizCenter, bool vertCenter, uint16_t color, int font, _sButton &button, const char *msg);
+void CommonSub_UpdateLine(uint16_t color, int font, _sButton &button, const char *msg); // default horizontal center only..
 
 // Adds titles inside or outside button in the border area
 void AddTitleBorderBox(int font,_sButton button, const char* fmt, ...);

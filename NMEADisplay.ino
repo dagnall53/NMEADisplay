@@ -61,7 +61,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 //jpeg
 #include "JpegFunc.h"
-#define JPEG_FILENAME_LOGO "/logo3.jpg"  // logo in jpg on sd card
+#define JPEG_FILENAME_LOGO "/logo4.jpg"  // logo in jpg on sd card
 #define AUDIO_FILENAME_START "/StartSound.mp3"
 //audio
 #include "Audio.h"
@@ -70,7 +70,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "Version 4.10" __DATE__ " " __TIME__;
+const char soft_version[] = "VERSION 4.11";
 
 bool hasSD;
 
@@ -81,8 +81,11 @@ bool hasSD;
 // *********************************************************************************************************
 const char* Setupfilename = "/config.txt";  // <- SD library uses 8.3 filenames
 // victron config structure for mac and keys (SD only not on eeprom)
+
+int Num_Victron_Devices;
 const char* VictronDevicesSetupfilename = "/vconfig.txt";  // <- SD library uses 8.3 filenames
 _sMyVictronDevices  victronDevices;
+
 char  VictronBuffer[800];  // way to transfer results in a way similar to NMEA text.
 
 _sVictronData VictronData;  // Victron sensor Data values, int double etc for use in graphics 
@@ -171,6 +174,9 @@ int text_char_width = 12;  // useful for monotype? only NOT USED YET! Try gfx->g
 
 //****  My displays are based on '_sButton' structures to define position, width height, borders and colours.
 // int h, v, width, height, bordersize;  uint16_t BackColor, TextColor, BorderColor;
+
+_sButton FullSize = { 10, 0, 460, 460, 0, BLUE, WHITE, BLACK }; 
+_sButton FullSizeShadow = { 5, 10, 460, 460, 0, BLUE, WHITE, BLACK }; 
 _sButton CurrentSettingsBox = { 0, 0, 480, 80, 2, BLUE, WHITE, BLACK };  //also used for showing the current settings
 
 _sButton FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
@@ -264,14 +270,14 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     Serial.println(F("**Failed to deserialise victron JSON file"));
     fault=true;
   }
-    for (int index=0;index<=Current_Settings.Num_Victron_Devices;index++){
+  Num_Victron_Devices= doc["Num_Devices"] | 4;
+  for (int index=0;index<=Num_Victron_Devices;index++){
     strlcpy(config.charMacAddr[index], doc["device"+String(index)+".mac"] | "macaddress", sizeof(config.charMacAddr[index]));
     strlcpy(config.charKey[index], doc["device"+String(index)+".key"] | "key", sizeof(config.charKey[index]));
     strlcpy(config.FileCommentName[index], doc["device"+String(index)+".comment"] | "?name?", sizeof(config.FileCommentName[index]));
    config.displayH[index]= doc["device"+String(index)+".DisplayH"];
    config.displayV[index]= doc["device"+String(index)+".DisplayV"];
-   config.identifier[index]= doc["device"+String(index)+".ProdID"];
-
+   strlcpy(config.identifier[index], doc["device"+String(index)+".DisplayShow"] | "PVIA", sizeof(config.identifier[index]));
   } 
     // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
@@ -289,16 +295,21 @@ void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     Serial.println(F("JSON: Victron: Failed to create SD file"));
     return;
   }
-  Serial.printf(" We expect %i Victron devices",Current_Settings.Num_Victron_Devices);
+  Serial.printf(" We expect %i Victron devices",Num_Victron_Devices);
   // Allocate a temporary JsonDocument
   JsonDocument doc;
-  for (int index=0;index<=Current_Settings.Num_Victron_Devices;index++){
+  doc[" Comment"]= " DisplayShow will possibly be a selector for what is visually displayed";
+  doc["Num_Devices"]=Num_Victron_Devices;
+  
+  // doc[" Comment1"]= "for Shunt, VIA will display Battery Volts, Current, Additional data";
+  // doc[" Comment2"]= "for SOLAR, PIA will display solar Power, battery Current, Additional data";
+  for (int index=0;index<=Num_Victron_Devices;index++){
     doc["device"+String(index)+".mac"]=config.charMacAddr[index];
     doc["device"+String(index)+".key"]=config.charKey[index];
     doc["device"+String(index)+".comment"]=config.FileCommentName[index];
     doc["device"+String(index)+".DisplayH"]=config.displayH[index];
     doc["device"+String(index)+".DisplayV"]=config.displayV[index];
-    doc["device"+String(index)+".ProdID"]=config.displayV[index];
+    doc["device"+String(index)+".DisplayShow"]=config.identifier[index];
   }
 
   // Serialize JSON to file
@@ -458,9 +469,7 @@ bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   strlcpy(temp,doc["BLE_enable"]|"false",sizeof(temp));
   settings.BLE_enable= (strcmp(temp,"false"));
   
-  settings.Num_Victron_Devices =doc["Number_of_Victron"]| 3;
-
-
+ 
   // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
   if (!error) { return true; }
@@ -513,7 +522,7 @@ void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
 
   doc["_comment_"]= "These settings below apply only to Victron display pages";
   doc["BLE_enable"]=settings.BLE_enable True_False;
-  doc["Number_of_Victron"]= settings.Num_Victron_Devices;
+
 
 
   // Serialize JSON to file
@@ -753,11 +762,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
     if ((millis() >= flashinterval)) {
     flashinterval = millis() + 1000;
     StatusBox.PrintLine = 0;  // always start / only use / the top line 0  of this box
-    UpdateLinef(3, StatusBox, "Page:%i  Log Status %s NMEA %s  %s", Display_Page,
-                    Current_Settings.Log_ON On_Off, Current_Settings.NMEA_log_ON On_Off,Display_Config.PanelName);
+    UpdateLinef(3, StatusBox, "%s page:%i  Log Status %s NMEA %s  ",Display_Config.PanelName,Display_Page,
+                    Current_Settings.Log_ON On_Off, Current_Settings.NMEA_log_ON On_Off);
     if (Current_Settings.Log_ON || Current_Settings.NMEA_log_ON) {
       flash = !flash;
-    if (!flash) {UpdateLinef(3, StatusBox, "Page:%i  Log Status     NMEA     %s", Display_Page,Display_Config.PanelName);
+    if (!flash) {UpdateLinef(3, StatusBox, "%s page:%i  Log Status     NMEA     ",Display_Config.PanelName, Display_Page);
       } }
     }
   // add any other generic stuff here
@@ -774,7 +783,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(Full1Center, "logo.jpg");
         GFXBorderBoxPrintf(Full2Center, "logo1.jpg");
         GFXBorderBoxPrintf(Full3Center, "logo2.jpg");
-        GFXBorderBoxPrintf(Full4Center, "logo3.jpg");
+        GFXBorderBoxPrintf(Full4Center, "logo4.jpg");
         GFXBorderBoxPrintf(Full5Center, "logo4.jpg");
       }
 
@@ -795,9 +804,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(Full0Center, "logo2");
       }
       if (CheckButton(Full4Center)) {
-        jpegDraw("/logo3.jpg", jpegDrawCallback, true /* useBigEndian */,
+        jpegDraw("/logo4.jpg", jpegDrawCallback, true /* useBigEndian */,
                  0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
-        GFXBorderBoxPrintf(Full0Center, "logo3");
+        GFXBorderBoxPrintf(Full0Center, "logo4");
       }
       if (CheckButton(Full5Center)) {
         jpegDraw("/logo4.jpg", jpegDrawCallback, true /* useBigEndian */,
@@ -1813,9 +1822,9 @@ void setup() {
   setFont(4);
   gfx->setCursor(40, 20);
   gfx->println(F("***Display Started***"));
-  SD_Setup();Audio_setup();
+  SD_Setup();Audio_setup(); // Puts LOGO on screen
  // try earlier? one source says audio needs to be started before gfx display //SD_Setup();Audio_setup();
-  gfx->println(F("Started SD Card"));
+
   // gfx->setCursor(140, 140);
   // gfx->println(soft_version);
   
@@ -1836,6 +1845,7 @@ void setup() {
   if (LoadVictronConfiguration(VictronDevicesSetupfilename,victronDevices)){
     Serial.println(" USING JSON for Victron data settings");
     }else { Serial.println("\n\n***FAILED TO GET Victron JSON FILE****\n**** SAVING DEFAULT and Making File on SD****\n\n");
+    Num_Victron_Devices=6;
     SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices);// should write a default file if it was missing?
     }
   if (LoadDisplayConfiguration(ColorsFilename,ColorSettings) ){
@@ -1854,11 +1864,19 @@ void setup() {
     // Serial.printf("display <%s> \n",Display_Config.StartLogo);
     jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
              // jpegDraw(StartLogo, jpegDrawCallback, true /* useBigEndian */,
-             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
-    gfx->setCursor(140, 140);
+             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); 
+    setFont(11);
+    gfx->setTextBound(0, 0, 480, 480);
+    gfx->setCursor(30, 80);
+    gfx->setTextColor(BLACK);
     gfx->println(soft_version);
+    gfx->setCursor(35, 75);
+    gfx->setTextColor(WHITE);
+    gfx->println(soft_version);
+  delay(500);  
+   // 
   }
-
+ gfx->setCursor(140, 240);
   // print config files
   PrintJsonFile(" Display and wifi config file...",Setupfilename);
   PrintJsonFile(" Victron JSON config file..",VictronDevicesSetupfilename);
@@ -2273,7 +2291,7 @@ void WifiGFXinterrupt(int font, _sButton& button, const char* fmt, ...) {  //qui
   // print each separated line centered... starting from line 1
   button.PrintLine = 1;
   while (pch != NULL) {
-    CommonCenteredSubUpdateLine(button.TextColor, font, button, pch);
+    CommonSub_UpdateLine(button.TextColor, font, button, pch);
     pch = strtok(NULL, delimiter);
   }
   WIFIGFXBoxdisplaystarted = true;
