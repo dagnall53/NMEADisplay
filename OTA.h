@@ -54,7 +54,7 @@ extern _sDisplay_Config Display_Config;
 
 extern const char *Setupfilename;  
 extern bool LoadConfiguration(const char *filename, _sDisplay_Config &config, _sWiFi_settings_Config &settings);
-// NB no SaveConfiguration function used in webpages!
+extern void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_settings_Config& settings);
 extern _sWiFi_settings_Config Current_Settings;
 extern void EEPROM_WRITE(_sDisplay_Config B,_sWiFi_settings_Config A);
 
@@ -63,9 +63,11 @@ extern const char* VictronDevicesSetupfilename;
 extern _sMyVictronDevices  victronDevices;
 // nb if victron or display settings are missing, '/save' will create them 
 extern bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config);
-//extern void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config);
+extern void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config);
 
 extern bool LoadDisplayConfiguration(const char* filename, _MyColors& set);
+extern void SaveDisplayConfiguration(const char* filename, _MyColors& set);
+
 extern void SaveDisplayConfiguration(const char* filename, _MyColors& set);
 extern const char* ColorsFilename ; 
 extern _MyColors ColorSettings;
@@ -83,6 +85,8 @@ extern void Display(bool reset, int page);
 WebServer server(80);
 File uploadFile;
 char SavedFile[30];
+char InstLogFileName[25];
+char NMEALogFileName[25];
 
 
 
@@ -105,44 +109,65 @@ String html_Question() {
 // So I can modify the Display Panel Name! but also so that OTA works even without SD card present
 //
 /*the main html web page, with modified names etc    */
+//prettified version 
 String html_startws() {
+String logs,filename;
 String st =
-  "<!DOCTYPE html>\r\n<html><head>" 
-  "<meta name='viewport' content= 'width=device-width, initial-scale=1.0' >"
-  "<meta http-equiv= content-type content=text/html; charset=utf-8 >"
-  "<title>NavDisplay</title>"
-  "<style>"
-  "body {background-color:black;color:white;}"
-  "</style>"
-  "</head><body>"
-  "<img src='/v3small.jpg' /><br>"
-  "<h1 ><a>";
+ "<html> <head> <meta name='viewport' content='width=device-width, initial-scale=1.0'>"
+    "<meta http-equiv='content-type' content='text/html;' charset='utf-8'>"
+    "<title>NavDisplay</title>"
+    "<style>"
+     "body {background-color: white;color: black;text-align: center;font-family: sans-serif;color: #777;}"
+       ".title {font-size: 2em; margin: 20px 0;text-align: center;}"
+        ".version {text-align: center;margin-bottom: 10px;}"
+        ".button-link {display: inline-block;padding: 0px 15px;background-color: #006;"
+            "color: white;text-decoration: none;border-radius: 4px;margin: 5px 0;"
+            "border: 1px solid #666;transition: background-color 0.3s;font-size: 15px;"
+	          "background: #3498db; color: #fff;height: auto;}"
+        ".button-link:hover {background-color: #666;}"
+		        ".button-linkSmall {display: inline-block;padding: 0px 15px;background-color: #006;"
+            "color: white;text-decoration: none;border-radius: 4px;margin: 5px 0;"
+            "border: 1px solid #666;transition: background-color 0.3s;font-size: 10px;"
+	          "background: #3498db; color: #fff;height: auto;}"
+        "h1 {margin: 10px 0;font-size: 18px;}</style></head>"
+        "<body>"
+    "<img src='/v3small.jpg'><br>"
+    "<div class='title'>";
+    st+= String(Display_Config.PanelName);
+    st+="</div>"
+    "<div class='version'>";
+     st+= String(soft_version);
+    st+="</div>"
+    "<h1><a class='button-link' href='http://";st+= String(Display_Config.PanelName); 
+    st+=".local/Reset'>RESTART</a></h1>"
+    "<h1><a class='button-link' href='http://";st+= String(Display_Config.PanelName); 
+    st+=".local/OTA'>OTA UPDATE</a></h1>"
+    "<h1><a class='button-link' href='http://";st+= String(Display_Config.PanelName); 
+    st+=".local/edit/index.htm'>SD Files Editor</a></h1><br>"
+	  "<div class='version'>Saved Log files on SD </div>";
+  File dir = SD.open("/logs");
+  for (int cnt = 0; true; ++cnt) {
+    File entry = dir.openNextFile();
+    Serial.println(entry.path());
+    if (!entry) { break; }
+    filename=String(entry.path());
+  st+= "<h1 ><a class='button-linkSmall' href='http://";
   st+= String(Display_Config.PanelName);
-  st+= "</h1>"
-  " <h2>Software :";
-  st+= String(soft_version);
-  st+= "</h2></a>"
- "<h1 ><a style='color:white;' href='http://";
-  st+= String(Display_Config.PanelName);
-  st+= ".local/logs/nmea.log'>View NMEA Log</a></h1>"
-
-  "<h1 ><a style='color:white;' href='http://";
-  st+= String(Display_Config.PanelName);
-  st+= ".local/edit/index.htm'>SD File Access</a></h1>"
-  "  <h1 >  <a style='color:white;' href='http://";
-  st+= String(Display_Config.PanelName);
-  st += ".local/Save'>Save </a></h1>"
-  "  <h1 >  <a style='color:white;' href='http://";
-  st+= String(Display_Config.PanelName);
-  st += ".local/Reset'>Save and Restart</a></h1>"
-  "  <h1 >  <a style='color:white;' href='http://";
-  st+= String(Display_Config.PanelName);
-  st += ".local/OTA'>OTA Update</a></h1>"
-  "</body></html>";
-  return st;
+  st+= ".local";st+=filename;
+  st+="'> ";
+  st+=" View ";st+=filename; st+="</a></h1>" ;
+    entry.close();
   }
+st+="</body></html> ";
+return st;
+}
 
-/* Style  Noted: Arduino will mis-colour some parts such as %;he */
+
+
+
+
+/* Style  Noted: Arduino will mis-colour some parts*/
+
 String style =
   "<style>#file-input,input{width:100%;height:44px;border-radius:4px;margin:10px auto;font-size:15px}"
   "input{background:#f1f1f1;border:0;padding:0 15px}body{background:#3498db;font-family:sans-serif;font-size:14px;color:#777}"
@@ -152,9 +177,15 @@ String style =
   ".btn{background:#3498db;color:#fff;cursor:pointer}</style>";
 
 /* OTA Server Index Page */
-String serverIndex =
-  "<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"
-  "<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
+// using local copy of the javascript ?..
+String serverIndex() {
+  String st;
+  if (SD.exists("/edit/jquery.min.js")) {Serial.println("using local js");st="<script src='/edit/jquery.min.js'></script>";} 
+  else{Serial.println("using Internet js"); st="<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"; }
+     
+  /*"<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"*/
+  /*"<script src='/edit/jquery.min.js'></script>"*/
+  st+="<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
   "<input type='file' name='update' id='file' onchange='sub(this)' style=display:none>"
   "<h1>OTA Interface for NMEA DISPLAY</h1>"
   "<br><center>"
@@ -199,6 +230,8 @@ String serverIndex =
   "});"
   "</script>"
   + style;
+  return st;
+}
 
 
 
@@ -310,13 +343,16 @@ void handleFileUpload() {
     // remember strcmp returns zero if equal! or a number of the place the characters do not match
     if (strcmp(SavedFile,Setupfilename)==0) {Serial.println("Re-Loading Config");
       LoadConfiguration(Setupfilename, Display_Config, Current_Settings);
+      SaveConfiguration(Setupfilename, Display_Config, Current_Settings);// and re-save, so that any new format to the file is saved
       delay(50);Display(true,Display_Config.Start_Page);delay(50);
       }
     if (strcmp(SavedFile,VictronDevicesSetupfilename)==0) {Serial.println("Re-Loading Victron Config");
       LoadVictronConfiguration(VictronDevicesSetupfilename,victronDevices);
+      SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices); // and re-save, so that any new format to the file is saved
       delay(50);Display(true,Display_Page);delay(50);}
     if (strcmp(SavedFile,ColorsFilename)==0) {Serial.println("Re-Loading Colour Config");
       LoadDisplayConfiguration(ColorsFilename,ColorSettings);
+      SaveDisplayConfiguration(ColorsFilename,ColorSettings);// and re-save, so that any new format to the file is saved
       delay(50);Display(true,Display_Page);delay(50);}
     SavedFile[0]=0;
   }
@@ -496,6 +532,8 @@ void SetupWebstuff() {
     handleRoot();
     if (LoadConfiguration(Setupfilename, Display_Config, Current_Settings)) {EEPROM_WRITE(Display_Config,Current_Settings);}// stops overwrite with bad JSON data!! 
     // Victron is never set up by the touchscreen only via SD editor so NO SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices);// save config with bytes ??
+    WifiGFXinterrupt(8, WifiStatus, "RESTARTING");
+    handleRoot(); // hopefully this will prevent the webbrowser keeping the/reset active and auto reloading last web command (and thus resetting!) ? 
     server.sendHeader("Connection", "close");delay(150);
     WiFi.disconnect();
     ESP.restart();
@@ -516,12 +554,12 @@ void SetupWebstuff() {
   server.on("/OTA", HTTP_GET, []() {
     WifiGFXinterrupt(8, WifiStatus, "Ready for OTA");
     server.sendHeader("Connection", "close");
-    server.send(200, "text/html", serverIndex);
+    server.send(200, "text/html", serverIndex());
   });
   server.on("/ota", HTTP_GET, []() {
     WifiGFXinterrupt(8, WifiStatus, "Ready for OTA");
     server.sendHeader("Connection", "close");
-    server.send(200, "text/html", serverIndex);
+    server.send(200, "text/html", serverIndex());
   });
 
 
@@ -618,8 +656,7 @@ void appendFile(fs::FS &fs, const char *path, const char *message) {
 }
 
 
-char InstLogFileName[25];
-char NMEALogFileName[25];
+
 
 void StartInstlogfile() {
   INSTlogFileStarted = false;
@@ -641,7 +678,7 @@ void StartInstlogfile() {
     /*    int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
         BoatData.STW.data,  BoatData.WaterDepth.data, BoatData.WindSpeedK.data,BoatData.WindAngleApp);
         */
-    writeFile(SD, InstLogFileName, "NEW LOG data headings\r\n Time ,STW  ,Depth  ,Windspeed  ,WindAngleApp\r\n");
+    writeFile(SD, InstLogFileName, "LOG data headings\r\n Local Time ,STW ,MagHdg, SOG, COG,Depth ,Windspeed,WindAngleApp\r\n");
     file.close();
     return;
   } else {

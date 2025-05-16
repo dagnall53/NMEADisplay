@@ -11,6 +11,7 @@ _sBoatData from Timo Llapinen by Dr.András Szép under GNU General Public Licen
 struct _sDisplay_Config {  // will be Display_Config for the JSON set Defaults and user settings for displays 
   char Mag_Var[15]; // got to save double variable as a string! east is positive
   int Start_Page ;
+  int LocalTimeOffset;
   char PanelName[25];
   char APpassword[25]; 
   char FourWayBR[10] ;
@@ -30,6 +31,7 @@ struct _sWiFi_settings_Config {  // MAINLY WIFI AND DATA LOGGING key,ssid,PW,udp
   bool Serial_on;
   bool ESP_NOW_ON;
   bool Log_ON;
+  int log_interval_setting; //seconds
   bool NMEA_log_ON;
   bool BLE_enable;
  };
@@ -66,7 +68,7 @@ struct _sBoatData {
     WindDirectionT, WindDirectionM, WindSpeedK, WindSpeedM, WindAngleApp, WindAngleGround;
      //_sInstData will be used with NEWUPdate and greys if old
 
-  double SatsInView,Variation, GPSTime, GPSDate,  // keep some GPS stuff in double ..
+  double SatsInView,Variation, LOCTime, GPSTime, GPSDate,  // keep some GPS stuff in double ..
     Altitude, HDOP, GeoidalSeparation, DGPSAge;
     
   bool MOBActivated;

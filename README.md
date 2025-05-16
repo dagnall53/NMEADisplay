@@ -2,7 +2,12 @@
 # NMEADisplay
 This project is a Wireless Instrument Repeater Display for Boats.
 
-It requires the boat to have a wireless NMEA Gateway that sends NMEA 0183 instrument readings on UDP. 
+<i>STANDARD DISCLAIMER: This instrument is intended as an aid to navigation and should not be relied upon as the sole source of information. 
+While every effort has been made to ensure the accuracy of message translations and their display, they are not guaranteed. 
+The user is responsible for cross-checking data with other sources, exercising judgment, and maintaining situational awareness. 
+No liability for any loss, damage, or injury resulting from the use of this instrument will be accepted. </i>
+
+This project requires the boat to have a wireless NMEA Gateway that sends NMEA 0183 instrument readings on UDP. 
 <p align="center"> Version 3 display <img width = 400 src="https://github.com/user-attachments/assets/a6a14548-3c6a-4396-b0af-098bd9176c43" width="200" /></p>
 
 Images of previous versions of the display
@@ -13,7 +18,7 @@ Images of previous versions of the display
 ## HOW TO INSTALL FIRST TIME
  
 First, plug your module into a com port on your PC and record which port it is using. 
-If confused, check device Manager and look for the USB-SERIAL CH340 port. 
+If confused, check Device Manager and look for the USB-SERIAL CH340 port. 
 Remember the port number!
 Download the Zip file of the GitHub Project. (green button -<>CODE and select 'Download Zip')
 Save the file and extract all the files using a zip tool to somewhere on your PC. - I suggest /downloads.
@@ -28,16 +33,22 @@ The Esptool program will upload the program onto your board and the display boar
 You will next need to get a new microSD card, ( I used 4Gb), and format it using FAT32.
 Then copy the whole of the "SdRoot" folder onto the SD card. 
 You should then see it will have two sub directories: edit and logs.
-The edit subdirectory will have one file 'index.htm', which is vital for the Webeditor!.
+The edit subdirectory will have two files 'index.htm', and 'ace.js' which are vital for the SD Web viewer/editor!.
+
 The root of the SD should have (at least) these files:
-config.txt, ( a json file with user settings) and logo4.jpg (the start screen image), v3small.jpg (used in the webbrowser start screen). 
-and an 'edit' sub directory with the file 'index.html'. Other files may be included.. but are not essential.
+config.txt, ( a json file with user settings) and 
+vconfig.txt ( a json with settings for the ble victron mode )
+colortest.txt ( a json with settings that will eventually allow global day/night colours)
+These txt files may (should!) self initiate if not present, but its better to have defaults present! 
+logo4.jpg (the new generic start screen image), 
+v3small.jpg (used in the webbrowser start screen). 
+startsound.mp3 is bells that will play on start if you have modified the board to enable the audio.
 
 Re insert the SD card into the module and restart. 
 
 You should get the colour picture and white text showing the program starting up. 
 If you do not see the picture, and just get the white text, the module has not recognised the SD card, and you need to try a different one. 
-It can be quite fussy.
+It can be quite fussy.  The Vitron BLE stuff will only work if you have the SD card. as that is the only place the MAC and encryption keys are stored.
  
 (*) Windows may bring up a blue box saying "Windows Protected your PC", as it does not like running unrecognised batch files. 
 select "More Info" and click on "Run anyway". 
@@ -56,33 +67,45 @@ The Display does a scan on startup and will attempt to automatically connect IF 
 it will retry the scan once every 30 seconds if it does not find the SSID. This will interrupt the display, but since you are not connected .. there is nothing to display! 
 
 ## USING Webbrowser to select settings.
-Use the Webbrowser (see later) or put the SD card in a PC and open (double click on) the file "config.txt".
-This is a JSON file with settings for wifi etc.
-Edit the file and save it . (On touchscreens - just press SAVE to save once edited).
-The Display will check this file on startup and use these settings. If the file is not present it will use defaults. 
-If you have no SD card, it will revert to using its internal EEPROM to save the WIFI settings. 
-You can select which 'page' displayed after startup by changing the number "Start_Page" 4 is the quad display and the default. 
-From version 3.97, you can select what is displayed in the bottom two 'quarters' with the JAVASCRIPT entries: 
-  "FourWayBR": "SOG",
-  "FourWayBL": "DEPTH",
-  other options are : STW GPS SOGGRAPH STWGRAPH DGRAPH and DGRAPH2 
+There are three JSON files that control operation:
+The "config.txt". controls wifi settings and major display modes, and is backed up by EEPROM, so that the SD card is not essential for basic operations.
+Vconfig.txt and colortest.txt are only stored on the SD and are related mainly to Victron BLE functions.
+In the config.txt you can select which 'page' is displayed after startup by changing the number: "Start_Page" 4 is the quad display and the default. 
+From version 3.97, you can select what is displayed in the various 'quarters' with the JAVASCRIPT entries: 
+e.g.  "FourWayBR": "SOG",
+      "FourWayBL": "DEPTH",
+  other options are : STW GPS SOGGRAPH STWGRAPH DGRAPH and DGRAPH2 TIME, TIMEL 
+on Saving (SDsave), the settings will be implemented on the display.  
 
 
-### Using webbrowser settings: (VERSION 3 Update / corrections)
+To edit any of these, use a webbrowser and open the SD Editor. Click on the file and it can be modified. 
+Edit the file and save it . (On touchscreens - just press the 'SDsave' button to save once edited).
 
-## KNOWN issues.
+The Display will check files on startup. If the file is not present it will use defaults. 
+If you have no SD card, it will revert to using its internal EEPROM to save the WIFI settings, but Victron BLE features will not function.
 
-The SD EDITOR uses ace javascript, and needs right mouse click to select download etc. This does not work on touch devices.
+
+
+### Webbrowser:
+There is a web interface that can be connected to by pointing a browser at http://nmeadisplay.local/ (default)
+If you change the panel name, you will need to point to the new name: eg http://panel2.local (etc).
+You can also point directly to the IP address as shown on the WiFi settings page. 
+
+The SD EDITOR uses ace javascript, (which is also saved on the SD card in /EDIT, so that internet connection should not be essential.)
+It needs right mouse click to select a popup window for download etc. This does not work on touch devices.
 But if you can add a mouse, you can use this functionality. Also. the scroll bars for large files refuse to show on IOS.. BUT if you have the mouse then the scroll wheel WILL scroll through the text content.
-I have added a "Save Edited" button to save any edits. This works on touch and allows edits made on screen to be saved.
-I would love to replace the ace js with eg https://grsmto.github.io/simplebar/  as that seems to work on ios / touch screens but that is beyond me!    
+I have added a "SDsave" button to save any edits. This works on touch and allows edits made on screen to be saved.
+You should make sure you have ace.js in the SD ( /edit/ace.js), and also (/edit/jquery.min.js) to save these having to be obtained from the internet.
 
+Editing config.txt, Vconfig.txt or colortest.tx via the editor and pressing  'SDsave' now updates the display settings.
+if you modify the Panelname, or AP / passowrd etc, you should restart the display as you will need to point the webbrowser to the new name: 
+I.E after  I changed from NMEADISPLAY to "Panel2", I need to point the webbrowser to 'http://panel2.local/' This allows use and control of more than one panel at a time.
+The panelname in use is now shown at the bottom of all pages. 
 
-Using the SD editor, the config.txt SD file  now includes options to modify the Panelname, start log picture and AP password. and some of the display characteristics of the 'quad'.
-<b>IF</b> you change to a new panel name, then you will need to point the webbrowser to the new name: I.E after  I changed from NMEADISPLAY to "Panel2", I need to point the webbrowser to 'http://panel2.local/' This allows use and control of more than one panel at a time.
-The panelname in use is shown at the bottom of the settings page. This allows use of more than one display at a time.
+Because the SD Editor can have difficulties with large files (and limited download without a mouse) I have added a direct View NMEA LOG link on the main page.
+this opens the /logs/nmea.log file directly into the browser (without using SD Editor). This can then be saved etc using normal webbrowser functionality.
 
-## Navigating the Menu
+## Navigating the Display touch screen
 
 <b>Version 3 now has a common 'click for settings' at the bottom of every screen that will take you directly to the list of menu functions. </b>
 
@@ -213,17 +236,13 @@ Victron sources are noted in the victron cpp and .h, but I have modified them.
 
 # OTHER NOTES 
 
-'User' Settings for the display are kept in an Single structure that starts with a "KEY". Changing this key in the compiler will force the code to load the "Default" 
+The main 'User' Settings for the display are kept in an Single structure that starts with a "KEY". Changing this key in the compiler will force the code to load the "Default" 
 Also, should the EEPROM value of this 'KEY' be misread, then the 'default' will be set. _ this is intended to allow the first time run to set defaults.
 
 Use of SD card:
-Apparently, File Names longer than 8 charecters will be truncated by the SD library, so keep filenames shorter 
-from Ver 1.2 I have moved the music to a subdirectory in anticipation of adding SD logging.
+Apparently, File Names longer than 8 characters may be truncated by the SD library, so keep filenames shorter.
+I have noted particular issues when uploading  jquery.min.js  as this truncated to jquery.m.js  - but editing the name in the Filename box was sucessul and it was stored on the SD with the full name.
 
-
-# VERSION 
-4.02 is trying a different ESP-NOW structure, with a buffer. 
-Some loss of data on esp-now has been seen, possibly due to no buffers on the prior exp-now structure. 
 
 
 

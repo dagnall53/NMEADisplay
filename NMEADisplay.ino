@@ -70,7 +70,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "VERSION 4.11";
+const char soft_version[] = "VERSION 4.20";
 
 bool hasSD;
 
@@ -144,13 +144,14 @@ int file_num = 0;
 _sWiFi_settings_Config Default_Settings = { 17, "GUESTBOAT", "12345678", "2002", false, true, true, false, false };
 /*  char Mag_Var[15]; // got to save double variable as a string! east is positive
   int Start_Page ;
+  LocalTimeOffset;
   char PanelName[25];
   char APpassword[25]; 
   SOG", sizeof(config.FourWayBR));
   strlcpy(config.FourWayBL, doc["FourWayBL"] | "DEPTH", sizeof(config.FourWayBL));
   strlcpy(config.FourWayTR, doc["FourWayTR"] | "WIND", sizeof(config.FourWayTR));
   strlcpy(config.FourWayTL, doc["FourWayTL"] | "STW */
-_sDisplay_Config Default_JSON = { "0.5", 4, "nmeadisplay", "12345678","SOG","DEPTH","WIND","STW" }; // many display stuff set default circa 265 etc. 
+_sDisplay_Config Default_JSON = { "0.5", 4, 0,"nmeadisplay", "12345678","SOG","DEPTH","WIND","STW" }; // many display stuff set default circa 265 etc. 
 _sDisplay_Config Display_Config;
 int Display_Page = 4;  //set last in setup(), but here for clarity?
 _sWiFi_settings_Config Saved_Settings;
@@ -185,7 +186,7 @@ _sButton FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
 
 //used for single data display
 // modified all to lift by 30 pixels to allow a common bottom row display (to show logs and get to settings)
-_sButton StatusBox = { 0, 455, 480, 25, 3, BLACK, WHITE, BLACK };
+_sButton StatusBox = { 0, 460, 480, 20, 0, BLACK, WHITE, BLACK };
 _sButton WifiStatus = { 60, 180, 360, 120, 5, BLUE, WHITE, BLACK };  // big central box for wifi events to pop up - v3.5
 
 _sButton BigSingleDisplay = { 0, 90, 480, 360, 5, BLUE, WHITE, BLACK };              // used for wind and graph displays
@@ -421,7 +422,7 @@ bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   }
   // Copy values (or defaults) from the JsonDocument to the config / settings
   if (doc["Start_Page"] == 0) { return false; }  //secondary backup in case the file is present (passes error) but zeroed!
-
+  config.LocalTimeOffset= doc["LocalTimeOffset"] | 0;
   config.Start_Page = doc["Start_Page"] | 4;  // 4 is default page int - no problem...
   strlcpy(temp, doc["Mag_Var"] | "1.15", sizeof(temp));
   BoatData.Variation = atof(temp);  //  (+ = easterly) Positive: If the magnetic north is to the east of true north, the declination is positive (or easterly).
@@ -464,6 +465,7 @@ bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   settings.Log_ON= (strcmp(temp,"false"));
   strlcpy(temp,doc["NMEALOG"]|"false",sizeof(temp));
   settings.NMEA_log_ON= (strcmp(temp,"false"));
+  settings.log_interval_setting=doc["LogInterval"]|60;
   }
 
   strlcpy(temp,doc["BLE_enable"]|"false",sizeof(temp));
@@ -492,6 +494,7 @@ void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   // Set the values in the JSON file.. // NOT ALL ARE read yet!!
   //modify how the display works
   doc["Start_Page"] = config.Start_Page;
+  doc["LocalTimeOffset"]= config.LocalTimeOffset;
   Serial.print("save magvar:");
   Serial.printf("%5.3f", BoatData.Variation);
   snprintf(buff, sizeof(buff), "%5.3f", BoatData.Variation);
@@ -508,17 +511,20 @@ void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   doc["Serial"] = settings.Serial_on True_False;
   doc["UDP"] = settings.UDP_ON True_False;
   doc["ESP"] = settings.ESP_NOW_ON True_False;
+  doc["LogComments0"]= "LOG saves read data in file with date as name- BUT only when GPS date has been seen!";
+  doc["LogComments1"]= "NMEALOG saves every message. Use NMEALOG only for debugging!";
+  doc["LogComments2"]= "or the NMEALOG files will become huge";
   doc["LOG"] = settings.Log_ON True_False;
+  doc["LogInterval"]= settings.log_interval_setting;
   doc["NMEALOG"] = settings.NMEA_log_ON True_False;
-  doc["_comment_1"]= "These settings allow modification of the bottom two 'quad' displays";
-  doc["_comment_2"]= "options are : SOG SOGGRAPH STW STWGRAPH GPS DEPTH DGRAPH DGRAPH2 ";
-  doc["_comment_3"]= "DGRAPH  and DGRAPH2 display 10 and 30 m ranges respectively";
+  doc["DisplayComment1"]= "These settings allow modification of the bottom two 'quad' displays";
+  doc["DisplayComment2"]= "options are : SOG SOGGRAPH STW STWGRAPH GPS DEPTH DGRAPH DGRAPH2 ";
+  doc["DisplayComment3"]= "DGRAPH  and DGRAPH2 display 10 and 30 m ranges respectively";
   doc["FourWayBR"] = config.FourWayBR;
   doc["FourWayBL"] = config.FourWayBL;
-  doc["_comment_4"]= "Top row right can be WIND or TIME";
+  doc["DisplayComment4"]= "Top row right can be WIND or TIME (UTC) or TIMEL (LOCAL)";
   doc["FourWayTR"] = config.FourWayTR;
   doc["FourWayTL"] = config.FourWayTL;
-
 
   doc["_comment_"]= "These settings below apply only to Victron display pages";
   doc["BLE_enable"]=settings.BLE_enable True_False;
@@ -716,6 +722,7 @@ void showPicture(const char* name){
                  0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
 }
 void showPictureFrame(_sButton &button,const char* name){
+  if (!SD.exists(name)){return;}
    jpegDraw(name, jpegDrawCallback, true /* useBigEndian */,
                  button.h /* x */, button.v /* y */, button.width /* widthLimit */, button.height /* heightLimit */);
    gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
@@ -1307,6 +1314,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
                       AddTitleInsideBox(9, 3, topRightquarter, "UTC ");
                       
                       }
+      if(String(Display_Config.FourWayTR) == "TIMEL") { GFXBorderBoxPrintf(topRightquarter, "%02i:%02i",
+                      int(BoatData.LOCTime) / 3600, (int(BoatData.LOCTime) % 3600) / 60);
+                      AddTitleInsideBox(9, 3, topRightquarter, "LOCAL ");
+                      
+                      }               
          setFont(10);               
        
        }
@@ -1318,8 +1330,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
                       
       
       //seeing if JSON setting of (bottom two sides of) quad is useful.. TROUBLE with two scrollGraphss so there is now extra 'instances' settings allowing two to run simultaneously!! ?
+      
       if(String(Display_Config.FourWayBL) == "DEPTH"){UpdateDataTwoSize(RunSetup,"DEPTH"," M", true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%.1f");}
       if(String(Display_Config.FourWayBL) == "SOG"){UpdateDataTwoSize(RunSetup,"SOG"," Kts", true, true, 13, 11, bottomLeftquarter, BoatData.SOG, "%.1f");}
+      if(String(Display_Config.FourWayBL) == "STW"){UpdateDataTwoSize(RunSetup,"STW"," Kts", true, true, 13, 11, bottomLeftquarter, BoatData.STW, "%.1f");}
+      
       if(String(Display_Config.FourWayBL) == "GPS"){ShowGPSinBox(9,bottomLeftquarter);}
 
       if(String(Display_Config.FourWayBL) == "DGRAPH"){SCROLLGraph(RunSetup,0,1,true,bottomLeftquarter, BoatData.WaterDepth, 10, 0, 8, "Fathmometer 10m ", "m");}
@@ -1329,7 +1344,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
      
       // note use of SCROLLGraph2 
       if(String(Display_Config.FourWayBR) == "DEPTH"){UpdateDataTwoSize(RunSetup,"DEPTH"," M", true, true, 13, 11, bottomRightquarter, BoatData.WaterDepth, "%.1f");}
-      if(String(Display_Config.FourWayBR) == "SOG"){UpdateDataTwoSize(RunSetup,"SOG"," Kts", true, true, 13, 11, bottomRightquarter, BoatData.SOG, "%.1f");}
+      if(String(Display_Config.FourWayBR) == "SOG"){ UpdateDataTwoSize(RunSetup,"SOG"," Kts", true, true, 13, 11, bottomRightquarter, BoatData.SOG, "%.1f");}
+      if(String(Display_Config.FourWayBR) == "STW"){UpdateDataTwoSize(RunSetup,"STW"," Kts", true, true, 13, 11, bottomRightquarter, BoatData.STW, "%.1f");}
+     
       if(String(Display_Config.FourWayBR) == "GPS"){ShowGPSinBox(9,bottomRightquarter);}
 
       if(String(Display_Config.FourWayBR) == "DGRAPH"){SCROLLGraph(RunSetup,1,1,true,bottomRightquarter, BoatData.WaterDepth, 10, 0, 8, "Fathmometer 10m ", "m");}
@@ -1895,20 +1912,37 @@ void setup() {
   BLEsetup(); // setup Victron BLE interface (does not do much!!)
   }
 unsigned long Interval;// may also be used in sub functions during debug chasing delays.. Serial.printf(" s<%i>",millis()-Interval);Interval=millis();
+
+void timeupdate(){
+    static unsigned long tick;
+    while ((millis() >= tick)) {
+    tick = tick + 1000;  // not millis or you can get 'slip'
+    BoatData.LOCTime=BoatData.LOCTime+1;}
+}
+
+double ValidData(_sInstData variable){  // To avoid using NMEA0183DoubleNA value in displays etc replace with zero.
+  double res =0;
+  if (variable.greyed){ return 0;}
+  if (variable.data != NMEA0183DoubleNA) { res=variable.data;}
+  return res;
+}
+
 void loop() {
    static unsigned long LogInterval;
   static unsigned long SSIDSearchInterval;
+  timeupdate();
   //Serial.printf(" s<%i>",millis()-Interval);Interval=millis();
   yield();
   server.handleClient();  // for OTA;
-  //EventTiming("START");
+  
   delay(1);
   ts.read();
   if((Current_Settings.BLE_enable) && ((Display_Page== -86)||(Display_Page== -87)) ){BLEloop();}   //ONLY on  victron Display_Page -86 and -87!! or it interrupts eveything! 
   //Serial.printf(" 1<%i>",millis()-Interval);Interval=millis();
   CheckAndUseInputs();
    //Serial.printf(" 2<%i>",millis()-Interval);Interval=millis();
-  Display(Display_Page);  //EventTiming("STOP");
+   
+  Display(Display_Page); 
   // Serial.printf(" 3<%i>",millis()-Interval);Interval=millis();
   EXTHeartbeat();
   audio.loop();
@@ -1918,16 +1952,17 @@ void loop() {
     if (StationsConnectedtomyAP==0){ // avoid scanning if we have someone connected to AP as it will/may disconnect! 
     ScanAndConnect(true);} // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared 
   }  
-  //Serial.printf(" 5<%i>",millis()-Interval);Interval=millis();
-  
+ 
 
-   // NMEALOG is done in CheckAndUseInputs
-  // the instrument log saves everything every 10 secs, even if data not available!
+  // NMEALOG is done in CheckAndUseInputs
+  // the instrument log saves everything every loginterval (set in config)  secs, even if data is not available! (NMEA0183DoubleNA)
+  // uses LOCAL Time as this advances if GPS (UTC) is lost (but resets when GPS received again.)
   if ((Current_Settings.Log_ON) && (millis() >= LogInterval)) {
-    LogInterval = millis() + 10000;
-    INSTLOG("TIME: %02i:%02i:%02i ,%4.2f ,%4.2f ,%4.2f ,%3.1f \r\n",
-        int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60,
-        BoatData.STW.data,  BoatData.WaterDepth.data, BoatData.WindSpeedK.data,BoatData.WindAngleApp.data);
+    LogInterval = millis() + (Current_Settings.log_interval_setting*1000);
+    INSTLOG("%02i:%02i:%02i ,%4.2f STW ,%4.2f head-mag, %4.2f SOG ,%4.2f COG ,%4.2f DPT, %4.2f WS,%3.1f WA \r\n",
+        int(BoatData.LOCTime) / 3600, (int(BoatData.LOCTime) % 3600) / 60, (int(BoatData.LOCTime) % 3600) % 60,
+        ValidData(BoatData.STW),ValidData(BoatData.MagHeading),ValidData(BoatData.SOG),ValidData(BoatData.COG),  
+        ValidData(BoatData.WaterDepth), ValidData(BoatData.WindSpeedK),ValidData(BoatData.WindAngleApp));
   }
  //Serial.printf(" 6<%i>",millis()-Interval);Interval=millis();
   if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000) && (!AttemptingConnect))  {
@@ -2068,11 +2103,22 @@ void UseNMEA(char* buf, int type) {
     // print serial version if on the wifi page terminal window page.
     // data log raw NMEA and when and where it came from.
     // type 4 is Victron data
+    /*TIME: %02i:%02i:%02i",
+                      int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60,*/
     if (Current_Settings.NMEA_log_ON) {
+      if (BoatData.GPSTime!= NMEA0183DoubleNA){
+        if (type == 1) { NMEALOG(" %02i:%02i:%02i UTC: SER:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
+      if (type == 2) { NMEALOG(" %02i:%02i:%02i UTC: UDP:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
+      if (type == 3) { NMEALOG(" %02i:%02i:%02i UTC: ESP:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
+      if (type == 4) { NMEALOG("%02i:%02i:%02i UTC: VIC:%s \n", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
+
+    }else{
+    
       if (type == 1) { NMEALOG("%.3f SER:%s", float(millis()) / 1000, buf); }
       if (type == 2) { NMEALOG("%.3f UDP:%s", float(millis()) / 1000, buf); }
       if (type == 3) { NMEALOG("%.3f ESP:%s", float(millis()) / 1000, buf); }
       if (type == 4) { NMEALOG("\n %.3f VIC:%s", float(millis()) / 1000, buf); }
+    }
     }
     // 8 is snasBold8pt small font and seems to wrap to give a space before the second line
     // 7 is smallest
