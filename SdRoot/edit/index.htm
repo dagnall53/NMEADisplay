@@ -777,7 +777,25 @@
         createFileUploader("uploader", tree, editor);
       };
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js" type="text/javascript" charset="utf-8"></script>
+<script>
+  function loadScript(src, onLoad, onError) {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = onLoad;
+    script.onerror = onError;
+    document.head.appendChild(script);
+  }
+
+  loadScript('https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js', () => {
+    console.log('Online version loaded successfully');
+  }, () => {
+    console.warn('Online version failed, loading fallback');
+    loadScript('/edit/ace.js', () => {
+      console.log('Fallback loaded');
+    });
+  });
+</script>
+	
   </head>
   <body onload="onBodyLoad();">
     <div id="uploader"></div>
