@@ -70,7 +70,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "VERSION 4.20";
+const char soft_version[] = "VERSION 4.30";
 
 bool hasSD;
 
@@ -276,9 +276,10 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     strlcpy(config.charMacAddr[index], doc["device"+String(index)+".mac"] | "macaddress", sizeof(config.charMacAddr[index]));
     strlcpy(config.charKey[index], doc["device"+String(index)+".key"] | "key", sizeof(config.charKey[index]));
     strlcpy(config.FileCommentName[index], doc["device"+String(index)+".comment"] | "?name?", sizeof(config.FileCommentName[index]));
-   config.displayH[index]= doc["device"+String(index)+".DisplayH"];
-   config.displayV[index]= doc["device"+String(index)+".DisplayV"];
-   strlcpy(config.identifier[index], doc["device"+String(index)+".DisplayShow"] | "PVIA", sizeof(config.identifier[index]));
+   config.displayH[index]= doc["device"+String(index)+".DisplayH"]|10;
+   config.displayHeight[index]= doc["device"+String(index)+".DisplayHeight"]|150;
+   config.displayV[index]= doc["device"+String(index)+".DisplayV"]|10;
+   strlcpy(config.DisplayShow[index], doc["device"+String(index)+".DisplayShow"] | "PVIA", sizeof(config.DisplayShow[index]));
   } 
     // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
@@ -304,13 +305,14 @@ void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
   
   // doc[" Comment1"]= "for Shunt, VIA will display Battery Volts, Current, Additional data";
   // doc[" Comment2"]= "for SOLAR, PIA will display solar Power, battery Current, Additional data";
-  for (int index=0;index<=Num_Victron_Devices;index++){
+  for (int index=0;index<=Num_Victron_Devices-1;index++){
     doc["device"+String(index)+".mac"]=config.charMacAddr[index];
     doc["device"+String(index)+".key"]=config.charKey[index];
     doc["device"+String(index)+".comment"]=config.FileCommentName[index];
     doc["device"+String(index)+".DisplayH"]=config.displayH[index];
     doc["device"+String(index)+".DisplayV"]=config.displayV[index];
-    doc["device"+String(index)+".DisplayShow"]=config.identifier[index];
+    doc["device"+String(index)+".DisplayHeight"]=config.displayHeight[index];
+    doc["device"+String(index)+".DisplayShow"]=config.DisplayShow[index];
   }
 
   // Serialize JSON to file
@@ -351,7 +353,7 @@ void SaveDisplayConfiguration(const char* filename, _MyColors& set) {
   doc["FontH"]=set.FontH; 
   doc["FontS"]=set.FontS; 
   doc["Simulate"]=set.Simulate True_False;
-  doc["Simpanel"]=set.Simpanel;
+  doc["ShowRawDecryptedDataFor"]=set.ShowRawDecryptedDataFor;
   doc["Frame"]=set.Frame True_False;
   
 
@@ -390,7 +392,7 @@ bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
   set.Simulate =(strcmp(temp,"false"));
   strlcpy(temp,doc["Frame"] |"false",sizeof(temp));
   set.Frame =(strcmp(temp,"false"));
-  set.Simpanel=doc["Simpanel"]|1;
+  set.ShowRawDecryptedDataFor=doc["ShowRawDecryptedDataFor"]|1;
   // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
   if (!error) { return true; }
@@ -2110,7 +2112,7 @@ void UseNMEA(char* buf, int type) {
         if (type == 1) { NMEALOG(" %02i:%02i:%02i UTC: SER:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
       if (type == 2) { NMEALOG(" %02i:%02i:%02i UTC: UDP:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
       if (type == 3) { NMEALOG(" %02i:%02i:%02i UTC: ESP:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
-      if (type == 4) { NMEALOG("%02i:%02i:%02i UTC: VIC:%s \n", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
+      if (type == 4) { NMEALOG("\n%.3f BLE: Victron:%s", float(millis()) / 1000, buf); }
 
     }else{
     

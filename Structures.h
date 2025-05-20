@@ -44,7 +44,7 @@ struct _MyColors {  // for later Day/Night settings
   int FontH;
   int FontS;
   bool Simulate;
-  int Simpanel;
+  int ShowRawDecryptedDataFor;
   bool Frame;
 };
 
@@ -125,9 +125,14 @@ struct _sMyVictronDevices{   // equivalent to _sDisplay_Config all known victron
   char FileCommentName [10][32];
   int displayV[10];
   int displayH[10];
-  char identifier[10][10];  // to be used to help differentiate devices that give similar victronRecordType but need more information for a good display
-  // eg the battery monitor(No current data etc)  and the Smart shunt.  
-
+  int displayHeight[10];
+  char DisplayShow[10][10];
+  char DeviceVictronName[10][32];  // My DisplayShow to be used to help differentiate devices that give similar victronRecordType but need more information for a good display
+  int ManuDataLength[10]; 
+  byte manCharBuf[10][33];  //'Raw' data before formatting as victronManufacturerData  believe 33 is entirely big enough for data so far
+  unsigned long updated[10];
+  bool displayed[10];  // displayed is used by Digital displays
+  bool greyed[10];     // when the data is OLD! 
 };
 
 #endif  // _Structures_H_

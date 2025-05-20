@@ -190,15 +190,20 @@ OTA allows update by downloading an updated NMEADisplay Binary.
 # Victron BLE device display
 
 ![victrondisplay](https://github.com/user-attachments/assets/a0685f92-06f6-4189-8c27-e6e044bc54d0)
-The Victron_Test branch adds BLE scanning for Victron devices and a screen display of parameters. This is immensley powerful, but interrupts th emain wifi for one second every tim eit scans for BLE devices.
+I have added BLE scanning for Victron devices and a screen display of parameters. This is immensely powerful, but interrupts the main wifi for one second every tim eit scans for BLE devices.
 It cannot therefore be used simultaneously with the standard NMEA display routines. 
-The Victron display is accessible via "experimental".
+The Victron display is accessible via "experimental". I would emphasize that this feature/capability is experimental!
+It can and does sometimes crash.  
+
 There are two critical files for the display are vconfig.txt. (which has the Victron device Mac, key and names), and colortest.txt which has some settings to allow simulation of victron devices and other inputs useful during development.
 The display page uses a jpg (vicback.jpg) as a background for a more colourful display.
-The code recognises only Solar chargers , SmartShunt and (not tested) AC chargers.
+The code recognises only Solar chargers , SmartShunt and ( tested and found to be very faulty! ) IP65 AC chargers.
 The graphical format of the display is defined in VICTRONBLE.cpp and (eg) line 367 shows how I have set up for my preference.
-I think it is too complex to try and make this 'user settable' via text/JSON files for now, although I have designated a variable "identifier" in the Victron configurations that I hope may possible be useful for this.
-There is a Simulate option, selectable in colortest, but it is triggered by seeing a Victron BLE device, so does not work without at least one device being seen. 
+I think it is too complex to try and make this 'user settable' via text/JSON files for now, although I have designated a variable "DisplayShow" in the Victron configurations that I hope may possible be useful for this.
+
+There is a Simulate option, selectable in colortest, I have added a  Simulate 'switch' in colortest to initiate a crude simulation, but it is only suitable for assisting in code development.
+This simulate mode conflicts with the webbrowser operation. So it is switched off if any SD files edit is attempted. 
+To turn it back on, the colortest file should be reloaded and saved. (with "Simulate": "true"). This will restart BLE simulation.. 
 
 ## AUDIO 
 

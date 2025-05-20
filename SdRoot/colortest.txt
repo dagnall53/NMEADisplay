@@ -13,6 +13,6 @@
   "FontH": 11,
   "FontS": 10,
   "Simulate": "false",
-  "Simpanel": 1,
+  "ShowRawDecryptedDataFor": 1,
   "Frame": "false"
 }
