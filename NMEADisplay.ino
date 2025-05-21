@@ -279,7 +279,7 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
    config.displayH[index]= doc["device"+String(index)+".DisplayH"]|10;
    config.displayHeight[index]= doc["device"+String(index)+".DisplayHeight"]|150;
    config.displayV[index]= doc["device"+String(index)+".DisplayV"]|10;
-   strlcpy(config.DisplayShow[index], doc["device"+String(index)+".DisplayShow"] | "PVIA", sizeof(config.DisplayShow[index]));
+   strlcpy(config.DisplayShow[index], doc["device"+String(index)+".DisplayShow"] | "PVIASL", sizeof(config.DisplayShow[index]));
   } 
     // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
@@ -300,11 +300,16 @@ void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
   Serial.printf(" We expect %i Victron devices",Num_Victron_Devices);
   // Allocate a temporary JsonDocument
   JsonDocument doc;
-  doc[" Comment"]= " DisplayShow will possibly be a selector for what is visually displayed";
-  doc["Num_Devices"]=Num_Victron_Devices;
+  doc[" Comment"]= " DisplayShow Options: 'P' Power 'V' Battery Volts 'I' Battery Current";
+  doc[" C"]= " 'v' second Battery Volts 'i' second Battery Current  (ac charger only)";
+  doc[" C1"]="'L' Load current 'S' State of charge 'E' error codes 'T' Temperature";
+  doc[" C2"]=" 'A' Aux reading(t or starter) ";
+ 
   
-  // doc[" Comment1"]= "for Shunt, VIA will display Battery Volts, Current, Additional data";
-  // doc[" Comment2"]= "for SOLAR, PIA will display solar Power, battery Current, Additional data";
+  doc[" Example"]= "for SmartShunt, IAS will display current, State of charge and Additional data( starter V or temperature)";
+  doc[" Example"]= "for Battery Monitor: V will display Voltage (only)";
+  doc[" note"]= "Display height is also adjustable for each 'device', and devices can be duplicated"; 
+  doc["Num_Devices"]=Num_Victron_Devices;
   for (int index=0;index<=Num_Victron_Devices-1;index++){
     doc["device"+String(index)+".mac"]=config.charMacAddr[index];
     doc["device"+String(index)+".key"]=config.charKey[index];
@@ -1678,7 +1683,7 @@ void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes increment
   switch (fontinput) {  //select font and automatically set height/offset based on character '['
     // set the heights and offset to print [ in boxes. Heights in pixels are NOT the point heights!
     case 0:  // SMALL 8pt
-      Fontname = "FreeMono8pt7b";
+      Fontname = "FreeMono8pt7b";  //9 to 14 high?
       gfx->setFont(&FreeMono8pt7b);
       text_height = (FreeMono8pt7bGlyphs[0x3D].height) + 1;
       text_offset = -(FreeMono8pt7bGlyphs[0x3D].yOffset);

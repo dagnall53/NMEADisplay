@@ -595,7 +595,7 @@ void GFXBorderBoxPrintf(_sButton button, const char *fmt, ...) {
   CommonSub_UpdateLine(true, true, button.TextColor, MasterFont, button, msg);
 }
 
-void AddTitleBorderBox(int font, _sButton button, const char *fmt, ...) {  // add a top left title to the box
+void AddTitleBorderBox(int font, _sButton button, const char *fmt, ...) {  // add a top left title to the box Best used with FONT 0 ,FreeMono8pt7b
   int Font_Before;
   //Serial.println("Font at start is %i",MasterFont);
   Font_Before = MasterFont;
@@ -608,12 +608,15 @@ void AddTitleBorderBox(int font, _sButton button, const char *fmt, ...) {  // ad
   vsnprintf(Title, 300, fmt, args);
   va_end(args);
   int len = strlen(Title);
-  gfx->getTextBounds(Title, button.h, button.v, &TBx1, &TBy1, &TBw, &TBh);
+  gfx->getTextBounds(Title, 0, 0, &TBx1, &TBy1, &TBw, &TBh);
   gfx->setTextColor(WHITE, button.BorderColor);
-  if ((button.v - TBh) >= 0) {
-    gfx->setCursor(button.h, button.v);
-  } else {
-    gfx->setCursor(button.h, button.v + TBh);
+  Serial.printf(" Debug. title'%s'  v(%i) TBH(%i)",Title, button.v,TBh);
+  if ((button.v - TBh) >= 0) {  // text writes from point at bottom left .. have we room to draw 'above' the box?
+    gfx->setCursor(button.h, button.v); Serial.printf(" h v positioned\n");
+  } else { Serial.printf(" moved down to TBH (%i) \n",TBh);
+    gfx->setCursor(button.h, TBh-2);  // move 'inside' box by moving down.. -2 just because this does not leave a gap with the small FreeMono8pt7b font (0) I normally chose
+    // -2 still leaves gap (~2) with Font 8, but it also does not properly blank the background for the top two pixels..) ..
+    // (Font 3 is monobold 8, prints like font 0 ,but is less clear IMHO. 
   }
   gfx->print(Title);
   setFont(Font_Before);  //Serial.println("Font selected is %i",MasterFont);

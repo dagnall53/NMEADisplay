@@ -468,12 +468,13 @@ void printDirectory() {
 
 void handleNotFound() {
   bool simulatestate;
-  simulatestate=ColorSettings.Simulate;  // a hack as simulate state seem to make ths handling crash presumably as it fakes BLE inputs;
+  simulatestate=ColorSettings.Simulate;  // a hack as simulate state seem to make this handling crash..  conflict with SD calls? ;
   ColorSettings.Simulate=false;
   Serial.print(" handling: server.uri:<");
   Serial.print(server.uri());
   Serial.println(">");
   if (hasSD && loadFromSdCard(server.uri())) {
+    ColorSettings.Simulate=simulatestate;
     return;
   }
   String message = "";
