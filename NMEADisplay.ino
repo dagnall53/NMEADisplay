@@ -278,7 +278,8 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     strlcpy(config.FileCommentName[index], doc["device"+String(index)+".comment"] | "?name?", sizeof(config.FileCommentName[index]));
    config.displayH[index]= doc["device"+String(index)+".DisplayH"];
    config.displayV[index]= doc["device"+String(index)+".DisplayV"];
-   strlcpy(config.identifier[index], doc["device"+String(index)+".DisplayShow"] | "PVIA", sizeof(config.identifier[index]));
+   config.VICTRON_BLE_RECORD_TYPE[index]=doc["device"+String(index)+".VICTRON_BLE_RECORD_TYPE"]; | 1 //default solar Mppt
+   strlcpy(config.DisplayShow[index], doc["device"+String(index)+".DisplayShow"] | "PVIA", sizeof(config.DisplayShoww[index]));
   } 
     // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
@@ -310,7 +311,8 @@ void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     doc["device"+String(index)+".comment"]=config.FileCommentName[index];
     doc["device"+String(index)+".DisplayH"]=config.displayH[index];
     doc["device"+String(index)+".DisplayV"]=config.displayV[index];
-    doc["device"+String(index)+".DisplayShow"]=config.identifier[index];
+    doc["device"+String(index)+".DisplayShow"]=config.DisplayShow[index];
+    doc["device"+String(index)+".VICTRON_BLE_RECORD_TYPE"]=config.VICTRON_BLE_RECORD_TYPE[index];
   }
 
   // Serialize JSON to file

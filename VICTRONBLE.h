@@ -7,7 +7,7 @@
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
 // read https://github.com/hoberman/Victron_BLE_Scanner_Display/blob/main/BLE_Adv_Callback.ino for comments.
-
+//     https://communityarchive.victronenergy.com/storage/attachments/extra-manufacturer-data-2022-12-14.pdf
 // for record type list see line 300 on https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
 // for structures see(circa line 600..) https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
 // for data types and ranges see https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_custom_type.h
@@ -186,8 +186,14 @@ typedef struct {
  // ok to here..
  u_int8_t manufacturer_record_length;
  uint16_t product_id; // ??? device. VICTRON_PRODUCT_ID ?? the actual device type = BlueSolar. A042..A04f  SmartSolar A050..A065 
+<<<<<<< .mine
  // and ok from here! 
- uint8_t victronRecordType;//aka record_type VICTRON_BLE_RECORD_TYPE 00 = solar charger 01 = Smartshunt and battery monitor .. etc ()
+
+=======
+ // Stuff above is generic GATT (?) standard BLE (?) 
+ // Extra manufacturer Data 
+>>>>>>> .theirs
+ uint8_t VICTRON_BLE_RECORD_TYPE;//aka record_type VICTRON_BLE_RECORD_TYPE  solar charger = Smartshunt and battery monitor .. etc ()
  uint16_t nonceDataCounter; // deal with this later, it seems to work and Hoben reconverts to lsb/msb??
                             // u_int8_t data_counter_lsb;
                             //u_int8_t data_counter_msb;

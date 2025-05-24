@@ -96,7 +96,7 @@ struct Phv {   // struct for int positions h v typically on screen
 
 //not used -- maybe later? 
 struct _sVicdevice {  // will need a new equivalent to toNewStruct(char *field, _sInstData &data); 
-  int Device_Type=0;   // selector equivalent to victronRecordType {1=solar 2=smartshunt..     }
+  int Device_Type=0;   // selector equivalent to VICTRON_BLE_RECORD_TYPE {1=solar 2=smartshunt..     }
   double data; // use for main reading, assumed voltage
   double lastdata ;
   double data2 ; // use for secondary reading, assumed current
@@ -125,9 +125,16 @@ struct _sMyVictronDevices{   // equivalent to _sDisplay_Config all known victron
   char FileCommentName [10][32];
   int displayV[10];
   int displayH[10];
-  char identifier[10][10];  // to be used to help differentiate devices that give similar victronRecordType but need more information for a good display
+  char DisplayShow[10][10];  // to be used to help differentiate devices that give similar victronRecordType but need more information for a good display
   // eg the battery monitor(No current data etc)  and the Smart shunt.  
-
+  char VICTRON_BLE_RECORD_TYPE[10][10];  // for use with simulation!
+  int displayHeight[10];
+  char DeviceVictronName[10][32];  // My DisplayShow to be used to help differentiate devices that give similar VICTRON_BLE_RECORD_TYPE but need more information for a good display
+  int ManuDataLength[10]; 
+  byte manCharBuf[10][33];  //'Raw' data before formatting as victronManufacturerData  believe 33 is entirely big enough for data so far
+  unsigned long updated[10];
+  bool displayed[10];  // displayed is used by Digital displays
+  bool greyed[10];     // when the data is OLD! 
 };
 
 #endif  // _Structures_H_

@@ -497,7 +497,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
             UpdateTwoSize_MultiLine(1, true, false, 11, 10, DisplayOuterbox, "%2.1FV", battery_voltage);
           }
           if (auxtype == 2) {
-            UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "");                               //temperature 3rd line // use identifier ?? config.identifier[index]
+            UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "");                               //temperature 3rd line // use DisplayShow ?? config.DisplayShow[index]
             UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "%2.0f deg", aux_input - 273.15);  //this for deg C original data  is in kelvin. Fabian says only 1degree, but I think it is 0.1 resolution and only 1 degree resolution !
           }
           if (auxtype == 0) {
@@ -559,6 +559,233 @@ void BLEsetup() {
   pBLEScan->setWindow(99);  // less or equal setInterval value
   Serial.println(F(" BLE setup() complete."));
 }
+<<<<<<< Updated upstream
+=======
+
+void Deal_With_BLE_Data(int i) { // BLE message will have been saved into structure with index i
+  // we know the victronDevices data should be for one of our device MAC, and only victron
+  // added greying (outdated data) test
+  char debugMsg[200];
+  if (victronDevices.greyed[i]) {  // Serial.printf("%i is Greyed\n",i);
+    return;
+  }
+  bool recent = (victronDevices.updated[i] + greyoutTime >= millis() );
+  if (!recent && !victronDevices.greyed[i] && victronDevices.displayed[i]) {
+    victronDevices.greyed[i] = true;  // set it so we do not repeat!
+    victronDevices.displayed[i] = false;
+  };                                  //OLD DATA  update Vic_Inst_Master in GREY!!  just pretend we have new data while we grey it
+  if (victronDevices.displayed[i]) {  //Serial.printf(" %i displayed already\n",i);
+    return;
+  }
+
+  snprintf(debugMsg, 120, "\nDevice<%i>,", i);  // not essential, but makes NMEAlog and data display tidier
+  strcat(VictronBuffer, debugMsg);
+
+  if (victronDevices.greyed[i]) {snprintf(debugMsg, 120, "-Greying ");  // not essential, but makes NMEAlog and data display tidier
+  strcat(VictronBuffer, debugMsg);}
+  // Now let's use a struct to get to the data more cleanly we saved the raw data in the BLE callback
+  victronManufacturerData *vicData = (victronManufacturerData *)victronDevices.manCharBuf[i];
+  // // for record type list see line 300 on https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
+  // Product mapping in decimal: https://github.com/keshavdv/victron-ble/blob/main/Victron_ProductId_mapping.txt
+  snprintf(debugMsg, 120, " record type<%x>,ProductID(%i),", vicData->VICTRON_BLE_RECORD_TYPE, vicData->product_id);
+  strcat(VictronBuffer, debugMsg);
+  //Serial.println(debugMsg);
+  int KnownDataType;
+  KnownDataType = -1;
+  if (vicData->VICTRON_BLE_RECORD_TYPE == 0x01) { KnownDataType = 1; }  //Solar Charger
+  if (vicData->VICTRON_BLE_RECORD_TYPE == 0x02) { KnownDataType = 2; }  //Battery Monitor / smart shunt
+  if (vicData->VICTRON_BLE_RECORD_TYPE == 0x08) { KnownDataType = 8; }  //VICTRON_BLE_RECORD_AC_CHARGER
+  
+  config.VICTRON_BLE_RECORD_TYPE[i]=  vicData->VICTRON_BLE_RECORD_TYPE; //save it to our config file to save us having to do it manually                                                              //
+
+  if (ColorSettings.Simulate) { // NOTE these simulations work best (least confusingly!) with my default Vconfig that has Solar on 1 smartshunt on 2, Ac on 5 ..
+     // this is not a universal solution.
+     KnownDataType=config.VICTRON_BLE_RECORD_TYPE[i];
+    // switch (i){
+    //      case 1:  KnownDataType=1; 
+    //            snprintf(victronDevices.FileCommentName[i], sizeof(victronDevices.FileCommentName[i]),"%iSIM_SOLAR",i); 
+    //   break;
+    //      case 3:  KnownDataType=1; 
+    //            snprintf(victronDevices.FileCommentName[i], sizeof(victronDevices.FileCommentName[i]),"%iSIM_SOLAR",i); 
+    //   break;
+
+    //   case 5:  KnownDataType=8; 
+    //            snprintf(victronDevices.FileCommentName[i], sizeof(victronDevices.FileCommentName[i]),"%iSIM_AC_CHRG",i); 
+    //   break;
+      
+    //  default: // simulate shunts everywhere else!
+    //            KnownDataType=2; 
+    //            snprintf(victronDevices.FileCommentName[i], sizeof(victronDevices.FileCommentName[i]),"%iSIM_BAT_MON",i); 
+    //   break;
+
+    }
+    snprintf(debugMsg, 120, " Simulating %s, <%i> at position from index:<%i> \n", victronDevices.FileCommentName[i], KnownDataType, i);
+    strcat(VictronBuffer, debugMsg);
+    //Serial.print(debugMsg);
+  }
+  //Decode / decrypt.. 
+  byte localbyteKey[17];
+  hexCharStrToByteArray(victronDevices.charKey[i], localbyteKey);
+  if (!ColorSettings.Simulate) {  //disable for simulate
+    if (vicData->encryption_key_0 != localbyteKey[0]) {
+      snprintf(debugMsg, 120, "BUT key is MIS-MATCHED %x Localbyte(0)%x\n", localbyteKey[0]);      //Serial.println(debugMsg);
+      strcat(VictronBuffer, debugMsg);
+      victronDevices.displayed[i] = true;  // stop trying again until we get better data!
+      return;
+    }
+  }
+  // Now that the packet received and has met all the criteria for being displayed, let's decrypt and decode the manufacturer data.
+  byte inputData[16];
+  byte outputData[16] = { 0 };  // 128 bits of data
+  // The number of encrypted bytes is given by the number of bytes in the manufacturer
+  // data as a while minus the number of bytes (10) in the header part of the data.
+  int encrDataSize = victronDevices.ManuDataLength[i] - 10;
+  for (int i = 0; i < encrDataSize; i++) {
+    inputData[i] = vicData->victronEncryptedData[i];  // copy for our decrypt below while I figure this out.
+  }
+  esp_aes_context ctx;
+  esp_aes_init(&ctx);
+  auto status = esp_aes_setkey(&ctx, localbyteKey, AES_KEY_BITS);
+  if (!ColorSettings.Simulate) {
+    if (status != 0) {
+      snprintf(debugMsg, 120, " Error in esp_aes_setkey op (%i)\n", status);
+      strcat(VictronBuffer, debugMsg);
+      esp_aes_free(&ctx);
+      return;
+    }
+  }
+ 
+  if (!ColorSettings.Simulate) {
+  byte data_counter_lsb = (vicData->data_counter_lsb);
+  byte data_counter_msb = (vicData->data_counter_msb);
+  u_int8_t nonce_counter[16] = { data_counter_lsb, data_counter_msb, 0 };
+  u_int8_t stream_block[16] = { 0 };
+  size_t nonce_offset = 0;
+  status = esp_aes_crypt_ctr(&ctx, encrDataSize, &nonce_offset, nonce_counter, stream_block, inputData, outputData);
+  if (status != 0) {
+      //Serial.printf("Error during esp_aes_crypt_ctr operation (%i).", status);
+      snprintf(debugMsg, 120, " Error esp_aes_crypt_ctr operation (%i).", status);
+      strcat(VictronBuffer, debugMsg);
+      esp_aes_free(&ctx);
+      return;
+    }
+   esp_aes_free(&ctx);
+  }
+if (ColorSettings.ShowRawDecryptedDataFor==i) {DebugRawVdata(outputData,encrDataSize);}
+  if (KnownDataType == 1) {
+    VICTRON_BLE_RECORD_SOLAR_CHARGER *victronData = (VICTRON_BLE_RECORD_SOLAR_CHARGER *)outputData;
+    byte device_state = victronData->device_state;  // this is really more like "Charger State"
+    byte charger_error = victronData->charger_error;
+    float battery_voltage = float(victronData->battery_voltage) * 0.01;
+    float battery_current = float(victronData->battery_current) * 0.1;
+    float yield_today = float(victronData->yield_today) * 0.01 * 1000;  //we use wattHr not kwHr..
+    uint16_t pv_power = victronData->pv_power;
+    float load_current = float(victronData->load_current) * 0.1;
+    
+    if (ColorSettings.Simulate) {
+      charger_error = int(random(0, 20));
+      device_state = int(random(0, 5));
+      battery_voltage = random(10.9, 13.5);
+      battery_current = random(-2.2, 20.6);
+      yield_today = random(200,100);
+      pv_power = random(1, 120);
+      load_current = random(1,10);
+    }
+    
+    snprintf(debugMsg, 120, "PVPower<%3.2f> Volts<%3.2f>,AMPS<%3.2f>, load%3.2fA \n ", pv_power, battery_voltage, battery_current, load_current);
+    strcat(VictronBuffer, debugMsg);
+    if (Display_Page == -87) {
+      DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, victronDevices.displayHeight[i], victronDevices.displayH[i], victronDevices.displayV[i], victronDevices.FileCommentName[i]);
+      if (victronDevices.greyed[i]) { DisplayOuterbox.TextColor = DARKGREY; }
+      DisplayOuterbox.PrintLine = 5;
+      if (strstr(victronDevices.DisplayShow[i],"P")) {UpdateTwoSize_MultiLine(1, true, false, 11, 10, DisplayOuterbox, "%3dw", pv_power);}
+      if (strstr(victronDevices.DisplayShow[i],"V")) {UpdateTwoSize_MultiLine(1, true, false, 10, 9, DisplayOuterbox, "%2.1FV", battery_voltage);}
+      if (strstr(victronDevices.DisplayShow[i],"I")) {UpdateTwoSize_MultiLine(1, true, false, 10, 9, DisplayOuterbox, "%2.1FA", battery_current);}
+      if (strstr(victronDevices.DisplayShow[i],"L")) {UpdateTwoSize_MultiLine(1, true, false, 10, 9, DisplayOuterbox, "%2.1FA load", load_current);}
+      if (strstr(victronDevices.DisplayShow[i],"E")) {UpdateTwoSize_MultiLine(1, true, false, 8, 8, DisplayOuterbox, "%s", DeviceStateToChar(device_state));
+      UpdateTwoSize_MultiLine(1, true, false, 8, 8, DisplayOuterbox, "%s", ErrorCodeToChar(charger_error));}
+    }
+  }
+
+  if (KnownDataType == 2) {
+    VICTRON_BLE_RECORD_BATTERY_MONITOR *victronData = (VICTRON_BLE_RECORD_BATTERY_MONITOR *)outputData;
+    float battery_voltage = float(victronData->battery_voltage) * 0.01;
+    float battery_current = float(victronData->battery_current) * 0.001;  //4194
+    int auxtype = victronData->aux_input_type;
+    float aux_input = float(victronData->aux_input) * 0.01;  // starter battery for Shunt
+    float state_of_charge = float(victronData->state_of_charge) * 0.1;
+    if (ColorSettings.Simulate) {
+      battery_voltage = random( 10.9, 13.5);
+      battery_current = random(-2.2, 20.6);
+      state_of_charge = 50;
+      auxtype = 2;
+      aux_input = 300;
+    }
+    snprintf(debugMsg, 120, "Volts<%3.2f>,AMPS<%3.2f>, SOC%3.2f, AUX%3.2f \n", battery_voltage, battery_current, state_of_charge, aux_input);
+    strcat(VictronBuffer, debugMsg);
+    if (Display_Page == -87) {
+      DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, victronDevices.displayHeight[i], victronDevices.displayH[i], victronDevices.displayV[i], victronDevices.FileCommentName[i]);
+      if (victronDevices.greyed[i]) { DisplayOuterbox.TextColor = DARKGREY; }
+      DisplayOuterbox.PrintLine = 5;
+      if (strstr(victronDevices.DisplayShow[i],"S"))  {DrawBar(DisplayOuterbox, victronDevices.FileCommentName[i], GREEN, state_of_charge);}
+      if (strstr(victronDevices.DisplayShow[i],"V"))  {UpdateTwoSize_MultiLine(1, true, false, 11, 10, DisplayOuterbox, "%2.1FV", battery_voltage);}     
+      if (strstr(victronDevices.DisplayShow[i],"I"))  {UpdateTwoSize_MultiLine(1, true, false, 11, 10, DisplayOuterbox, "%2.1FA", battery_current);}
+      if (strstr(victronDevices.DisplayShow[i],"A"))  { 
+            if (auxtype == 2) {
+        UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "");                               //temperature 3rd line // use DisplayShow ?? config.DisplayShow[index]
+        UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "%2.0f deg", aux_input - 273.15);  //this for deg C original data  is in kelvin. Fabian says only 1degree, but I think it is 0.1 resolution and only 1 degree resolution !
+        }
+            if (auxtype == 0) {
+        UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "");
+        UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "Starter %2.1fV", aux_input);
+        } 
+      }
+    }
+  }
+
+  if (KnownDataType == 8) {
+    VICTRON_BLE_RECORD_AC_CHARGER *victronData = (VICTRON_BLE_RECORD_AC_CHARGER *)outputData;
+    byte device_state = victronData->device_state;
+    int charger_error = victronData->charger_error;
+    float battery_voltage_1 = victronData->battery_voltage_1 * 0.01;
+    float battery_current_1 = victronData->battery_current_1 * 0.1;
+    float battery_voltage_2 = victronData->battery_voltage_2 * 0.01;
+    float battery_current_2 = victronData->battery_current_2 * 0.1;
+    float temperature = victronData->temperature;
+    if (ColorSettings.Simulate) {
+      charger_error = int(random(0, 20));
+      device_state = int(random(0, 5));
+      battery_voltage_1= random(10.9, 13.5);
+      battery_current_1=random(-2.2, 20.6);
+      battery_voltage_2=random(10.9, 13.5);
+      battery_current_2 = random(-2.2, 20.6);
+      temperature = 300;
+    }
+    snprintf(debugMsg, 120, "battery_voltage_1<%3.2f> battery_current_1<%3.2f>, load%3.2fA, temp%2.0f deg\n", battery_voltage_1, battery_current_1, temperature - 273.15);
+    strcat(VictronBuffer, debugMsg);
+    if (Display_Page == -87) {
+      DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, victronDevices.displayHeight[i], victronDevices.displayH[i], victronDevices.displayV[i], victronDevices.FileCommentName[i]);
+      if (victronDevices.greyed[i]) { DisplayOuterbox.TextColor = DARKGREY; }
+      DisplayOuterbox.PrintLine = 5;
+      if (strstr(victronDevices.DisplayShow[i],"V")) {UpdateTwoSize_MultiLine(1, true, false, 10, 9, DisplayOuterbox, "%2.1FV1", battery_voltage_1);}
+      if (strstr(victronDevices.DisplayShow[i],"I")) {UpdateTwoSize_MultiLine(1, true, false, 10, 9, DisplayOuterbox, "%2.1FA1", battery_current_1);}
+      if (strstr(victronDevices.DisplayShow[i],"v")) {UpdateTwoSize_MultiLine(1, true, false, 10, 9, DisplayOuterbox, "%2.1FV2", battery_voltage_2);}
+      if (strstr(victronDevices.DisplayShow[i],"i")) {UpdateTwoSize_MultiLine(1, true, false, 10, 9, DisplayOuterbox, "%2.1FA2", battery_current_2);}
+      UpdateTwoSize_MultiLine(1, true, false, 8, 8, DisplayOuterbox, " ");
+      if (strstr(victronDevices.DisplayShow[i],"E"))  { UpdateTwoSize_MultiLine(1, false, false, 8, 8, DisplayOuterbox, "%s", DeviceStateToChar(device_state));}
+      if (strstr(victronDevices.DisplayShow[i],"A"))  {UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "%2.0f deg", temperature - 273.15);}
+      if (strstr(victronDevices.DisplayShow[i],"E"))  {  UpdateTwoSize_MultiLine(1, true, false, 8, 8, DisplayOuterbox, "%s", ErrorCodeToChar(charger_error));}
+    }
+  }
+  Serial.println(VictronBuffer);
+  victronDevices.displayed[i] = true;
+}
+
+
+
+
+
+>>>>>>> Stashed changes
 void BLEloop() {
   // Serial.print(" BLE Scanning...");
   static unsigned long BLESCANINTERVAL;
