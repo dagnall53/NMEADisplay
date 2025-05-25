@@ -83,6 +83,7 @@ typedef struct  {  // struct from Fabian Schmidt NOLINT(readability-identifier-n
   u_int16_t yield_today;  //// 0.01 kWh, 0 .. 655.34 kWh
   u_int16_t pv_power;
   vic_9bit_0_1_negative load_current : 9; //// 0.1 A, 0 .. 51.0 A // just this one with the original type to test I can use extra typdef!!
+ // plus 39 bits unused https://communityarchive.victronenergy.com/storage/attachments/extra-manufacturer-data-2022-12-14.pdf
 } __attribute__((packed)) VICTRON_BLE_RECORD_SOLAR_CHARGER; //01
 
 typedef struct  {                      
@@ -93,7 +94,7 @@ typedef struct  {
   u_int8_t aux_input_type : 2;
   int32_t battery_current : 22;
   u_int32_t consumed_ah : 20;
-  u_int16_t state_of_charge : 10;
+  u_int16_t state_of_charge : 10;   // plus 10 bits unused
 } __attribute__((packed))VICTRON_BLE_RECORD_BATTERY_MONITOR; //02
 
 typedef struct  {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
@@ -102,7 +103,7 @@ typedef struct  {  // NOLINT(readability-identifier-naming,altera-struct-pack-al
   vic_16bit_0_01 battery_voltage;
   vic_16bit_1_positive ac_apparent_power;
   vic_15bit_0_01_positive ac_voltage : 15;
-  vic_11bit_0_1_positive ac_current : 11;
+  vic_11bit_0_1_positive ac_current : 11; // plus 46 bits unused
 } __attribute__((packed))VICTRON_BLE_RECORD_INVERTER; //03
 
 
@@ -113,18 +114,6 @@ typedef struct  {  // NOLINT(readability-identifier-naming,altera-struct-pack-al
   vic_16bit_0_01_noNAN output_voltage;
   VE_REG_DEVICE_OFF_REASON_2 off_reason;
 } __attribute__((packed))VICTRON_BLE_RECORD_DCDC_CONVERTER;   ///04
-
-
-typedef struct  {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
-  VE_REG_DEVICE_STATE device_state;
-  VE_REG_CHR_ERROR_CODE charger_error;
-  vic_16bit_0_01 battery_voltage;
-  vic_16bit_0_1 battery_current;
-  vic_16bit_1_positive pv_power;
-  vic_16bit_0_01_positive yield_today;
-  vic_16bit_1 ac_out_power;
-} __attribute__((packed))VICTRON_BLE_RECORD_INVERTER_RS; //06
-
 // Battery causes compile messages I can do without for now. Not using this yet anyway 
 // typedef struct  {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
 //   VE_REG_BMS_FLAGs bms_flags;
@@ -143,6 +132,18 @@ typedef struct  {  // NOLINT(readability-identifier-naming,altera-struct-pack-al
 //   vic_temperature_7bit battery_temperature : 7;
 // } __attribute__((packed))VICTRON_BLE_RECORD_SMART_LITHIUM; // 05
 
+
+typedef struct  {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
+  VE_REG_DEVICE_STATE device_state;
+  VE_REG_CHR_ERROR_CODE charger_error;
+  vic_16bit_0_01 battery_voltage;
+  vic_16bit_0_1 battery_current;
+  vic_16bit_1_positive pv_power;
+  vic_16bit_0_01_positive yield_today;
+  vic_16bit_1 ac_out_power;
+} __attribute__((packed))VICTRON_BLE_RECORD_INVERTER_RS; //06
+
+
 // See also <https://github.com/Fabian-Schmidt/esphome-victron_ble/issues/62>
 typedef struct  {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   VE_REG_DEVICE_STATE device_state;
@@ -158,51 +159,26 @@ typedef struct  {  // NOLINT(readability-identifier-naming,altera-struct-pack-al
 } __attribute__((packed))VICTRON_BLE_RECORD_AC_CHARGER; //VICTRON_BLE_RECORD_AC_CHARGER= 08
 
 
-
-/*  trying to rebuild the victronManufacturerData based on Fabian Schmittdata:
-
-HObermann original was 
-
-              // Must use the "packed" attribute to make sure the compiler doesn't add any padding to deal with
-              // word alignment.
-typedef struct {
-  uint16_t vendorID;                    // vendor ID
-  uint8_t beaconType;                   // Should be 0x10 (Product Advertisement) for the packets we want
-  uint8_t unknownData1[3];              // (24 bits of ?)  3 elements of Unknown 8 bit data 
-  uint8_t victronRecordType;            // Should be 0x01 (Solar Charger) for the packets we want
-  uint16_t nonceDataCounter;            // Nonce
-  uint8_t encryptKeyMatch;              // Should match pre-shared encryption key byte 0
-  uint8_t victronEncryptedData[21];     // (31 bytes max per BLE spec - size of previous elements)
-  uint8_t nullPad;                      // extra byte because toCharArray() adds a \0 byte.
-} __attribute__((packed)) victronManufacturerData;
-*/
-
-// fabian/schmitt derived version:  
-
-
 typedef struct {
  uint16_t  vendorID; // properly manufacturer_record_type? ; //VICTRON_MANUFACTURER_RECORD_TYPE  
  uint8_t beaconType;  //PRODUCT_ADVERTISEMENT = 0x10,
  // ok to here..
  u_int8_t manufacturer_record_length;
  uint16_t product_id; // ??? device. VICTRON_PRODUCT_ID ?? the actual device type = BlueSolar. A042..A04f  SmartSolar A050..A065 
-<<<<<<< .mine
- // and ok from here! 
-
-=======
  // Stuff above is generic GATT (?) standard BLE (?) 
+ // Start of Victron definition: https://github.com/keshavdv/victron-ble/blob/main/extra-manufacturer-data-2022-12-14.pdf
  // Extra manufacturer Data 
->>>>>>> .theirs
- uint8_t VICTRON_BLE_RECORD_TYPE;//aka record_type VICTRON_BLE_RECORD_TYPE  solar charger = Smartshunt and battery monitor .. etc ()
- uint16_t nonceDataCounter; // deal with this later, it seems to work and Hoben reconverts to lsb/msb??
-                            // u_int8_t data_counter_lsb;
-                            //u_int8_t data_counter_msb;
+ uint8_t VICTRON_BLE_RECORD_TYPE;// record_type VICTRON_BLE_RECORD_TYPE 
+ 
+ u_int8_t data_counter_lsb;
+ u_int8_t data_counter_msb;
  uint8_t encryption_key_0; // Byte 0 of the encryption key (bindkey)
  uint8_t victronEncryptedData[21]; // not modifying as proven to work,
  uint8_t nullPad;
 } __attribute__((packed)) victronManufacturerData;
 
 void hexCharStrToByteArray(char * hexCharStr, byte * byteArray); // called in LoadVictronConfiguration to set byte version of the input string 
+
 
 void BLEsetup();  // called from main void setup();
 void BLEloop();   // called from main void loop() 

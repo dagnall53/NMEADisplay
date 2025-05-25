@@ -70,7 +70,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "VERSION 4.20";
+const char soft_version[] = "VERSION 4.31";
 
 bool hasSD;
 
@@ -88,7 +88,7 @@ _sMyVictronDevices  victronDevices;
 
 char  VictronBuffer[800];  // way to transfer results in a way similar to NMEA text.
 
-_sVictronData VictronData;  // Victron sensor Data values, int double etc for use in graphics 
+// _sVictronData VictronData;  // Victron sensor Data values, int double etc for use in graphics 
 
 const char* ColorsFilename = "/colortest.txt";  // <- SD library uses 8.3 filenames?
 _MyColors ColorSettings;
@@ -236,7 +236,7 @@ _sButton Switch10 = { 340, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
 _sButton Switch11 = { 420, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
 
 
-_sButton Terminal = { 0, 100, 480, 330, 5, WHITE, BLACK, WHITE };  //BORDER invisible as == background col) to try and help debug printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
+_sButton Terminal = { 0, 100, 480, 330, 2, WHITE, BLACK, BLUE };  
 //for selections
 _sButton FullTopCenter = { 80, 0, 320, 50, 5, BLUE, WHITE, BLACK };
 
@@ -272,14 +272,15 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     fault=true;
   }
   Num_Victron_Devices= doc["Num_Devices"] | 4;
-  for (int index=0;index<=Num_Victron_Devices;index++){
+  for (int index=0;index<Num_Victron_Devices;index++){
     strlcpy(config.charMacAddr[index], doc["device"+String(index)+".mac"] | "macaddress", sizeof(config.charMacAddr[index]));
     strlcpy(config.charKey[index], doc["device"+String(index)+".key"] | "key", sizeof(config.charKey[index]));
     strlcpy(config.FileCommentName[index], doc["device"+String(index)+".comment"] | "?name?", sizeof(config.FileCommentName[index]));
-   config.displayH[index]= doc["device"+String(index)+".DisplayH"];
-   config.displayV[index]= doc["device"+String(index)+".DisplayV"];
-   config.VICTRON_BLE_RECORD_TYPE[index]=doc["device"+String(index)+".VICTRON_BLE_RECORD_TYPE"]; | 1 //default solar Mppt
-   strlcpy(config.DisplayShow[index], doc["device"+String(index)+".DisplayShow"] | "PVIA", sizeof(config.DisplayShoww[index]));
+    config.VICTRON_BLE_RECORD_TYPE[index]=doc["device"+String(index)+".VICTRON_BLE_RECORD_TYPE"] | 1; //default solar Mppt
+    config.displayH[index]= doc["device"+String(index)+".DisplayH"];
+    config.displayV[index]= doc["device"+String(index)+".DisplayV"];
+    config.displayHeight[index]= doc["device"+String(index)+".DisplayHeight"]|150;
+    strlcpy(config.DisplayShow[index], doc["device"+String(index)+".DisplayShow"] | "PVIA", sizeof(config.DisplayShow[index]));
   } 
     // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
@@ -300,20 +301,30 @@ void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
   Serial.printf(" We expect %i Victron devices",Num_Victron_Devices);
   // Allocate a temporary JsonDocument
   JsonDocument doc;
-  doc[" Comment"]= " DisplayShow will possibly be a selector for what is visually displayed";
+  doc[" Comment"]= " DisplayShow Options: 'P' Power 'V' Battery Volts 'I' Battery Current";
+  doc[" C"]= " 'v' second Battery Volts 'i' second Battery Current  (ac charger only)";
+  doc[" C1"]="'L' Load current 'S' State of charge 'E' error codes 'T' Temperature";
+  doc[" C2"]=" 'A' Aux reading(t or starter) ";
+ 
+  
+  doc[" Example"]= "for SmartShunt, IAS will display current, State of charge and Additional data( starter V or temperature)";
+  doc[" Example"]= "for Battery Monitor: V will display Voltage (only)";
+  doc[" note"]= "Display height is also adjustable for each 'device', and devices can be duplicated"; 
+  doc[" note "]= "VICTRON_BLE_RECORD_TYPE:   SOLAR_CHARGER =1,  BATTERY_MONITOR = 2, AC Charger = 8"; 
   doc["Num_Devices"]=Num_Victron_Devices;
   
   // doc[" Comment1"]= "for Shunt, VIA will display Battery Volts, Current, Additional data";
   // doc[" Comment2"]= "for SOLAR, PIA will display solar Power, battery Current, Additional data";
-  for (int index=0;index<=Num_Victron_Devices;index++){
+  for (int index=0;index<Num_Victron_Devices;index++){
     doc["device"+String(index)+".mac"]=config.charMacAddr[index];
     doc["device"+String(index)+".key"]=config.charKey[index];
     doc["device"+String(index)+".comment"]=config.FileCommentName[index];
+    doc["device"+String(index)+".VICTRON_BLE_RECORD_TYPE"]=config.VICTRON_BLE_RECORD_TYPE[index];
     doc["device"+String(index)+".DisplayH"]=config.displayH[index];
     doc["device"+String(index)+".DisplayV"]=config.displayV[index];
+    doc["device"+String(index)+".DisplayHeight"]=config.displayHeight[index];
     doc["device"+String(index)+".DisplayShow"]=config.DisplayShow[index];
-    doc["device"+String(index)+".VICTRON_BLE_RECORD_TYPE"]=config.VICTRON_BLE_RECORD_TYPE[index];
-  }
+   }
 
   // Serialize JSON to file
   if (serializeJsonPretty(doc, file) == 0) {  // use 'pretty format' with line feeds
@@ -346,15 +357,17 @@ void SaveDisplayConfiguration(const char* filename, _MyColors& set) {
 
   doc["TextColor"]= set.TextColor; 
   doc["BackColor"]= set.BackColor;  
-  doc["BorderColor"]=set.BackColor; 
+  doc["BorderColor"]=set.BorderColor; 
   doc["_comments_"] = "These sizes below are for some font tests in victron display!";
   doc["BoxH"]=set.BoxH; 
   doc["BoxW"]=set.BoxW; 
   doc["FontH"]=set.FontH; 
   doc["FontS"]=set.FontS; 
   doc["Simulate"]=set.Simulate True_False;
-  doc["Simpanel"]=set.Simpanel;
+  doc["Debug"]=set.Debug True_False;
+  doc["ShowRawDecryptedDataFor"]=set.ShowRawDecryptedDataFor;
   doc["Frame"]=set.Frame True_False;
+
   
 
   // Serialize JSON to file
@@ -382,9 +395,9 @@ bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
   // gett here means we can set defaults, regardless!
   set.TextColor = doc["TextColor"] | BLACK;  
   set.BackColor = doc["BackColor"] | WHITE;  
-  set.BackColor = doc["BorderColor"] | BLUE; 
-  set.BoxW = doc["BoxW"] | 100; 
-  set.BoxH = doc["BoxH"] | 50; 
+  set.BorderColor = doc["BorderColor"] | BLUE; 
+  set.BoxW = doc["BoxW"] | 46; 
+  set.BoxH = doc["BoxH"] | 100; 
   
   set.FontH = doc["FontH"] | WHITE; 
   set.FontS = doc["FontS"] | WHITE; 
@@ -392,7 +405,10 @@ bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
   set.Simulate =(strcmp(temp,"false"));
   strlcpy(temp,doc["Frame"] |"false",sizeof(temp));
   set.Frame =(strcmp(temp,"false"));
-  set.Simpanel=doc["Simpanel"]|1;
+  strlcpy(temp,doc["Debug"] |"false",sizeof(temp));
+  set.Debug =(strcmp(temp,"false"));
+
+  set.ShowRawDecryptedDataFor=doc["ShowRawDecryptedDataFor"]|1;
   // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
   if (!error) { return true; }
@@ -859,12 +875,12 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
  case -86:                                              // page for text display of Vicron data 
       if (RunSetup) { GFXBorderBoxPrintf(Terminal, ""); }  // only for setup, not changed data
       if (RunSetup || DataChanged) {
-        setFont(3);
-        GFXBorderBoxPrintf(FullTopCenter, "VICTRON DATA DISPLAY ");
+        setFont(3);                                    // different from most pages, displays in terminal from see ~line 2145
+        GFXBorderBoxPrintf(FullTopCenter, "Return to VICTRON graphic display");
         if (!Terminal.debugpause) {
-          AddTitleBorderBox(0, Terminal, "Display");
+          AddTitleBorderBox(0, Terminal, "-running-");
         } else {
-          AddTitleBorderBox(0, Terminal, "-Paused-");
+          AddTitleBorderBox(0, Terminal, "-paused-");
         }
         DataChanged = false;
       }
@@ -874,7 +890,13 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(FullTopCenter)) { Display_Page = -87; }
       if (CheckButton(Terminal)) {
         Terminal.debugpause = !Terminal.debugpause;
-        DataChanged = true;
+        DataChanged = true;  // for more immediate visual response to touch!
+         if (!Terminal.debugpause) {
+          AddTitleBorderBox(0, Terminal, "-running-");
+        } else {
+          AddTitleBorderBox(0, Terminal, "-paused-");
+        }
+        
       }
     
       break;
@@ -903,7 +925,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(Full0Center)) { Display_Page = -200; }
       if (CheckButton(Full1Center)) { Display_Page = -9; }
       if (CheckButton(Full2Center)) { Display_Page = -10; }
-      if (CheckButton(Full3Center)) { Display_Page = -86; } // V for Victron
+      if (CheckButton(Full3Center)) { Display_Page = -87; } // V for Victron go straight to graphic display
       //   if (CheckButton(Full4Center)) { Display_Page = -10; }
       if (CheckButton(Full5Center)) { Display_Page = 0; }
       break;
@@ -922,7 +944,6 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(Switch10, Current_Settings.ESP_NOW_ON On_Off);
         AddTitleBorderBox(0, Switch10, "ESP-Now");
 
-
         if (!Terminal.debugpause) {
           AddTitleBorderBox(0, Terminal, "TERMINAL");
         } else {
@@ -937,6 +958,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(Terminal)) {
         Terminal.debugpause = !Terminal.debugpause;
         DataChanged = true;
+         if (!Terminal.debugpause) {
+          AddTitleBorderBox(0, Terminal, "-running-");
+        } else {
+          AddTitleBorderBox(0, Terminal, "-paused-");
+        }
       }
       if (CheckButton(Switch6)) {
         Current_Settings.Log_ON = !Current_Settings.Log_ON;
@@ -1678,7 +1704,7 @@ void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes increment
   switch (fontinput) {  //select font and automatically set height/offset based on character '['
     // set the heights and offset to print [ in boxes. Heights in pixels are NOT the point heights!
     case 0:  // SMALL 8pt
-      Fontname = "FreeMono8pt7b";
+      Fontname = "FreeMono8pt7b";  //9 to 14 high?
       gfx->setFont(&FreeMono8pt7b);
       text_height = (FreeMono8pt7bGlyphs[0x3D].height) + 1;
       text_offset = -(FreeMono8pt7bGlyphs[0x3D].yOffset);
@@ -1922,7 +1948,7 @@ void timeupdate(){
     BoatData.LOCTime=BoatData.LOCTime+1;}
 }
 
-double ValidData(_sInstData variable){  // To avoid using NMEA0183DoubleNA value in displays etc replace with zero.
+double ValidData(_sInstData variable){  // To avoid showing NMEA0183DoubleNA value in displays etc replace with zero.
   double res =0;
   if (variable.greyed){ return 0;}
   if (variable.data != NMEA0183DoubleNA) { res=variable.data;}
@@ -1939,25 +1965,25 @@ void loop() {
   
   delay(1);
   ts.read();
-  if((Current_Settings.BLE_enable) && ((Display_Page== -86)||(Display_Page== -87)) ){BLEloop();}   //ONLY on  victron Display_Page -86 and -87!! or it interrupts eveything! 
-  //Serial.printf(" 1<%i>",millis()-Interval);Interval=millis();
   CheckAndUseInputs();
-   //Serial.printf(" 2<%i>",millis()-Interval);Interval=millis();
-   
-  Display(Display_Page); 
-  // Serial.printf(" 3<%i>",millis()-Interval);Interval=millis();
+  Display(Display_Page);  
+  /*BLEloop*/
+  if((Current_Settings.BLE_enable) && ((Display_Page== -86)||(Display_Page== -87)) ){
+    if (audio.isRunning()){delay(10);WifiGFXinterrupt(8, WifiStatus, "BLE will start\nwhen Audio finished");}
+     else{ BLEloop();}
+    }  // Prioritize the sounds if on.. 
+   //ONLY on  victron Display_Page -86 and -87!! or it interrupts eveything! 
   EXTHeartbeat();
   audio.loop();
- // Serial.printf(" 4<%i>",millis()-Interval);Interval=millis();
+ 
   if (!AttemptingConnect && !IsConnected && (millis() >= SSIDSearchInterval)) { // repeat at intervals to check..
     SSIDSearchInterval = millis() + scansearchinterval; // 
     if (StationsConnectedtomyAP==0){ // avoid scanning if we have someone connected to AP as it will/may disconnect! 
     ScanAndConnect(true);} // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared 
   }  
  
-
   // NMEALOG is done in CheckAndUseInputs
-  // the instrument log saves everything every loginterval (set in config)  secs, even if data is not available! (NMEA0183DoubleNA)
+  // the instrument log saves everything every LogInterval (set in config)  secs, even if data is not available! (NMEA0183DoubleNA)
   // uses LOCAL Time as this advances if GPS (UTC) is lost (but resets when GPS received again.)
   if ((Current_Settings.Log_ON) && (millis() >= LogInterval)) {
     LogInterval = millis() + (Current_Settings.log_interval_setting*1000);
@@ -1966,13 +1992,10 @@ void loop() {
         ValidData(BoatData.STW),ValidData(BoatData.MagHeading),ValidData(BoatData.SOG),ValidData(BoatData.COG),  
         ValidData(BoatData.WaterDepth), ValidData(BoatData.WindSpeedK),ValidData(BoatData.WindAngleApp));
   }
- //Serial.printf(" 6<%i>",millis()-Interval);Interval=millis();
   if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000) && (!AttemptingConnect))  {
     WIFIGFXBoxdisplaystarted = false;
     Display(true, Display_Page);delay(50); // change page back, having set zero above which alows the graphics to reset up the boxes etc.
     }
- //Serial.printf(" 7<%i>",millis()-Interval);Interval=millis();
- //Serial.printf(" end<%i>\n",millis()-Interval);Interval=millis();
 }
 
 
@@ -2112,7 +2135,7 @@ void UseNMEA(char* buf, int type) {
         if (type == 1) { NMEALOG(" %02i:%02i:%02i UTC: SER:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
       if (type == 2) { NMEALOG(" %02i:%02i:%02i UTC: UDP:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
       if (type == 3) { NMEALOG(" %02i:%02i:%02i UTC: ESP:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
-      if (type == 4) { NMEALOG("%02i:%02i:%02i UTC: VIC:%s \n", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
+      if (type == 4) { NMEALOG("\n%.3f BLE: Victron:%s", float(millis()) / 1000, buf); }
 
     }else{
     
@@ -2128,7 +2151,7 @@ void UseNMEA(char* buf, int type) {
     //3 is 8pt mono bold
     if ((Display_Page == -86)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
         if (type == 4) {
-        UpdateLinef(BLACK, 8, Terminal, "Victron:%s", buf);  // 7 small enough to avoid line wrap issue?
+        UpdateLinef(BLACK, 8, Terminal, "V_Debugmsg%s", buf);  //8 readable ! 7 small enough to avoid line wrap issue?
       }
     }
 

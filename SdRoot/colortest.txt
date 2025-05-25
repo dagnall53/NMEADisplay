@@ -6,18 +6,14 @@
   "GREEN": 2016,
   "RED": 63488,
   "TextColor": 0,
-  "BackColor": 31,
+  "BackColor": 65535,
   "BorderColor": 31,
   "BoxH": 46,
-  "BoxW": 100,
+  "BoxW": 150,
   "FontH": 11,
   "FontS": 10,
-  "Simulate": "false",
-<<<<<<< Updated upstream
-  "Simpanel": 1,
+  "Simulate": "true",
+  "Debug": "false",
+  "ShowRawDecryptedDataFor": 35,
   "Frame": "false"
-=======
-  "ShowRawDecryptedDataFor": 1,
-  "Frame": "true"
->>>>>>> Stashed changes
 }

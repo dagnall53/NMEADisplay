@@ -467,10 +467,14 @@ void printDirectory() {
 }
 
 void handleNotFound() {
+  bool simulatestate;
+  simulatestate=ColorSettings.Simulate;  // a hack as simulate state seem to make this handling crash..  conflict with SD calls? ;
+  ColorSettings.Simulate=false;
   Serial.print(" handling: server.uri:<");
   Serial.print(server.uri());
   Serial.println(">");
   if (hasSD && loadFromSdCard(server.uri())) {
+    ColorSettings.Simulate=simulatestate;
     return;
   }
   String message = "";
@@ -491,6 +495,7 @@ void handleNotFound() {
   }
   server.send(404, "text/plain", message);  //404 is the error message
   Serial.print(message);
+  ColorSettings.Simulate=simulatestate;
 }
 
 void handleQuestion() {
@@ -711,10 +716,10 @@ void NMEALOG(const char *fmt, ...) {
     StartNMEAlogfile();
     return;
   }
-  static char msg[300] = { '\0' };  // used in message buildup
+  static char msg[800] = { '\0' };  // used in message buildup VICTRON log can be well in excess of 128 as it can have multiple devices showing
   va_list args;
   va_start(args, fmt);
-  vsnprintf(msg, 128, fmt, args);
+  vsnprintf(msg, 799, fmt, args);
   va_end(args);
   int len = strlen(msg);
   // Serial.printf("  Logging to:<%s>", NMEALogFileName);
