@@ -51,11 +51,10 @@ extern _sWiFi_settings_Config Current_Settings;
 extern _sMyVictronDevices victronDevices;
 extern _MyColors ColorSettings;
 extern int Display_Page;
-extern int text_height;
-extern void showPictureFrame(_sButton &button, const char *name);
+//extern int text_height;
+//extern void showPictureFrame(_sButton &button, const char *name);
 //char ErrorInChars[50];
 
-extern char *ErrorCodeToChar(VE_REG_CHR_ERROR_CODE val);  //Defined later..
 BLEScan *pBLEScan;
 // int h, v, width, height, bordersize;  uint16_t BackColor, TextColor, BorderColor;
 // generic button for displays to modify h,v width and height from Vconfig file. Will start with settings relative to Vic_Inst_Master :
@@ -173,7 +172,225 @@ char *DeviceStateToChar(VE_REG_DEVICE_STATE val) {
   }
   return Buff;
 };
+char *ErrorCodeToChar(VE_REG_CHR_ERROR_CODE val) {
+  static char Buff[100];
+  switch (val) {
+    case 0:  //VE_REG_CHR_ERROR_CODE::NO_ERROR:
+      strcpy(Buff, "");
+      break;
+    case 1:  //VE_REG_CHR_ERROR_CODE::TEMPERATURE_BATTERY_HIGH:
+      strcpy(Buff, "TEMP HIGH");
+      break;
+    case 2:  //VE_REG_CHR_ERROR_CODE::VOLTAGE_HIGH:
+      strcpy(Buff, "VOLTAGE HIGH");
+      break;
+    case 3:  //VE_REG_CHR_ERROR_CODE::REMOTE_TEMPERATURE_A:
+      strcpy(Buff, "T sensor FAIL");
+      break;
+    case 4:  // VE_REG_CHR_ERROR_CODE::REMOTE_TEMPERATURE_B:
+      strcpy(Buff, "T sensor FAIL");
+      break;
+    case 5:  //VE_REG_CHR_ERROR_CODE::REMOTE_TEMPERATURE_C:
+      strcpy(Buff, "T Conn lost");
+      break;
+    case 6:  // VE_REG_CHR_ERROR_CODE::REMOTE_BATTERY_A:
+      strcpy(Buff, "V sense FAIL");
+      break;
+    case 7:  //VE_REG_CHR_ERROR_CODE::REMOTE_BATTERY_B:
+      strcpy(Buff, "V sense FAIL");
+      break;
+    case 8:  //VE_REG_CHR_ERROR_CODE::REMOTE_BATTERY_C:
+      strcpy(Buff, "conn. lost)");
+      break;
+    case 11:  //VE_REG_CHR_ERROR_CODE::HIGH_RIPPLE:
+      strcpy(Buff, "High ripple V");
+      break;
+    case 14:
+      strcpy(Buff, "LOW TEMP");
+      break;
 
+    case 17:  //VE_REG_CHR_ERROR_CODE::TEMPERATURE_CHARGER:
+      strcpy(Buff, "OVERHEATED");
+      break;
+    case 18:  //VE_REG_CHR_ERROR_CODE::OVER_CURRENT:
+      strcpy(Buff, "Over Current");
+      break;
+    case 19:  //VE_REG_CHR_ERROR_CODE::POLARITY:
+      strcpy(Buff, "Polarity Reversed");
+      break;
+    case 20:  //VE_REG_CHR_ERROR_CODE::BULK_TIME:
+      strcpy(Buff, "Bulk time limit exceeded");
+      break;
+    case 21:  //VE_REG_CHR_ERROR_CODE::CURRENT_SENSOR:
+      strcpy(Buff, "Current sensor issue (sensor bias/sensor broken)");
+      break;
+    case 22:  //VE_REG_CHR_ERROR_CODE::INTERNAL_TEMPERATURE_A:
+      strcpy(Buff, "Internal temperature sensor failure");
+      break;
+    case 23:  //VE_REG_CHR_ERROR_CODE::INTERNAL_TEMPERATURE_B:
+      strcpy(Buff, "Internal temperature sensor failure");
+      break;
+    case 24:  //VE_REG_CHR_ERROR_CODE::FAN:
+      strcpy(Buff, "Fan failure");
+      break;
+    case 26:  //VE_REG_CHR_ERROR_CODE::OVERHEATED:
+      strcpy(Buff, "Terminals overheated");
+      break;
+    case 27:  //VE_REG_CHR_ERROR_CODE::SHORT_CIRCUIT:
+      strcpy(Buff, "Short circuit");
+      break;
+    case 28:  //VE_REG_CHR_ERROR_CODE::CONVERTER_ISSUE:
+      strcpy(Buff, "Power stage issue");
+      break;
+    case 29:  //VE_REG_CHR_ERROR_CODE::OVER_CHARGE:
+      strcpy(Buff, "Over-Charge protection");
+      break;
+    case 33:  //VE_REG_CHR_ERROR_CODE::INPUT_VOLTAGE:
+      strcpy(Buff, "PV over-voltage");
+      break;
+    case 34:  //VE_REG_CHR_ERROR_CODE::INPUT_CURRENT:
+      strcpy(Buff, "PV over-current");
+      break;
+    case 35:  //VE_REG_CHR_ERROR_CODE::INPUT_POWER:
+      strcpy(Buff, "PV over-power");
+      break;
+    case 38:  //VE_REG_CHR_ERROR_CODE::INPUT_SHUTDOWN_VOLTAGE:
+      strcpy(Buff, "Input shutdown (due to excessive battery voltage)");
+      break;
+    case 39:  //VE_REG_CHR_ERROR_CODE::INPUT_SHUTDOWN_CURRENT:
+      strcpy(Buff, "Input shutdown (due to current flow during off mode)");
+      break;
+    case 40:  //VE_REG_CHR_ERROR_CODE::INPUT_SHUTDOWN_FAILURE:
+      strcpy(Buff, "PV Input failed to shutdown");
+      break;
+    case 41:  //VE_REG_CHR_ERROR_CODE::INVERTER_SHUTDOWN_41:
+      strcpy(Buff, "Inverter shutdown (PV isolation)");
+      break;
+    case 42:  //VE_REG_CHR_ERROR_CODE::INVERTER_SHUTDOWN_42:
+      strcpy(Buff, "Inverter shutdown (PV isolation)");
+      break;
+    case 43:  //VE_REG_CHR_ERROR_CODE::INVERTER_SHUTDOWN_43:
+      strcpy(Buff, "Inverter shutdown (Ground Fault)");
+      break;
+    case 50:  //VE_REG_CHR_ERROR_CODE::INVERTER_OVERLOAD:
+      strcpy(Buff, "Inverter overload");
+      break;
+    case 51:  //VE_REG_CHR_ERROR_CODE::INVERTER_TEMPERATURE:
+      strcpy(Buff, "Inverter temperature too high");
+      break;
+    case 52:  //VE_REG_CHR_ERROR_CODE::INVERTER_PEAK_CURRENT:
+      strcpy(Buff, "Inverter peak current");
+      break;
+    case 53:  //VE_REG_CHR_ERROR_CODE::INVERTER_OUPUT_VOLTAGE_A:
+      strcpy(Buff, "Inverter output voltage");
+      break;
+    case 54:  //VE_REG_CHR_ERROR_CODE::INVERTER_OUPUT_VOLTAGE_B:
+      strcpy(Buff, "Inverter output voltage");
+      break;
+    case 55:  //VE_REG_CHR_ERROR_CODE::INVERTER_SELF_TEST_A:
+      strcpy(Buff, "Inverter self test failed");
+      break;
+    case 56:  //VE_REG_CHR_ERROR_CODE::INVERTER_SELF_TEST_B:
+      strcpy(Buff, "Inverter self test failed");
+      break;
+    case 57:  //VE_REG_CHR_ERROR_CODE::INVERTER_AC:
+      strcpy(Buff, "Inverter ac voltage on output");
+      break;
+    case 58:  //VE_REG_CHR_ERROR_CODE::INVERTER_SELF_TEST_C:
+      strcpy(Buff, "Inverter self test failed");
+      break;
+    case 65:  //VE_REG_CHR_ERROR_CODE::COMMUNICATION:
+      strcpy(Buff, "Information 65 - Communication warning");
+      break;
+    case 66:  //VE_REG_CHR_ERROR_CODE::SYNCHRONISATION:
+      strcpy(Buff, "Information 66 - Incompatible device");
+      break;
+    case 67:  // VE_REG_CHR_ERROR_CODE::BMS:
+      strcpy(Buff, "BMS Connection lost");
+      break;
+    case 68:  //VE_REG_CHR_ERROR_CODE::NETWORK_A:
+      strcpy(Buff, "Network misconfigured");
+      break;
+    case 69:  //VE_REG_CHR_ERROR_CODE::NETWORK_B:
+      strcpy(Buff, "Network misconfigured");
+      break;
+    case 70:  //VE_REG_CHR_ERROR_CODE::NETWORK_C:
+      strcpy(Buff, "Network misconfigured");
+      break;
+    case 71:  //VE_REG_CHR_ERROR_CODE::NETWORK_D:
+      strcpy(Buff, "Network misconfigured");
+      break;
+    case 80:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_80:
+      strcpy(Buff, "PV Input shutdown");
+      break;
+    case 81:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_81:
+      strcpy(Buff, "PV Input shutdown");
+      break;
+    case 82:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_82:
+      strcpy(Buff, "PV Input shutdown");
+      break;
+    case 83:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_83:
+      strcpy(Buff, "PV Input shutdown");
+      break;
+    case 84:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_84:
+      strcpy(Buff, "PV Input shutdown");
+      break;
+    case 85:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_85:
+      strcpy(Buff, "PV Input shutdown");
+      break;
+    case 86:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_86:
+      strcpy(Buff, "PV Input shutdown");
+      break;
+    case 87:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_87:
+      strcpy(Buff, "PV Input shutdown");
+      break;
+    case 114:  //VE_REG_CHR_ERROR_CODE::CPU_TEMPERATURE:
+      strcpy(Buff, "CPU temperature too high");
+      break;
+    case 116:  //VE_REG_CHR_ERROR_CODE::CALIBRATION_LOST:
+      strcpy(Buff, "Factory calibration data lost");
+      break;
+    case 117:  //VE_REG_CHR_ERROR_CODE::FIRMWARE:
+      strcpy(Buff, "Invalid/incompatible firmware");
+      break;
+    case 119:  //VE_REG_CHR_ERROR_CODE::SETTINGS:
+      strcpy(Buff, "Settings data lost");
+      break;
+    case 121:  //VE_REG_CHR_ERROR_CODE::TESTER_FAIL:
+      strcpy(Buff, "Tester fail");
+      break;
+    case 200:  //VE_REG_CHR_ERROR_CODE::INTERNAL_DC_VOLTAGE_A:
+      strcpy(Buff, "Internal DC voltage error");
+      break;
+    case 201:  //VE_REG_CHR_ERROR_CODE::INTERNAL_DC_VOLTAGE_B:
+      strcpy(Buff, "Internal DC voltage error");
+      break;
+    case 202:  //VE_REG_CHR_ERROR_CODE::SELF_TEST:
+      strcpy(Buff, "PV residual current sensor self-test failure");
+      break;
+    case 203:  //VE_REG_CHR_ERROR_CODE::INTERNAL_SUPPLY_A:
+      strcpy(Buff, "Internal supply voltage error");
+      break;
+    case 205:  //VE_REG_CHR_ERROR_CODE::INTERNAL_SUPPLY_B:
+      strcpy(Buff, "Internal supply voltage error");
+      break;
+    case 212:  //VE_REG_CHR_ERROR_CODE::INTERNAL_SUPPLY_C:
+      strcpy(Buff, "Internal supply voltage error");
+      break;
+    case 215:  //VE_REG_CHR_ERROR_CODE::INTERNAL_SUPPLY_D:
+      strcpy(Buff, "Internal supply voltage error");
+      break;
+    case 255:  //VE_REG_CHR_ERROR_CODE::NOT_AVAILABLE:
+      strcpy(Buff, "Not available");
+      break;
+    default:
+      strcpy(Buff, "Unknown");
+      break;
+  }
+  // Serial.println(Buff);
+  // Serial.printf(" is %s",Buff);
+  return Buff;
+};
 
 byte hexCharToByte(char hexChar) {
   if (hexChar >= '0' && hexChar <= '9') {  // 0-9
@@ -485,7 +702,8 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
       if (strstr(victronDevices.DisplayShow[i], "P")) { UpdateTwoSize_MultiLine(1, true, false, 11, 10, DisplayOuterbox, "%3dw", pv_power); }
       if (strstr(victronDevices.DisplayShow[i], "V")) { UpdateTwoSize_MultiLine(1, true, false, 10, 9, DisplayOuterbox, "%2.1FV", battery_voltage); }
       if (strstr(victronDevices.DisplayShow[i], "I")) { UpdateTwoSize_MultiLine(1, true, false, 10, 9, DisplayOuterbox, "%2.1FA", battery_current); }
-      if (strstr(victronDevices.DisplayShow[i], "L")) { UpdateTwoSize_MultiLine(1, true, false, 10, 9, DisplayOuterbox, "%2.1FA load", load_current); }
+      if (strstr(victronDevices.DisplayShow[i], "l")) { UpdateTwoSize_MultiLine(1, true, false, 10, 9, DisplayOuterbox, "%2.1FA load", load_current); }
+      if (strstr(victronDevices.DisplayShow[i], "L")) { UpdateTwoSize_MultiLine(1, true, false, 11, 10, DisplayOuterbox, "%2.1FA", load_current); }
       if (strstr(victronDevices.DisplayShow[i], "E")) {
         UpdateTwoSize_MultiLine(1, true, false, 8, 8, DisplayOuterbox, "%s", DeviceStateToChar(device_state));
         UpdateTwoSize_MultiLine(1, true, false, 8, 8, DisplayOuterbox, "%s", ErrorCodeToChar(charger_error));
@@ -576,7 +794,7 @@ void BLEsetup() {
   pBLEScan = BLEDevice::getScan();  //create new scan
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
   pBLEScan->setActiveScan(true);  //active scan uses more power, but gets results faster
-  pBLEScan->setInterval(10);      // -was 100 (ms) BLE_SCAN_INTERVAL: This is defined as the time interval from when the Controller started its last LE scan until it begins the subsequent LE scan.
+  pBLEScan->setInterval(10);      //10 ms seems to give adequate and slightly faster operation. -was 100 (ms) BLE_SCAN_INTERVAL: This is defined as the time interval from when the Controller started its last LE scan until it begins the subsequent LE scan.
   pBLEScan->setWindow(9);         // -was 99(ms) BLE_SCAN_WINDOW: The duration of the LE scan. The scan window shall be less than or equal to the scan interval.
   for (int i = 0; i < Num_Victron_Devices; i++) {
     victronDevices.displayed[i] = false;
@@ -625,222 +843,4 @@ void BLEloop() {
 
 
 
-char *ErrorCodeToChar(VE_REG_CHR_ERROR_CODE val) {
-  static char Buff[100];
-  switch (val) {
-    case 0:  //VE_REG_CHR_ERROR_CODE::NO_ERROR:
-      strcpy(Buff, "");
-      break;
-    case 1:  //VE_REG_CHR_ERROR_CODE::TEMPERATURE_BATTERY_HIGH:
-      strcpy(Buff, "TEMP HIGH");
-      break;
-    case 2:  //VE_REG_CHR_ERROR_CODE::VOLTAGE_HIGH:
-      strcpy(Buff, "VOLTAGE HIGH");
-      break;
-    case 3:  //VE_REG_CHR_ERROR_CODE::REMOTE_TEMPERATURE_A:
-      strcpy(Buff, "T sensor FAIL");
-      break;
-    case 4:  // VE_REG_CHR_ERROR_CODE::REMOTE_TEMPERATURE_B:
-      strcpy(Buff, "T sensor FAIL");
-      break;
-    case 5:  //VE_REG_CHR_ERROR_CODE::REMOTE_TEMPERATURE_C:
-      strcpy(Buff, "T Conn lost");
-      break;
-    case 6:  // VE_REG_CHR_ERROR_CODE::REMOTE_BATTERY_A:
-      strcpy(Buff, "V sense FAIL");
-      break;
-    case 7:  //VE_REG_CHR_ERROR_CODE::REMOTE_BATTERY_B:
-      strcpy(Buff, "V sense FAIL");
-      break;
-    case 8:  //VE_REG_CHR_ERROR_CODE::REMOTE_BATTERY_C:
-      strcpy(Buff, "conn. lost)");
-      break;
-    case 11:  //VE_REG_CHR_ERROR_CODE::HIGH_RIPPLE:
-      strcpy(Buff, "High ripple V");
-      break;
-    case 14:
-      strcpy(Buff, "LOW TEMP");
-      break;
 
-    case 17:  //VE_REG_CHR_ERROR_CODE::TEMPERATURE_CHARGER:
-      strcpy(Buff, "OVERHEATED");
-      break;
-    case 18:  //VE_REG_CHR_ERROR_CODE::OVER_CURRENT:
-      strcpy(Buff, "Over Current");
-      break;
-    case 19:  //VE_REG_CHR_ERROR_CODE::POLARITY:
-      strcpy(Buff, "Polarity Reversed");
-      break;
-    case 20:  //VE_REG_CHR_ERROR_CODE::BULK_TIME:
-      strcpy(Buff, "Bulk time limit exceeded");
-      break;
-    case 21:  //VE_REG_CHR_ERROR_CODE::CURRENT_SENSOR:
-      strcpy(Buff, "Current sensor issue (sensor bias/sensor broken)");
-      break;
-    case 22:  //VE_REG_CHR_ERROR_CODE::INTERNAL_TEMPERATURE_A:
-      strcpy(Buff, "Internal temperature sensor failure");
-      break;
-    case 23:  //VE_REG_CHR_ERROR_CODE::INTERNAL_TEMPERATURE_B:
-      strcpy(Buff, "Internal temperature sensor failure");
-      break;
-    case 24:  //VE_REG_CHR_ERROR_CODE::FAN:
-      strcpy(Buff, "Fan failure");
-      break;
-    case 26:  //VE_REG_CHR_ERROR_CODE::OVERHEATED:
-      strcpy(Buff, "Terminals overheated");
-      break;
-    case 27:  //VE_REG_CHR_ERROR_CODE::SHORT_CIRCUIT:
-      strcpy(Buff, "Short circuit");
-      break;
-    case 28:  //VE_REG_CHR_ERROR_CODE::CONVERTER_ISSUE:
-      strcpy(Buff, "Power stage issue");
-      break;
-    case 29:  //VE_REG_CHR_ERROR_CODE::OVER_CHARGE:
-      strcpy(Buff, "Over-Charge protection");
-      break;
-    case 33:  //VE_REG_CHR_ERROR_CODE::INPUT_VOLTAGE:
-      strcpy(Buff, "PV over-voltage");
-      break;
-    case 34:  //VE_REG_CHR_ERROR_CODE::INPUT_CURRENT:
-      strcpy(Buff, "PV over-current");
-      break;
-    case 35:  //VE_REG_CHR_ERROR_CODE::INPUT_POWER:
-      strcpy(Buff, "PV over-power");
-      break;
-    case 38:  //VE_REG_CHR_ERROR_CODE::INPUT_SHUTDOWN_VOLTAGE:
-      strcpy(Buff, "Input shutdown (due to excessive battery voltage)");
-      break;
-    case 39:  //VE_REG_CHR_ERROR_CODE::INPUT_SHUTDOWN_CURRENT:
-      strcpy(Buff, "Input shutdown (due to current flow during off mode)");
-      break;
-    case 40:  //VE_REG_CHR_ERROR_CODE::INPUT_SHUTDOWN_FAILURE:
-      strcpy(Buff, "PV Input failed to shutdown");
-      break;
-    case 41:  //VE_REG_CHR_ERROR_CODE::INVERTER_SHUTDOWN_41:
-      strcpy(Buff, "Inverter shutdown (PV isolation)");
-      break;
-    case 42:  //VE_REG_CHR_ERROR_CODE::INVERTER_SHUTDOWN_42:
-      strcpy(Buff, "Inverter shutdown (PV isolation)");
-      break;
-    case 43:  //VE_REG_CHR_ERROR_CODE::INVERTER_SHUTDOWN_43:
-      strcpy(Buff, "Inverter shutdown (Ground Fault)");
-      break;
-    case 50:  //VE_REG_CHR_ERROR_CODE::INVERTER_OVERLOAD:
-      strcpy(Buff, "Inverter overload");
-      break;
-    case 51:  //VE_REG_CHR_ERROR_CODE::INVERTER_TEMPERATURE:
-      strcpy(Buff, "Inverter temperature too high");
-      break;
-    case 52:  //VE_REG_CHR_ERROR_CODE::INVERTER_PEAK_CURRENT:
-      strcpy(Buff, "Inverter peak current");
-      break;
-    case 53:  //VE_REG_CHR_ERROR_CODE::INVERTER_OUPUT_VOLTAGE_A:
-      strcpy(Buff, "Inverter output voltage");
-      break;
-    case 54:  //VE_REG_CHR_ERROR_CODE::INVERTER_OUPUT_VOLTAGE_B:
-      strcpy(Buff, "Inverter output voltage");
-      break;
-    case 55:  //VE_REG_CHR_ERROR_CODE::INVERTER_SELF_TEST_A:
-      strcpy(Buff, "Inverter self test failed");
-      break;
-    case 56:  //VE_REG_CHR_ERROR_CODE::INVERTER_SELF_TEST_B:
-      strcpy(Buff, "Inverter self test failed");
-      break;
-    case 57:  //VE_REG_CHR_ERROR_CODE::INVERTER_AC:
-      strcpy(Buff, "Inverter ac voltage on output");
-      break;
-    case 58:  //VE_REG_CHR_ERROR_CODE::INVERTER_SELF_TEST_C:
-      strcpy(Buff, "Inverter self test failed");
-      break;
-    case 65:  //VE_REG_CHR_ERROR_CODE::COMMUNICATION:
-      strcpy(Buff, "Information 65 - Communication warning");
-      break;
-    case 66:  //VE_REG_CHR_ERROR_CODE::SYNCHRONISATION:
-      strcpy(Buff, "Information 66 - Incompatible device");
-      break;
-    case 67:  // VE_REG_CHR_ERROR_CODE::BMS:
-      strcpy(Buff, "BMS Connection lost");
-      break;
-    case 68:  //VE_REG_CHR_ERROR_CODE::NETWORK_A:
-      strcpy(Buff, "Network misconfigured");
-      break;
-    case 69:  //VE_REG_CHR_ERROR_CODE::NETWORK_B:
-      strcpy(Buff, "Network misconfigured");
-      break;
-    case 70:  //VE_REG_CHR_ERROR_CODE::NETWORK_C:
-      strcpy(Buff, "Network misconfigured");
-      break;
-    case 71:  //VE_REG_CHR_ERROR_CODE::NETWORK_D:
-      strcpy(Buff, "Network misconfigured");
-      break;
-    case 80:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_80:
-      strcpy(Buff, "PV Input shutdown");
-      break;
-    case 81:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_81:
-      strcpy(Buff, "PV Input shutdown");
-      break;
-    case 82:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_82:
-      strcpy(Buff, "PV Input shutdown");
-      break;
-    case 83:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_83:
-      strcpy(Buff, "PV Input shutdown");
-      break;
-    case 84:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_84:
-      strcpy(Buff, "PV Input shutdown");
-      break;
-    case 85:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_85:
-      strcpy(Buff, "PV Input shutdown");
-      break;
-    case 86:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_86:
-      strcpy(Buff, "PV Input shutdown");
-      break;
-    case 87:  //VE_REG_CHR_ERROR_CODE::PV_INPUT_SHUTDOWN_87:
-      strcpy(Buff, "PV Input shutdown");
-      break;
-    case 114:  //VE_REG_CHR_ERROR_CODE::CPU_TEMPERATURE:
-      strcpy(Buff, "CPU temperature too high");
-      break;
-    case 116:  //VE_REG_CHR_ERROR_CODE::CALIBRATION_LOST:
-      strcpy(Buff, "Factory calibration data lost");
-      break;
-    case 117:  //VE_REG_CHR_ERROR_CODE::FIRMWARE:
-      strcpy(Buff, "Invalid/incompatible firmware");
-      break;
-    case 119:  //VE_REG_CHR_ERROR_CODE::SETTINGS:
-      strcpy(Buff, "Settings data lost");
-      break;
-    case 121:  //VE_REG_CHR_ERROR_CODE::TESTER_FAIL:
-      strcpy(Buff, "Tester fail");
-      break;
-    case 200:  //VE_REG_CHR_ERROR_CODE::INTERNAL_DC_VOLTAGE_A:
-      strcpy(Buff, "Internal DC voltage error");
-      break;
-    case 201:  //VE_REG_CHR_ERROR_CODE::INTERNAL_DC_VOLTAGE_B:
-      strcpy(Buff, "Internal DC voltage error");
-      break;
-    case 202:  //VE_REG_CHR_ERROR_CODE::SELF_TEST:
-      strcpy(Buff, "PV residual current sensor self-test failure");
-      break;
-    case 203:  //VE_REG_CHR_ERROR_CODE::INTERNAL_SUPPLY_A:
-      strcpy(Buff, "Internal supply voltage error");
-      break;
-    case 205:  //VE_REG_CHR_ERROR_CODE::INTERNAL_SUPPLY_B:
-      strcpy(Buff, "Internal supply voltage error");
-      break;
-    case 212:  //VE_REG_CHR_ERROR_CODE::INTERNAL_SUPPLY_C:
-      strcpy(Buff, "Internal supply voltage error");
-      break;
-    case 215:  //VE_REG_CHR_ERROR_CODE::INTERNAL_SUPPLY_D:
-      strcpy(Buff, "Internal supply voltage error");
-      break;
-    case 255:  //VE_REG_CHR_ERROR_CODE::NOT_AVAILABLE:
-      strcpy(Buff, "Not available");
-      break;
-    default:
-      strcpy(Buff, "Unknown");
-      break;
-  }
-  // Serial.println(Buff);
-  // Serial.printf(" is %s",Buff);
-  return Buff;
-};
