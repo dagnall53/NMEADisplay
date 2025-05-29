@@ -40,9 +40,6 @@ pHeadingCharacteristic -> setValue( mys );
  */
 
 
-
-//#define USE_String  for version 3 compiler!
-
 #include <aes/esp_aes.h>  // AES library for decrypting the Victron manufacturer data.
 extern int Num_Victron_Devices;
 extern char VictronBuffer[];  // to get the data out as a string char
@@ -392,7 +389,7 @@ char *ErrorCodeToChar(VE_REG_CHR_ERROR_CODE val) {
   return Buff;
 };
 
-byte hexCharToByte(char hexChar) {
+unsigned char hexCharToByte(char hexChar) {
   if (hexChar >= '0' && hexChar <= '9') {  // 0-9
     hexChar = hexChar - '0';
   } else if (hexChar >= 'a' && hexChar <= 'f') {  // a-f
@@ -405,18 +402,18 @@ byte hexCharToByte(char hexChar) {
   return hexChar;
 }
 
-void hexCharStrToByteArray(char *hexCharStr, byte *byteArray) {
+void hexCharStrToByteArray(char *hexCharStr, unsigned char *byteArray) {
   bool returnVal = false;
   int hexCharStrLength = strlen(hexCharStr);
   // There are simpler ways of doing this without the fancy nibble-munching,
   // but I do it this way so I parse things like colon-separated MAC addresses.
-  // BUT: be aware that this expects digits in pairs and byte values need to be
+  // BUT: be aware that this expects digits in pairs and uint8_t values need to be
   // zero-filled. i.e., a MAC address like 8:0:2b:xx:xx:xx won't come out the way
   // you want it.
   int byteArrayIndex = 0;
   bool oddByte = true;
-  byte hiNibble;
-  byte nibble;
+  uint8_t hiNibble;
+  uint8_t nibble;
   //  Serial.printf("  Hex convert %s  has length %i  \n",hexCharStr,hexCharStrLength);
   for (int i = 0; i < hexCharStrLength; i++) {
     nibble = hexCharToByte(hexCharStr[i]);
@@ -479,7 +476,7 @@ _sButton Setup_N_Display(_sButton &box, int height, int shiftH, int shiftV, char
   return Display4outerbox;
 }
 
-void DebugRawVdata(byte *outputData, int datasize) {
+void DebugRawVdata(unsigned char *outputData, int datasize) {
   //  work on outputData[16]
   char debugMsg[200];
   snprintf(debugMsg, 120, "Decrypted Data len %i :",datasize);
@@ -504,17 +501,29 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
     char debugMsg[200];                                     // No debug in callback unless in debugmode?
     if (advertisedDevice.haveManufacturerData() == true) {  // ONLY bother with the message if it has "manufacturerdata" and then look to see if it's coming from a Victron device.
       // get all the data we can.
-      std::string manData = advertisedDevice.getManufacturerData();  // lib code returns std::string
+      #if ESP_IDF_VERSION_MAJOR == 3
+       String manData = advertisedDevice.getManufacturerData();
+       #else
+       std::string manData = advertisedDevice.getManufacturerData();  // lib code returns type std::string
+      #endif
       uint8_t manCharBuf[100];                                       // 32 is possibly entirely enough see ble example
       int ManuDataLength = manData.length();
+      #if ESP_IDF_VERSION_MAJOR == 3
+       memcpy(manCharBuf,manData.c_str(),ManuDataLength);
+       #else
       manData.copy((char *)manCharBuf, ManuDataLength);  // copy the mfr data into our manCharBuf
+      #endif
       if ((manCharBuf[2] != 0x10)) { return; }           // is not a beacon, not interested!
 
       int RSSI = advertisedDevice.getRSSI();
 
       char deviceName[32];  // to store device name if there is one
       deviceName[0] = 0;
+       #if ESP_IDF_VERSION_MAJOR == 3
+       String getName = advertisedDevice.getName().c_str();
+       #else
       std::string getName = advertisedDevice.getName().c_str();  //
+      #endif 
       if (advertisedDevice.haveName()) { strcpy(deviceName, advertisedDevice.getName().c_str()); }
 
 
@@ -594,7 +603,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
   if (victronDevices.displayed[i]) {  //Serial.printf(" %i displayed already\n",i);
     return;
   }
-  Serial.printf("Deal_With_BLE_<%i>_Data", i);
+ // Serial.printf("Deal_With_BLE_<%i>_Data", i);
   snprintf(debugMsg, 120, " my device<%i>,", i);
   strcat(VictronBuffer, debugMsg);
 
@@ -624,7 +633,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
   if (vicData->VICTRON_BLE_RECORD_TYPE == 0x02) { KnownDataType = 2; }  //Battery Monitor / smart shunt
   if (vicData->VICTRON_BLE_RECORD_TYPE == 0x08) { KnownDataType = 8; }  //VICTRON_BLE_RECORD_AC_CHARGER
   //Decode / decrypt..
-  byte localbyteKey[17];
+  unsigned char localbyteKey[17];
   hexCharStrToByteArray(victronDevices.charKey[i], localbyteKey);
   if (!ColorSettings.Simulate) {  //disable for simulate
     if (vicData->encryption_key_0 != localbyteKey[0]) {
@@ -635,8 +644,8 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
     }
   }
   // Now that the packet received and has met all the criteria for being displayed, let's decrypt and decode the manufacturer data.
-  byte inputData[16];
-  byte outputData[16] = { 0 };  // 128 bits of data
+  unsigned char inputData[16];
+  unsigned char outputData[16] = { 0 };  // 128 bits of data
   // The number of encrypted bytes is given by the number of bytes in the manufacturer
   // data as a while minus the number of bytes (10) in the header part of the data.
   int encrDataSize = victronDevices.ManuDataLength[i] - 10;
@@ -656,8 +665,8 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
   }
 
   if (!ColorSettings.Simulate) {
-    byte data_counter_lsb = (vicData->data_counter_lsb);
-    byte data_counter_msb = (vicData->data_counter_msb);
+    uint8_t data_counter_lsb = (vicData->data_counter_lsb);
+    uint8_t data_counter_msb = (vicData->data_counter_msb);
     u_int8_t nonce_counter[16] = { data_counter_lsb, data_counter_msb, 0 };
     u_int8_t stream_block[16] = { 0 };
     size_t nonce_offset = 0;
@@ -674,8 +683,8 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
   if (ColorSettings.ShowRawDecryptedDataFor == i) { DebugRawVdata(outputData, encrDataSize); }
   if (KnownDataType == 1) {
     VICTRON_BLE_RECORD_SOLAR_CHARGER *victronData = (VICTRON_BLE_RECORD_SOLAR_CHARGER *)outputData;
-    byte device_state = victronData->device_state;  // this is really more like "Charger State"
-    byte charger_error = victronData->charger_error;
+    uint8_t device_state = victronData->device_state;  // this is really more like "Charger State"
+    uint8_t charger_error = victronData->charger_error;
     float battery_voltage = float(victronData->battery_voltage) * 0.01;
     float battery_current = float(victronData->battery_current) * 0.1;
     float yield_today = float(victronData->yield_today) * 0.01 * 1000;  //we use wattHr not kwHr..
@@ -750,7 +759,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
 
   if (KnownDataType == 8) {
     VICTRON_BLE_RECORD_AC_CHARGER *victronData = (VICTRON_BLE_RECORD_AC_CHARGER *)outputData;
-    byte device_state = victronData->device_state;
+    uint8_t device_state = victronData->device_state;
     int charger_error = victronData->charger_error;
     float battery_voltage_1 = victronData->battery_voltage_1 * 0.01;
     float battery_current_1 = victronData->battery_current_1 * 0.1;
@@ -787,6 +796,18 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
   victronDevices.displayed[i] = true;
 }
 
+/**
+ * V3 Callback invoked when scanning has completed.
+ */
+static void scanCompleteCB(BLEScanResults scanResults) {
+	//printf("Scan complete!\n");
+	//printf("We found %d devices\n", scanResults.getCount());
+	scanResults.dump();
+} // scanCompleteCB*/
+
+
+
+
 void BLEsetup() {
   Serial.print("Setting up BLE..");
   delay(500);
@@ -810,7 +831,7 @@ void BLEloop() {
   static unsigned long BLESCANINTERVAL;
   if (millis() >= BLESCANINTERVAL) {
     FoundMyDevices = 0;
-    Serial.printf("BLE Scanning:\n");
+   // Serial.printf("BLE Scanning:\n");
     // snprintf(debugMsg, 120, "BLE Scan Commence");
     // strcat(VictronBuffer, debugMsg);
     if (ColorSettings.Simulate) {  // pull the simulate trigger on all listed in sequence !
@@ -822,12 +843,16 @@ void BLEloop() {
       victronDevices.updated[VictronSimulateIndex] = millis();
       //Serial.printf(" Simulating reception of :<%i>", VictronSimulateIndex);
     } else {
+#if ESP_IDF_VERSION_MAJOR == 3
+     pBLEScan->start(1, scanCompleteCB);
+#else      
       BLEScanResults foundDevices = pBLEScan->start(1, false);  //scanTime>0 is essential or it locks in continuous!, true);  // what does the iscontinue do? (the true/false is set false in examples. )
-                                                                // Serial.printf("Found %i BLE and %i are myVictrons \n", foundDevices.getCount(), FoundMyDevices);
+                                                               // Serial.printf("Found %i BLE and %i are myVictrons \n", foundDevices.getCount(), FoundMyDevices);
       pBLEScan->clearResults();                                 // delete results fromBLEScan buffer to release memory
+#endif 
     }
     BLESCANINTERVAL = millis() + _BLESCANINTERVAL;  // wait scan interval AFTER the finish!!
-    Serial.printf("  Scan Finished \n");
+   // Serial.printf("  Scan Finished \n");
     //  snprintf(debugMsg, 120, "BLE Scan Finished \n");
     //  strcat(VictronBuffer, debugMsg);
   }

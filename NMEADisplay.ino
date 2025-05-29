@@ -1,6 +1,6 @@
 //*******************************************************************************
 /*
-Compiled and tested with ESp32 V2.0.17  V3has deprecated some functions and this code will not work with V3!
+Compiled and tested with ESp32 V2.0.17  V3has broken  some functions and this code will not work with V3!
 GFX library for Arduino 1.5.5
 Select "ESP32-S3 DEV Module"
 Select PSRAM "OPI PSRAM" / enabled
@@ -9,9 +9,20 @@ Select PSRAM "OPI PSRAM" / enabled
 8m with spiffs - 3Mb app +spiffs
 
 
+Version 3 tests try to use 
+#if ESP_IDF_VERSION_MAJOR ==3 ? 
 
+Schreibfaul1 esp32 audio needs V3 for V3 compiler:
+or 2.0.0 for Version 2.0.17 -- its not cross compatible.  
+
+GFX seems ok , but change the.h as noted: but Jpeg screen seems to flicker with GFX 1.6 and Version3.2.0 compiler. 
+COMPILED AGAIN wITH 2.0.17 AND GFX 1.6 flicker less 
 
 */
+#if ESP_IDF_VERSION_MAJOR == 3     // hoping this #if will work in the called .cpp !! 
+#define UsingV3Compiler   // this #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
+#endif
+
 #include <NMEA0183.h>
 #include <NMEA0183Msg.h>
 #include <NMEA0183Messages.h>
@@ -26,7 +37,7 @@ Select PSRAM "OPI PSRAM" / enabled
 #include "ESP_NOW_files.h"
 #include "OTA.h"
 
-#define NumVictronDevices 6  // before structures
+//#define NumVictronDevices 10  // before structures
 #include "Structures.h"
 
 #include "aux_functions.h"
@@ -64,9 +75,15 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 #define JPEG_FILENAME_LOGO "/logo4.jpg"  // logo in jpg on sd card
 #define AUDIO_FILENAME_START "/StartSound.mp3"
 //audio
+
+ //v3 tests.. no audio until I fix the is2  ?  /
+ //now compiles using https://github.com/schreibfaul1/ESP32-audioI2S  v 3.0.13 (was using 2.0.0 with V2.0.17   esp32 compiler)
+
 #include "Audio.h"
 
 #include "VICTRONBLE.h" //sets #ifndef Victronble_h
+
+
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
@@ -867,7 +884,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
      if (RunSetup) {
         jpegDraw("/vicback.jpg", jpegDrawCallback, true /* useBigEndian */,
                  0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
-       }
+      Serial.println("redrawing background");
+      }
 
      // all graphics done in VICTRONBLE 
      if (CheckButton(FullTopCenter)) { Display_Page = -86; }
@@ -1301,9 +1319,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(Full2Center, "NMEA DISPLAY");
         GFXBorderBoxPrintf(Full3Center, "Debug + LOG");
         GFXBorderBoxPrintf(Full4Center, "GPS Display");
-        GFXBorderBoxPrintf(Full5Center, "Save / Reset ");
-        setFont(3);
-        GFXBorderBoxPrintf(Full6Center, "PanelName<%s>", Display_Config.PanelName);
+        GFXBorderBoxPrintf(Full5Center, "Victron Display"); 
+        GFXBorderBoxPrintf(Full6Center, "Save / Reset ");
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
@@ -1313,7 +1330,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(Full2Center)) { Display_Page = 4; }
       if (CheckButton(Full3Center)) { Display_Page = -21; }
       if (CheckButton(Full4Center)) { Display_Page = 9; }
-      if (CheckButton(Full5Center)) {
+      if (CheckButton(Full5Center)) { Display_Page = -87; }
+      if (CheckButton(Full6Center)) {
         //Display_Page = 4;
         EEPROM_WRITE(Display_Config, Current_Settings);
         delay(50);
@@ -2535,7 +2553,7 @@ bool Test_Serial_1() {  // UART0 port P1
   static int Skip_1 = 1;
   static int i_1;
   static bool line_1;  //has found a full line!
-  byte b;
+  unsigned char b;
   if (!line_1) {                  // ONLY get characters if we are NOT still processing the last line message!
     while (Serial.available()) {  // get the character
       b = Serial.read();
@@ -2572,11 +2590,15 @@ bool Test_U() {  // check if udp packet (UDP is sent in lines..) has arrived
   int packetSize = Udp.parsePacket();
   if (packetSize) {  // Deal with UDP packet
     if (packetSize >= (BufferLength)) {
+  #if ESP_IDF_VERSION_MAJOR == 3
+         Udp.clear();
+   #else
       Udp.flush();
+      #endif
       return false;
     }  // Simply discard if too long
     int len = Udp.read(nmea_U, BufferLength);
-    byte b = nmea_U[0];
+    unsigned char b = nmea_U[0];
     nmea_U[len] = 0;
     // nmea_UpacketSize = packetSize;
     //Serial.print(nmea_U);

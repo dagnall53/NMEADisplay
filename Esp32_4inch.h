@@ -23,7 +23,7 @@ Arduino_ESP32RGBPanel *rgbpanel = new Arduino_ESP32RGBPanel(  // MY BOARD modifi
   1 /* hsync_polarity */,      // Horizontal sync polarity
   10 /* hsync_front_porch */,  // Horizontal front porch duration
   8 /* hsync_pulse_width */,   // Horizontal pulse width
-  50 /* hsync_back_porch */,   // Horizontal back porch duration
+  50 /* hsync_back_porch */,   // Horizontal back porch duration '80 works as well.. set at 50 
   1 /* vsync_polarity */,      // Vertical sync polarity
   10 /* vsync_front_porch */,  // Vertical front porch duration
   8 /* vsync_pulse_width */,   // Vertical pulse width
@@ -31,15 +31,36 @@ Arduino_ESP32RGBPanel *rgbpanel = new Arduino_ESP32RGBPanel(  // MY BOARD modifi
                                // ,1, 30000000 // Uncomment for additional parameters if needed
 );
 
-// Initialize ST7701 display // comments at end of  https://github.com/Makerfabs/ESP32-S3-Parallel-TFT-with-Touch-4inch
+// Initialize ST7701 display // see comments at end of  https://github.com/Makerfabs/ESP32-S3-Parallel-TFT-with-Touch-4inch
 Arduino_RGB_Display *gfx = new Arduino_RGB_Display(
   480 /* width */,  480 /* height */,  rgbpanel,
   0 /* rotation */,  true /* auto_flush */,  bus, // as defined in Arduino_DataBus *bus 
   GFX_NOT_DEFINED /* RST */,  st7701_type9_init_operations,  sizeof(st7701_type9_init_operations));
-/*
-Note: Use Type1 modified (line ~ 511)  or type 9 modified 
-WRITE_COMMAND_8, 0x20, // 0x20 normal, 0x21 IPS
-WRITE_C8_D8, 0x3A, 0x60, // 0x70 RGB888, 0x60 RGB666, 0x50 RGB565
+
+/* V3.3 compiler & gfx 1.6.0 incompatibility notes:  type9 seems to flicker: 
+V3 & 1.5.5 type9 & 1  both crash horribly 
+//notes on Arduino_GFX/src/display/Arduino_RGB_Display.h
+my location: C:\Users\admin\OneDrive\DocOneDrive\Arduino\libraries\GFX_Library_for_Arduino\src\display\Arduino_RGB_Display.h
+COLOUR INVERSION:
+type 1 and type 9 differ in IPs settings (WRITE_COMMAND_8, 0x20, // 0x20 normal, 0x21 IPS )
+and MDT  (WRITE_C8_D8, 0xCD, 0x00   08/ 00)  MDT: isRGB pixel format argument. MDT=”0”, 'normal'.  MDT=”1”,(set to 8) pixel collect to DB[17:0]. PAGE 276 of manual
+Type9 has it set to 0 (Line 1358) - Type1 to 08 
+Both use RGB666 which seems essential... but im not sure why as it is physicaly wired 565!
+
+Note: Use Type1 & the colours will be inverted!  
+in Type 9 is no setting of 'IPS' (it is commented out), it sets 'MDT' to 0 (Line 1358): and RGB 666 (0x60): this works.
+checking combinations to see if I can change flicker effect: using 2.0.17 :
+using 0x21 and 0 0x60 :Inverted colours
+using 0x21 and CD=0x08 0x60;  still inverted
+using 0x20 and CD =0x08 0x60; v. strange partially correct pallette
+using  0x20 08  0x50         TRY 565 : 0X50 ...BETTER but not correct coverage of full spectrum
+using  0x20,00,50 ;              565 again.. still strange MDT does not seem to affect this ? 
+using 0x20, 00 60 Good results 
+using //(deleted), 00 60 Good results == type9 default  
+ ------------------------------------------------
+ WRITE_C8_D8, 0xCD, 0x00 //  08/ 00(Line 1358)
+ //WRITE_COMMAND_8, 0x20, // 0x20 normal, 0x21 IPS (Line 1450)
+ WRITE_C8_D8, 0x3A, 0x60, // 0x70 RGB888, 0x60 RGB666, 0x50 RGB565 (Line 1451)
  
 */
 //** OTHER PINS

@@ -2,14 +2,20 @@
 #include "ESP_NOW_files.h"
 #include <esp_wifi.h>
 #include <esp_now.h>
+
 #include "Structures.h"
+
+#include <esp_mac.h>  // For the MAC2STR and MACSTR macros
+
+#include <vector>
+
 
 //byte peerAddress[6];
 //const byte peerAddress_def[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };  // all receive
 esp_now_peer_info_t peerInfo;
 //bool EspNowIsRunning = false;
-byte peerAddress[6];
-const byte peerAddress_def[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };  // all receive
+unsigned char peerAddress[6];
+const unsigned char peerAddress_def[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };  // all receive
 unsigned long Last_EXT_Sent; // used to time a heartbeat 
 uint8_t* espnowchannel;
 wifi_second_chan_t* secondch; 
@@ -19,29 +25,31 @@ wifi_second_chan_t* secondch;
  enumerator WIFI_SECOND_CHAN_BELOW the channel width is HT40 and the secondary channel is below the primary channel
  */
 
-bool Start_ESP_EXT() {  // start espnow and set interrupt to function Update_ESPNOW() when data is seen / sent
-  bool success = false;
-  EspNowIsRunning = false;
-  memcpy(peerInfo.peer_addr, peerAddress_def, 6);
-  peerInfo.encrypt = false;
-  peerInfo.channel = 0;
-  if (esp_now_init() == ESP_OK) { EspNowIsRunning = true; }
-  esp_now_register_recv_cb(Update_ESPNOW);
-  if (esp_now_add_peer(&peerInfo) == ESP_OK) { success = true; }
-  esp_wifi_get_channel(espnowchannel,secondch);
-  Serial.println(" ESP-Now setup completed"); 
-  return success;
-}
+
 
 bool donotdisturb; // a semaphore to tell Update_ESPNOW NOT to accept and overwrite nmea_ext_buffer
 char nmea_ext_buffer[1000];
 
+
+
+
 //EXT send function services the ESP_NOW interrupt when an esp-now arrives.. A NEW funcion Test_ESP_NOW is now used in loop to extract a line of data to NMEA-ext. Similar to Test UDP etc..
-void Update_ESPNOW(const uint8_t* mac, const uint8_t* incomingData, int len) {
+
+
+  /*struct esp_now_recv_info
+  uint8_t *src_addr Source address of ESPNOW packet
+  uint8_t *des_addr Destination address of ESPNOW packet
+  wifi_pkt_rx_ctrl_t *rx_ctrl Rx control info of ESPNOW packet*
+  (const esp_now_recv_info_t *info, const uint8_t *data, int len) 
+  https://github.com/espressif/arduino-esp32/issues/9207#issuecomment-2137085519
+  */
+
+#if ESP_IDF_VERSION_MAJOR == 3
+  void Update_ESPNOW3(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len) { // new organisation for reply in V3 
     EspNowIsRunning = true;
-    char rxdata[249];//incoming ESP seem to be always 248 long, so make sre we are big enough
-  //OLD.. no buffer, just overwrites  nmea_EXT 
-   // memcpy(&rxdata,incomingData,sizeof(rxdata));  strcat(nmea_EXT, rxdata); 
+    char rxdata[249];//incoming ESP seem to be always 248 long, so make sure we are big enough
+    //OLD.. no buffer, just overwrites  nmea_EXT we do nothing here with the mac address which is now presumably info.src_addr[0]..info.src_addr[6] ?
+    // memcpy(&rxdata,incomingData,sizeof(rxdata));  strcat(nmea_EXT, rxdata); 
    if (!donotdisturb){ 
    if (strlen(nmea_ext_buffer)<=752){
       memcpy(&rxdata,incomingData,sizeof(rxdata));
@@ -49,9 +57,43 @@ void Update_ESPNOW(const uint8_t* mac, const uint8_t* incomingData, int len) {
       strcat(nmea_ext_buffer, rxdata);}
    }
            // Serial.print(nmea_EXT);Serial.print("> length now<");Serial.print(strlen(nmea_EXT));Serial.println(">");
- }
+  }
+#else
+  void Update_ESPNOW(const uint8_t* mac, const uint8_t* incomingData, int len) {
+    EspNowIsRunning = true;
+    char rxdata[249];//incoming ESP seem to be always 248 long, so make sre we are big enough
+    //OLD.. no buffer, just overwrites  nmea_EXT 
+    // memcpy(&rxdata,incomingData,sizeof(rxdata));  strcat(nmea_EXT, rxdata); 
+   if (!donotdisturb){ 
+   if (strlen(nmea_ext_buffer)<=752){
+      memcpy(&rxdata,incomingData,sizeof(rxdata));
+           //  Serial.print(" **Esp nmea_Ext is<");Serial.print(strlen(nmea_EXT));Serial.print("> rxdata is<");Serial.print(strlen(rxdata));Serial.print(">long  NMEAext isnow <");
+      strcat(nmea_ext_buffer, rxdata);}
+   }
+           // Serial.print(nmea_EXT);Serial.print("> length now<");Serial.print(strlen(nmea_EXT));Serial.println(">");
+  }
+#endif
 
- bool Test_ESP_NOW() {    // returns true if it extracts a line of text into nmea_EXT from nmea_ext_buffer
+bool Start_ESP_EXT() {  // start espnow and set interrupt to function Update_ESPNOW() when data is seen / sent
+  bool success = false;
+  EspNowIsRunning = false;
+  memcpy(peerInfo.peer_addr, peerAddress_def, 6);
+  peerInfo.encrypt = false;
+  peerInfo.channel = 0;
+  if (esp_now_init() == ESP_OK) { EspNowIsRunning = true; }
+  #if ESP_IDF_VERSION_MAJOR == 3
+    esp_now_register_recv_cb(Update_ESPNOW3);
+  #else
+   esp_now_register_recv_cb(Update_ESPNOW);  // version 3.2 uses the old method?
+  #endif
+  if (esp_now_add_peer(&peerInfo) == ESP_OK) { success = true; }
+  esp_wifi_get_channel(espnowchannel,secondch);
+  Serial.println(" ESP-Now setup completed"); 
+  return success;
+}
+
+
+bool Test_ESP_NOW() {    // Run in main loop ..returns true if it extracts a line of text into nmea_EXT from nmea_ext_buffer
   bool _gotFirstLine ;
   int offset ;
   // DO NOT WANT interrupt to corrupt/add to nmea_ext_buffer whilst we are fiddling with it
@@ -78,6 +120,8 @@ void Update_ESPNOW(const uint8_t* mac, const uint8_t* incomingData, int len) {
   donotdisturb=false;
   return _gotFirstLine;
 }
+
+
 extern struct _sDisplay_Config Display_Config;
 void EXTHeartbeat() {
   if (!EspNowIsRunning) { return; }

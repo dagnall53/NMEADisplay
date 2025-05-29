@@ -131,7 +131,7 @@ struct _sMyVictronDevices{   // equivalent to _sDisplay_Config all known victron
   int displayHeight[20];
   char DeviceVictronName[20][32];  // My DisplayShow to be used to help differentiate devices that give similar VICTRON_BLE_RECORD_TYPE but need more information for a good display
   int ManuDataLength[20]; 
-  byte manCharBuf[20][33];  //'Raw' data before formatting as victronManufacturerData  believe 33 is entirely big enough for data so far
+  unsigned char manCharBuf[20][33];  //'Raw' data before formatting as victronManufacturerData  believe 33 is entirely big enough for data so far
   unsigned long updated[20];
   bool displayed[20];  // displayed is used by Digital displays
   bool greyed[20];     // when the data is OLD! 

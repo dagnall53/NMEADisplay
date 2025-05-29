@@ -177,7 +177,7 @@ typedef struct {
  uint8_t nullPad;
 } __attribute__((packed)) victronManufacturerData;
 
-void hexCharStrToByteArray(char * hexCharStr, byte * byteArray); // called in LoadVictronConfiguration to set byte version of the input string 
+void hexCharStrToByteArray(char * hexCharStr, unsigned char * byteArray); // called in LoadVictronConfiguration to set unsigned char version of the input string 
 
 
 void BLEsetup();  // called from main void setup();
