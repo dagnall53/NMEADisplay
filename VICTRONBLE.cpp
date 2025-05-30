@@ -63,20 +63,14 @@ _sButton Vic_Inst_Master = { 0, 0, ColorSettings.BoxW, 100, 5, ColorSettings.Bac
 #define AES_KEY_BITS 128
 
 int scanTime = 1;             // BLE scan time (seconds)
-#define _BLESCANINTERVAL 300  // run scan every xx msecs, (results in lockout of all other functions  <for scanTime???> or for setInterval (10ms) )
+#define _BLESCANINTERVAL 500  // run scan every xx msecs, (results in lockout of all other functions  <for scanTime???> or for setInterval (10ms) )
 
 
 // Victron docs on the manufacturer data in advertisement packets can be found at:
 //   https://community.victronenergy.com/storage/attachments/48745-extra-manufacturer-data-2022-12-14.pdf
 //
 
-//int bestRSSI = -200;
-//int selectedvictronDeviceIndex = -1;
-
-//time_t lastLEDBlinkTime = 0;
-//time_t lastTick = 0;
-//int displayRotation = 3;
-bool packetReceived = false;
+// bool packetReceived = false;
 
 _sButton Shift(int shift_h, int shift_v, _sButton original) {
   _sButton temp;
@@ -270,7 +264,7 @@ char *ErrorCodeToChar(VE_REG_CHR_ERROR_CODE val) {
       strcpy(Buff, "Bulk time limit exceeded");
       break;
     case 21:  //VE_REG_CHR_ERROR_CODE::CURRENT_SENSOR:
-      strcpy(Buff, "Current sensor issue (sensor bias/sensor broken)");
+      strcpy(Buff, "Current sensor bias/sensor broken)");
       break;
     case 22:  //VE_REG_CHR_ERROR_CODE::INTERNAL_TEMPERATURE_A:
       strcpy(Buff, "Internal temperature sensor failure");
@@ -303,10 +297,10 @@ char *ErrorCodeToChar(VE_REG_CHR_ERROR_CODE val) {
       strcpy(Buff, "PV over-power");
       break;
     case 38:  //VE_REG_CHR_ERROR_CODE::INPUT_SHUTDOWN_VOLTAGE:
-      strcpy(Buff, "Input shutdown (due to excessive battery voltage)");
+      strcpy(Buff, "Input shutdown- excessive battery voltage");
       break;
     case 39:  //VE_REG_CHR_ERROR_CODE::INPUT_SHUTDOWN_CURRENT:
-      strcpy(Buff, "Input shutdown (due to current flow during off mode)");
+      strcpy(Buff, "Input shutdown - current flow during off mode");
       break;
     case 40:  //VE_REG_CHR_ERROR_CODE::INPUT_SHUTDOWN_FAILURE:
       strcpy(Buff, "PV Input failed to shutdown");
@@ -414,7 +408,7 @@ char *ErrorCodeToChar(VE_REG_CHR_ERROR_CODE val) {
       strcpy(Buff, "Internal DC voltage error");
       break;
     case 202:  //VE_REG_CHR_ERROR_CODE::SELF_TEST:
-      strcpy(Buff, "PV residual current sensor self-test failure");
+      strcpy(Buff, "PV RCS self-test failure");
       break;
     case 203:  //VE_REG_CHR_ERROR_CODE::INTERNAL_SUPPLY_A:
       strcpy(Buff, "Internal supply voltage error");
@@ -559,6 +553,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 #endif
       uint8_t manCharBuf[100];  // 32 is possibly entirely enough see ble example
       int ManuDataLength = manData.length();
+      if (ManuDataLength > 100){return;}
 #if ESP_ARDUINO_VERSION_MAJOR == 3
       memcpy(manCharBuf, manData.c_str(), ManuDataLength);
 #else
@@ -634,7 +629,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
           }
         }
       }  //data now safely saved in my _sMyVictronDevices structured array[i] to be worked on later!
-      packetReceived = true;
+      //packetReceived = true;
     }
   }
 };

@@ -1,6 +1,7 @@
 //*******************************************************************************
 /*
-Compiled and tested with ESp32 V2.0.17  V3has broken  some functions and this code will not work with V3!
+Compiled and tested with ESp32 V2.0.17  
+early V3 has broken  some functions and this code will not work until  V3.3.0a!
 GFX library for Arduino 1.5.5
 Select "ESP32-S3 DEV Module"
 Select PSRAM "OPI PSRAM" / enabled
@@ -24,7 +25,7 @@ COMPILED AGAIN wITH 2.0.17 AND GFX 1.6 flicker less
 #define UsingV3Compiler             // this #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
 #endif
 
-// #define AUDIO
+ #define AUDIO
 
 
 #include <NMEA0183.h>
