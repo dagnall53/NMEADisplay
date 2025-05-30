@@ -10,7 +10,7 @@ Select PSRAM "OPI PSRAM" / enabled
 
 
 Version 3 tests try to use 
-#if ESP_IDF_VERSION_MAJOR ==3 ? 
+#if ESP_ARDUINO_VERSION_MAJOR ==3 ? 
 
 Schreibfaul1 esp32 audio needs V3 for V3 compiler:
 or 2.0.0 for Version 2.0.17 -- its not cross compatible.  
@@ -19,7 +19,7 @@ GFX seems ok , but change the.h as noted: but Jpeg screen seems to flicker with 
 COMPILED AGAIN wITH 2.0.17 AND GFX 1.6 flicker less 
 
 */
-#if ESP_IDF_VERSION_MAJOR == 3     // hoping this #if will work in the called .cpp !! 
+#if ESP_ARDUINO_VERSION_MAJOR == 3     // hoping this #if will work in the called .cpp !! 
 #define UsingV3Compiler   // this #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
 #endif
 
@@ -2590,7 +2590,7 @@ bool Test_U() {  // check if udp packet (UDP is sent in lines..) has arrived
   int packetSize = Udp.parsePacket();
   if (packetSize) {  // Deal with UDP packet
     if (packetSize >= (BufferLength)) {
-  #if ESP_IDF_VERSION_MAJOR == 3
+  #if ESP_ARDUINO_VERSION_MAJOR == 3
          Udp.clear();
    #else
       Udp.flush();

@@ -501,14 +501,14 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
     char debugMsg[200];                                     // No debug in callback unless in debugmode?
     if (advertisedDevice.haveManufacturerData() == true) {  // ONLY bother with the message if it has "manufacturerdata" and then look to see if it's coming from a Victron device.
       // get all the data we can.
-      #if ESP_IDF_VERSION_MAJOR == 3
+      #if ESP_ARDUINO_VERSION_MAJOR == 3
        String manData = advertisedDevice.getManufacturerData();
        #else
        std::string manData = advertisedDevice.getManufacturerData();  // lib code returns type std::string
       #endif
       uint8_t manCharBuf[100];                                       // 32 is possibly entirely enough see ble example
       int ManuDataLength = manData.length();
-      #if ESP_IDF_VERSION_MAJOR == 3
+      #if ESP_ARDUINO_VERSION_MAJOR == 3
        memcpy(manCharBuf,manData.c_str(),ManuDataLength);
        #else
       manData.copy((char *)manCharBuf, ManuDataLength);  // copy the mfr data into our manCharBuf
@@ -519,7 +519,7 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 
       char deviceName[32];  // to store device name if there is one
       deviceName[0] = 0;
-       #if ESP_IDF_VERSION_MAJOR == 3
+       #if ESP_ARDUINO_VERSION_MAJOR == 3
        String getName = advertisedDevice.getName().c_str();
        #else
       std::string getName = advertisedDevice.getName().c_str();  //
@@ -843,7 +843,7 @@ void BLEloop() {
       victronDevices.updated[VictronSimulateIndex] = millis();
       //Serial.printf(" Simulating reception of :<%i>", VictronSimulateIndex);
     } else {
-#if ESP_IDF_VERSION_MAJOR == 3
+#if ESP_ARDUINO_VERSION_MAJOR == 3
      pBLEScan->start(1, scanCompleteCB);
 #else      
       BLEScanResults foundDevices = pBLEScan->start(1, false);  //scanTime>0 is essential or it locks in continuous!, true);  // what does the iscontinue do? (the true/false is set false in examples. )

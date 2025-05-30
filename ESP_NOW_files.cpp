@@ -44,7 +44,7 @@ char nmea_ext_buffer[1000];
   https://github.com/espressif/arduino-esp32/issues/9207#issuecomment-2137085519
   */
 
-#if ESP_IDF_VERSION_MAJOR == 3
+#if ESP_ARDUINO_VERSION_MAJOR == 3
   void Update_ESPNOW3(const esp_now_recv_info_t *info, const uint8_t *incomingData, int len) { // new organisation for reply in V3 
     EspNowIsRunning = true;
     char rxdata[249];//incoming ESP seem to be always 248 long, so make sure we are big enough
@@ -81,7 +81,7 @@ bool Start_ESP_EXT() {  // start espnow and set interrupt to function Update_ESP
   peerInfo.encrypt = false;
   peerInfo.channel = 0;
   if (esp_now_init() == ESP_OK) { EspNowIsRunning = true; }
-  #if ESP_IDF_VERSION_MAJOR == 3
+  #if ESP_ARDUINO_VERSION_MAJOR == 3
     esp_now_register_recv_cb(Update_ESPNOW3);
   #else
    esp_now_register_recv_cb(Update_ESPNOW);  // version 3.2 uses the old method?
