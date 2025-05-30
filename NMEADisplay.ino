@@ -25,7 +25,7 @@ COMPILED AGAIN wITH 2.0.17 AND GFX 1.6 flicker less
 #define UsingV3Compiler             // this #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
 #endif
 
- #define AUDIO
+#define AUDIO
 
 
 #include <NMEA0183.h>
