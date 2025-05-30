@@ -56,8 +56,8 @@ BLEScan *pBLEScan;
 // int h, v, width, height, bordersize;  uint16_t BackColor, TextColor, BorderColor;
 // generic button for displays to modify h,v width and height from Vconfig file. Will start with settings relative to Vic_Inst_Master :
 _sButton DisplayOuterbox;
-_sButton Vic_Inst_Master = { 0, 0, ColorSettings.BoxW,100,  5,ColorSettings.BackColor,ColorSettings.TextColor,ColorSettings.BorderColor}; //WHITE, BLACK, BLUE };
-  // 
+_sButton Vic_Inst_Master = { 0, 0, ColorSettings.BoxW, 100, 5, ColorSettings.BackColor, ColorSettings.TextColor, ColorSettings.BorderColor };  //WHITE, BLACK, BLUE };
+  //
 #define socbar 20
 #define greyoutTime 12000
 #define AES_KEY_BITS 128
@@ -100,6 +100,57 @@ _sButton Shift(int shift_h, int shift_v, _sButton original) {
 
   return temp;
 };
+
+char *RecordTypeToChar(u_int8_t val) {
+  static char Buff[100];
+  switch (val) {
+    case 0:
+      strcpy(Buff, "TEST");
+      break;
+    case 1:
+      strcpy(Buff, "SOLAR_CHARGER");
+      break;
+    case 2:
+      strcpy(Buff, "BATTERY_MONITOR");
+      break;
+    case 3:
+      strcpy(Buff, "INVERTER");
+      break;
+    case 4:
+      strcpy(Buff, "DCDC_CONVERTER");
+      break;
+    case 5:
+      strcpy(Buff, "SMART_LITHIUM");
+      break;
+    case 6:
+      strcpy(Buff, "INVERTER_RS");
+      break;
+    case 7:
+      strcpy(Buff, "GX_DEVICE");
+      break;
+    case 8:
+      strcpy(Buff, "AC_CHARGER");
+      break;
+    case 9:
+      strcpy(Buff, "SMART_BATTERY_PROTECT");
+      break;
+    case 10:
+      strcpy(Buff, "LYNX_SMART_BMS");
+      break;
+    case 11:
+      strcpy(Buff, "MULTI_RS");
+      break;
+    case 12:
+      strcpy(Buff, "VE_BUS");
+      break;
+    case 13:
+      strcpy(Buff, "ORION_XS");
+      break;
+  }
+  return Buff;
+};
+
+
 char *DeviceStateToChar(VE_REG_DEVICE_STATE val) {
   static char Buff[100];
   switch (val) {
@@ -460,11 +511,11 @@ void DrawBar(_sButton box, char *title, uint16_t color, float data) {
 _sButton Setup_N_Display(_sButton &box, int height, int shiftH, int shiftV, char *title) {  // takes charactersitics of 'box, but changes position and height colours  as required
   _sButton Display4outerbox = box;                                                          // use box struct and ColorSettings for the colours border size etc, etc ...
   Display4outerbox.height = height;
-  Display4outerbox.width= ColorSettings.BoxW;
-  Display4outerbox.TextColor=ColorSettings.TextColor;
-  Display4outerbox.BorderColor=ColorSettings.BorderColor;
-  Display4outerbox.BackColor=ColorSettings.BackColor;
-  
+  Display4outerbox.width = ColorSettings.BoxW;
+  Display4outerbox.TextColor = ColorSettings.TextColor;
+  Display4outerbox.BorderColor = ColorSettings.BorderColor;
+  Display4outerbox.BackColor = ColorSettings.BackColor;
+
   Display4outerbox = Shift(shiftH, shiftV, Display4outerbox);
   char borderdisplay[30];
   strcpy(borderdisplay, title);
@@ -479,7 +530,7 @@ _sButton Setup_N_Display(_sButton &box, int height, int shiftH, int shiftV, char
 void DebugRawVdata(unsigned char *outputData, int datasize) {
   //  work on outputData[16]
   char debugMsg[200];
-  snprintf(debugMsg, 120, "Decrypted Data len %i :",datasize);
+  snprintf(debugMsg, 120, "Decrypted Data len %i :", datasize);
   strcat(VictronBuffer, debugMsg);
   //Serial.print("Raw Data");
   for (int i = 0; i < datasize; i++) {
@@ -500,30 +551,30 @@ class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
   void onResult(BLEAdvertisedDevice advertisedDevice) {
     char debugMsg[200];                                     // No debug in callback unless in debugmode?
     if (advertisedDevice.haveManufacturerData() == true) {  // ONLY bother with the message if it has "manufacturerdata" and then look to see if it's coming from a Victron device.
-      // get all the data we can.
-      #if ESP_ARDUINO_VERSION_MAJOR == 3
-       String manData = advertisedDevice.getManufacturerData();
-       #else
-       std::string manData = advertisedDevice.getManufacturerData();  // lib code returns type std::string
-      #endif
-      uint8_t manCharBuf[100];                                       // 32 is possibly entirely enough see ble example
+// get all the data we can.
+#if ESP_ARDUINO_VERSION_MAJOR == 3
+      String manData = advertisedDevice.getManufacturerData();
+#else
+      std::string manData = advertisedDevice.getManufacturerData();  // lib code returns type std::string
+#endif
+      uint8_t manCharBuf[100];  // 32 is possibly entirely enough see ble example
       int ManuDataLength = manData.length();
-      #if ESP_ARDUINO_VERSION_MAJOR == 3
-       memcpy(manCharBuf,manData.c_str(),ManuDataLength);
-       #else
-      manData.copy((char *)manCharBuf, ManuDataLength);  // copy the mfr data into our manCharBuf
-      #endif
-      if ((manCharBuf[2] != 0x10)) { return; }           // is not a beacon, not interested!
+#if ESP_ARDUINO_VERSION_MAJOR == 3
+      memcpy(manCharBuf, manData.c_str(), ManuDataLength);
+#else
+      manData.copy((char *)manCharBuf, ManuDataLength);              // copy the mfr data into our manCharBuf
+#endif
+      if ((manCharBuf[2] != 0x10)) { return; }  // is not a beacon, not interested!
 
       int RSSI = advertisedDevice.getRSSI();
 
       char deviceName[32];  // to store device name if there is one
       deviceName[0] = 0;
-       #if ESP_ARDUINO_VERSION_MAJOR == 3
-       String getName = advertisedDevice.getName().c_str();
-       #else
-      std::string getName = advertisedDevice.getName().c_str();  //
-      #endif 
+#if ESP_ARDUINO_VERSION_MAJOR == 3
+      String getName = advertisedDevice.getName().c_str();
+#else
+      std::string getName = advertisedDevice.getName().c_str();      //
+#endif
       if (advertisedDevice.haveName()) { strcpy(deviceName, advertisedDevice.getName().c_str()); }
 
 
@@ -603,8 +654,8 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
   if (victronDevices.displayed[i]) {  //Serial.printf(" %i displayed already\n",i);
     return;
   }
- // Serial.printf("Deal_With_BLE_<%i>_Data", i);
-  snprintf(debugMsg, 120, " my device<%i>,", i);
+  // Serial.printf("Deal_With_BLE_<%i>_Data", i);
+  snprintf(debugMsg, 120, "Victron<%i>,", i);
   strcat(VictronBuffer, debugMsg);
 
   if (victronDevices.greyed[i]) {
@@ -624,7 +675,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
     victronDevices.VICTRON_BLE_RECORD_TYPE[i] = vicData->VICTRON_BLE_RECORD_TYPE;
   }  //save it to our config file to save us having to do it manually      }
 
-  snprintf(debugMsg, 120, " record type<%x>,ProductID(%i),", vicData->VICTRON_BLE_RECORD_TYPE, vicData->product_id);
+  snprintf(debugMsg, 120, " Type<%s>,ProductID(%i),", RecordTypeToChar(vicData->VICTRON_BLE_RECORD_TYPE), vicData->product_id);
   strcat(VictronBuffer, debugMsg);
   //Serial.println(debugMsg);
   int KnownDataType;
@@ -701,7 +752,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
       load_current = random(1, 10);
     }
 
-    snprintf(debugMsg, 120, "PVPower<%3.2f> Volts<%3.2f>,AMPS<%3.2f>, load%3.2fA\n ", pv_power, battery_voltage, battery_current, load_current);
+    snprintf(debugMsg, 120, "PVPower<%3.2f> Batt.Volts<%3.2f>,Batt.current<%3.2f>, Load<%3.2fA>\n ", pv_power, battery_voltage, battery_current, load_current);
     strcat(VictronBuffer, debugMsg);
     if (Display_Page == -87) {
       DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, victronDevices.displayHeight[i], victronDevices.displayH[i], victronDevices.displayV[i], victronDevices.FileCommentName[i]);
@@ -734,7 +785,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
       auxtype = 2;
       aux_input = 300;
     }
-    snprintf(debugMsg, 120, "Volts<%3.2f>,AMPS<%3.2f>, SOC%3.2f, AUX%3.2f \n", battery_voltage, battery_current, state_of_charge, aux_input);
+    snprintf(debugMsg, 120, "Volts<%3.2f>,AMPS<%3.2f>, SOC<%3.0f%>, AUX<%3.2f> \n", battery_voltage, battery_current, state_of_charge, aux_input);
     strcat(VictronBuffer, debugMsg);
     if (Display_Page == -87) {
       DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, victronDevices.displayHeight[i], victronDevices.displayH[i], victronDevices.displayV[i], victronDevices.FileCommentName[i]);
@@ -775,7 +826,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
       battery_current_2 = random(-2.2, 20.6);
       temperature = 300;
     }
-    snprintf(debugMsg, 120, "battery_voltage_1<%3.2f> battery_current_1<%3.2f>, load%3.2fA, temp%2.0f deg\n", battery_voltage_1, battery_current_1, temperature - 273.15);
+    snprintf(debugMsg, 120, "battery_voltage_1<%3.2f> battery_current_1<%3.2f>, load<%3.2fA>, temp<%2.0f deg>\n", battery_voltage_1, battery_current_1, temperature - 273.15);
     strcat(VictronBuffer, debugMsg);
     if (Display_Page == -87) {
       DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, victronDevices.displayHeight[i], victronDevices.displayH[i], victronDevices.displayV[i], victronDevices.FileCommentName[i]);
@@ -800,10 +851,10 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
  * V3 Callback invoked when scanning has completed.
  */
 static void scanCompleteCB(BLEScanResults scanResults) {
-	//printf("Scan complete!\n");
-	//printf("We found %d devices\n", scanResults.getCount());
-	scanResults.dump();
-} // scanCompleteCB*/
+  //printf("Scan complete!\n");
+  //printf("We found %d devices\n", scanResults.getCount());
+  scanResults.dump();
+}  // scanCompleteCB*/
 
 
 
@@ -831,7 +882,7 @@ void BLEloop() {
   static unsigned long BLESCANINTERVAL;
   if (millis() >= BLESCANINTERVAL) {
     FoundMyDevices = 0;
-   // Serial.printf("BLE Scanning:\n");
+    // Serial.printf("BLE Scanning:\n");
     // snprintf(debugMsg, 120, "BLE Scan Commence");
     // strcat(VictronBuffer, debugMsg);
     if (ColorSettings.Simulate) {  // pull the simulate trigger on all listed in sequence !
@@ -844,15 +895,15 @@ void BLEloop() {
       //Serial.printf(" Simulating reception of :<%i>", VictronSimulateIndex);
     } else {
 #if ESP_ARDUINO_VERSION_MAJOR == 3
-     pBLEScan->start(1, scanCompleteCB);
-#else      
-      BLEScanResults foundDevices = pBLEScan->start(1, false);  //scanTime>0 is essential or it locks in continuous!, true);  // what does the iscontinue do? (the true/false is set false in examples. )
-                                                               // Serial.printf("Found %i BLE and %i are myVictrons \n", foundDevices.getCount(), FoundMyDevices);
-      pBLEScan->clearResults();                                 // delete results fromBLEScan buffer to release memory
-#endif 
+      pBLEScan->start(1, scanCompleteCB);
+#else
+      BLEScanResults foundDevices = pBLEScan->start(1, false);       //scanTime>0 is essential or it locks in continuous!, true);  // what does the iscontinue do? (the true/false is set false in examples. )
+                                                                     // Serial.printf("Found %i BLE and %i are myVictrons \n", foundDevices.getCount(), FoundMyDevices);
+      pBLEScan->clearResults();                                      // delete results fromBLEScan buffer to release memory
+#endif
     }
     BLESCANINTERVAL = millis() + _BLESCANINTERVAL;  // wait scan interval AFTER the finish!!
-   // Serial.printf("  Scan Finished \n");
+                                                    // Serial.printf("  Scan Finished \n");
     //  snprintf(debugMsg, 120, "BLE Scan Finished \n");
     //  strcat(VictronBuffer, debugMsg);
   }
@@ -863,9 +914,3 @@ void BLEloop() {
   }
   //pBLEScan->clearResults();
 }
-
-
-
-
-
-

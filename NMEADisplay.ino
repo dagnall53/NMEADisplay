@@ -24,6 +24,7 @@ COMPILED AGAIN wITH 2.0.17 AND GFX 1.6 flicker less
 #define UsingV3Compiler             // this #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
 #endif
 
+// #define AUDIO
 
 
 #include <NMEA0183.h>
@@ -81,9 +82,9 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 //v3 tests.. no audio until I fix the is2  ?  /
 //now compiles using https://github.com/schreibfaul1/ESP32-audioI2S  v 3.0.13 (was using 2.0.0 with V2.0.17   esp32 compiler)
-
+#ifdef AUDIO
 #include "Audio.h"
-
+#endif
 #include "VICTRONBLE.h"  //sets #ifndef Victronble_h
 
 
@@ -114,8 +115,9 @@ const char* ColorsFilename = "/colortest.txt";  // <- SD library uses 8.3 filena
 _MyColors ColorSettings;
 
 //set up Audio
+#ifdef AUDIO
 Audio audio;
-
+#endif
 
 // some wifi stuff
 //NB these may not be used -- I have tried to do some simplification
@@ -1051,6 +1053,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       break;
 
     case -9:  // Play with the audio ..NOTE  Needs the resistors resoldered to connect to the audio chip on the Guitron (mains relay type) version!!
+     #ifdef AUDIO
       if (RunSetup || DataChanged) {
         setFont(4);
         gfx->setTextColor(WHITE, BLUE);
@@ -1116,6 +1119,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         audio.setVolume(volume);
         DataChanged = true;
       }
+      #endif
       break;
 
     case -5:  ///Wifiscan
@@ -1892,13 +1896,10 @@ void setup() {
   gfx->setCursor(40, 20);
   gfx->println(F("***Display Started***"));
   SD_Setup();
-  Audio_setup();  // Puts LOGO on screen
-                  // try earlier? one source says audio needs to be started before gfx display //SD_Setup();Audio_setup();
-
-  // gfx->setCursor(140, 140);
-  // gfx->println(soft_version);
-
-
+  #ifdef AUDIO
+  Audio_setup();  
+  #endif
+  
   EEPROM_READ();  // setup and read Saved_Settings (saved variables)
   Current_Settings = Saved_Settings;
   // Should automatically load default config if run for the first time
@@ -1998,16 +1999,22 @@ void loop() {
   Display(Display_Page);
   /*BLEloop*/
   if ((Current_Settings.BLE_enable) && ((Display_Page == -86) || (Display_Page == -87))) {
+  #ifdef AUDIO
     if (audio.isRunning()) {
       delay(10);
       WifiGFXinterrupt(8, WifiStatus, "BLE will start\nwhen Audio finished");
     } else {
       BLEloop();
     }
+    #else
+    BLEloop();
+    #endif
   }  // Prioritize the sounds if on..
      //ONLY on  victron Display_Page -86 and -87!! or it interrupts eveything!
   EXTHeartbeat();
+   #ifdef AUDIO
   audio.loop();
+  #endif
 
   if (!AttemptingConnect && !IsConnected && (millis() >= SSIDSearchInterval)) {  // repeat at intervals to check..
     SSIDSearchInterval = millis() + scansearchinterval;                          //
@@ -2086,8 +2093,8 @@ void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
     while (Test_ESP_NOW() && (millis() <= MAXScanInterval)) {
       UseNMEA(nmea_EXT, 3);
       // runs multiple times to clear the buffer.. use delay to allow other things to work.. print to show if this is the cause of start delays while debugging!
-      audio.loop();
-      vTaskDelay(1);
+      //audio.loop();
+      //vTaskDelay(1);
     }
   }
   // Serial.printf(" ca<%i>",millis()-Interval);Interval=millis();
@@ -2392,7 +2399,9 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
       Serial.print("The ESP32 has received IP address :");
       Serial.println(WiFi.localIP());
+    #ifdef AUDIO
       if (hasSD) { audio.connecttoFS(SD, "/StartSound.mp3"); }
+    #endif
       WifiGFXinterrupt(9, WifiStatus, "CONNECTED TO\n<%s>\nIP:%i.%i.%i.%i\n", WiFi.SSID(),
                        WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
       break;
@@ -2613,6 +2622,8 @@ void UDPSEND(const char* buf) {                              // this is the one 
 //***
 
 //*****   AUDIO ****  STRICTLY experimental - needs three resistors moving to wire in the Is2 audio chip!
+
+#ifdef AUDIO
 void Audio_setup() {
   if (!hasSD) {
     Serial.println("Audio setup FAILED - no SD");
@@ -2701,7 +2712,7 @@ void open_new_song(String dir, String filename) {
 }
 
 
-
+#endif
 
 
 
