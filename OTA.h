@@ -537,21 +537,12 @@ void handleNotFound() {
 }
 
 void handleQuestion() {
-  Serial.println(" sending handle Question");
-  Serial.println(html_Question());
-
   server.sendContent(html_Question());
-  // server.sendContent("<br><b><center>Compiled on " __DATE__ " " __TIME__ "</center>");
-  // server.sendContent("<br><center> Compiled with:"+String(ESP_ARDUINO_VERSION_MAJOR)+"."+String(ESP_ARDUINO_VERSION_MINOR)+"."+String(ESP_ARDUINO_VERSION_PATCH)+ " (based on ESP-IDF:"+String(esp_get_idf_version())+")</center>");
-  // server.sendContent("<br><center>Code Comments</b><br></center><left>");
-
   server.sendContent("");
-  //server.sendContent(CodeModComments);server.sendContent("</left><br><br>");
-  // Parameters_have_been_updated=" EEPROM UNCHANGED ";
   server.sendContent("");
-
   server.client().stop();
 }
+
 void SetupWebstuff() {
   if (MDNS.begin(Display_Config.PanelName)) {
     MDNS.addService("http", "tcp", 80);

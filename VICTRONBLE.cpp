@@ -434,6 +434,28 @@ char *ErrorCodeToChar(VE_REG_CHR_ERROR_CODE val) {
   return Buff;
 };
 
+//company name from https://gist.github.com/angorb/f92f76108b98bb0d81c74f60671e9c67#file-bluetooth-company-identifiers-json
+char *Co_BLEIdentifier_Into_Char(uint8_t *mfrData) {
+  static char result[30];
+  result[0] = 0;
+  snprintf(result, sizeof(result), "'0x%02X%02X'", mfrData[1], mfrData[0]);
+  if ((mfrData[0] == 0x4C) && (mfrData[1] == 0x00)) { snprintf(result, sizeof(result), "0x%02X%02X-Apple", mfrData[1], mfrData[0]); }
+  if ((mfrData[0] == 0x06) && (mfrData[1] == 0x00)) { snprintf(result, sizeof(result), "0x%02X%02X-Microsoft", mfrData[1], mfrData[0]); }
+  if ((mfrData[0] == 0xE1) && (mfrData[1] == 0x02)) { snprintf(result, sizeof(result), "0x%02X%02X-Victron", mfrData[1], mfrData[0]); }
+  return result;
+};
+char *Co_BLEIdentifier_Into_Char(uint8_t mfrData0, uint8_t mfrData1) {
+  static char result[30];
+  result[0] = 0;
+  snprintf(result, sizeof(result), "'0x%02X%02X'", mfrData1, mfrData0);
+  if ((mfrData0 == 0x4C) && (mfrData1 == 0x00)) { snprintf(result, sizeof(result), "0x%02X%02X-Apple", mfrData1, mfrData0); }
+  if ((mfrData0 == 0x06) && (mfrData1 == 0x00)) { snprintf(result, sizeof(result), "0x%02X%02X-Microsoft", mfrData1, mfrData0); }
+  if ((mfrData0 == 0xE1) && (mfrData1 == 0x02)) { snprintf(result, sizeof(result), "0x%02X%02X-Victron", mfrData1, mfrData0); }
+  return result;
+};
+
+
+
 unsigned char hexCharToByte(char hexChar) {
   if (hexChar >= '0' && hexChar <= '9') {  // 0-9
     hexChar = hexChar - '0';
@@ -478,11 +500,11 @@ void hexCharStrToByteArray(char *hexCharStr, unsigned char *byteArray) {
   }
 }
 
-bool CompareString_Mac(char *receivedMacStr, char *charMacAddr) {  //compare received.. <ea:9d:f3:eb:c6:25> with string <ea9df3ebc625> held in indexed
+bool CompareString_Mac(const char *receivedMacStr, char *charMacAddr) {  //compare received.. <ea:9d:f3:eb:c6:25> with string <ea9df3ebc625> held in indexed
   bool result = true;
   // Serial.printf("CompareString_Mac test  <%s>    <%s> \n", receivedMacStr, charMacAddr);
   // nB could probably do with some UPPER case stuff in case mac was stored UC?
-  // and generic loop to miss out the ":" (58d) ??
+  // and generic loop to miss out the ":" (58d) in either input ????
   int j = 0;
   for (int i = 0; i < sizeof(charMacAddr); i++) {
     if (receivedMacStr[j] == 58) { j++; }
@@ -502,17 +524,23 @@ void DrawBar(_sButton box, char *title, uint16_t color, float data) {
   // AddTitleBorderBox(0, box, title);
 }
 
-_sButton Setup_N_Display(_sButton &box, int height, int shiftH, int shiftV, char *title) {  // takes charactersitics of 'box, but changes position and height colours  as required
-  _sButton Display4outerbox = box;                                                          // use box struct and ColorSettings for the colours border size etc, etc ...
-  Display4outerbox.height = height;
+
+//victronDevices.displayHeight[i], victronDevices.displayH[i], victronDevices.displayV[i], victronDevices.FileCommentName[i]
+_sButton Setup_N_Display(_sButton &box, int i) {  // takes charactersitics of 'box, but changes position and height colours  as required
+  _sButton Display4outerbox = box;                // use box struct and ColorSettings for the colours border size etc, etc ...
+  Display4outerbox.height = victronDevices.displayHeight[i];
   Display4outerbox.width = ColorSettings.BoxW;
   Display4outerbox.TextColor = ColorSettings.TextColor;
   Display4outerbox.BorderColor = ColorSettings.BorderColor;
   Display4outerbox.BackColor = ColorSettings.BackColor;
 
-  Display4outerbox = Shift(shiftH, shiftV, Display4outerbox);
+  Display4outerbox = Shift(victronDevices.displayH[i], victronDevices.displayV[i], Display4outerbox);
   char borderdisplay[30];
-  strcpy(borderdisplay, title);
+  if (strlen(victronDevices.FileCommentName[i]) > 1) {
+    strcpy(borderdisplay, victronDevices.FileCommentName[i]);
+  } else {
+    strcpy(borderdisplay, victronDevices.DeviceVictronName[i]);
+  }
   //if (ColorSettings.Simulate) { strcat(borderdisplay, "-sim-"); }
   //Serial.printf(" BOX h%i v%i %i high \n",Display4outerbox.h,Display4outerbox.v,Display4outerbox.height);
   GFXBorderBoxPrintf(Display4outerbox, "");  //Used to blank the previous stuff!
@@ -520,6 +548,26 @@ _sButton Setup_N_Display(_sButton &box, int height, int shiftH, int shiftV, char
   AddTitleBorderBox(0, Display4outerbox, borderdisplay);
   return Display4outerbox;
 }
+
+
+// _sButton Setup_N_Display(_sButton &box, int height, int shiftH, int shiftV, char *title) {  // takes charactersitics of 'box, but changes position and height colours  as required
+//   _sButton Display4outerbox = box;                                                          // use box struct and ColorSettings for the colours border size etc, etc ...
+//   Display4outerbox.height = height;
+//   Display4outerbox.width = ColorSettings.BoxW;
+//   Display4outerbox.TextColor = ColorSettings.TextColor;
+//   Display4outerbox.BorderColor = ColorSettings.BorderColor;
+//   Display4outerbox.BackColor = ColorSettings.BackColor;
+
+//   Display4outerbox = Shift(shiftH, shiftV, Display4outerbox);
+//   char borderdisplay[30];
+//   strcpy(borderdisplay, title);
+//   //if (ColorSettings.Simulate) { strcat(borderdisplay, "-sim-"); }
+//   //Serial.printf(" BOX h%i v%i %i high \n",Display4outerbox.h,Display4outerbox.v,Display4outerbox.height);
+//   GFXBorderBoxPrintf(Display4outerbox, "");  //Used to blank the previous stuff!
+//   //
+//   AddTitleBorderBox(0, Display4outerbox, borderdisplay);
+//   return Display4outerbox;
+// }
 
 void DebugRawVdata(unsigned char *outputData, int datasize) {
   //  work on outputData[16]
@@ -535,102 +583,95 @@ void DebugRawVdata(unsigned char *outputData, int datasize) {
   snprintf(debugMsg, 120, "\n");
   strcat(VictronBuffer, debugMsg);
 }
+/* refined following discussion of manufacturerdata https://github.com/nkolban/esp32-snippets/issues/565
+char* manCharBuf2 = BLEUtils::buildHexData(NULL, (uint8_t*)advertisedDevice.getManufacturerData().data(), 
+advertisedDevice.getManufacturerData().length());
+uint8_t* MFRdata;
+MFRdata = (uint8_t*)advertisedDevice.getManufacturerData().data(); // .data() returns a pointer to the std::string array 
+int len = advertisedDevice.getManufacturerData().length();
+
+
+if (manCharBuf2 != NULL) {free(manCharBuf2);}
+*/
+
 
 int VictronSimulateIndex;
 bool SHOWRAWBLE = false;
 int FoundMyDevices;
-//#define ManuDataLengthMax 31  // BLE specs say no more than 31 bytes, but... see hoben comments .. may 25' I do not want to change or modify this (yet!)
 // read https://github.com/hoberman/Victron_BLE_Scanner_Display/blob/main/BLE_Adv_Callback.ino for comments.
+
 class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
   void onResult(BLEAdvertisedDevice advertisedDevice) {
-    char debugMsg[200];                                     // No debug in callback unless in debugmode?
-    if (advertisedDevice.haveManufacturerData() == true) {  // ONLY bother with the message if it has "manufacturerdata" and then look to see if it's coming from a Victron device.
-// get all the data we can.
-#if ESP_ARDUINO_VERSION_MAJOR == 3
-      String manData = advertisedDevice.getManufacturerData();
-#else
-      std::string manData = advertisedDevice.getManufacturerData();  // lib code returns type std::string
-#endif
-      uint8_t manCharBuf[100];  // 32 is possibly entirely enough see ble example
-      int ManuDataLength = manData.length();
-      if (ManuDataLength > 100){return;}
-#if ESP_ARDUINO_VERSION_MAJOR == 3
-      memcpy(manCharBuf, manData.c_str(), ManuDataLength);
-#else
-      manData.copy((char *)manCharBuf, ManuDataLength);              // copy the mfr data into our manCharBuf
-#endif
-      if ((manCharBuf[2] != 0x10)) { return; }  // is not a beacon, not interested!
+    char debugMsg[200];                                           // No debug in (fast) callback unless in debugmode?
+    uint8_t manCharBuf[100];        manCharBuf[0]=0;              //local copy with "just in case" clear  
+            
+    if (!advertisedDevice.haveManufacturerData()) { return; }     // ONLY bother with the message if it has "manufacturerdata" and then look to see if it's coming from a Victron device.
+    if (advertisedDevice.getManufacturerData().length() > 100) {  return; }
+    // get the manufacturer data into our local manCharBuf array.
+    #if ESP_ARDUINO_VERSION_MAJOR == 3
+    		uint8_t *pHex = (uint8_t*)advertisedDevice.getManufacturerData().c_str();  // not confirmed to work !
+    #else
+        uint8_t *pHex = (uint8_t *)advertisedDevice.getManufacturerData().data();  // works with 2.0.17  
+    #endif
+     for (int j = 0; j < advertisedDevice.getManufacturerData().length(); j++) {
+             manCharBuf[j]=pHex[j];  // save to our won array from pHex pointer for use in this function
+          }                          // NOTE: could use pHex[x] directly, but I noted some issues - probably with timing and Serial printf and (possibly) another call to this function while the printf was being done
 
-      int RSSI = advertisedDevice.getRSSI();
-
-      char deviceName[32];  // to store device name if there is one
-      deviceName[0] = 0;
-#if ESP_ARDUINO_VERSION_MAJOR == 3
-      String getName = advertisedDevice.getName().c_str();
-#else
-      std::string getName = advertisedDevice.getName().c_str();      //
-#endif
-      if (advertisedDevice.haveName()) { strcpy(deviceName, advertisedDevice.getName().c_str()); }
-
-
-      if (ColorSettings.Debug) {
-        Serial.printf("BLE: mac<%s>", advertisedDevice.getAddress().toString().c_str());
-        //https://gist.github.com/angorb/f92f76108b98bb0d81c74f60671e9c67#file-bluetooth-company-identifiers-json
-        if ((manCharBuf[0] == 0x4C) && (manCharBuf[1] == 0x00)) { Serial.printf("<Apple>"); }
-        if ((manCharBuf[0] == 0x06) && (manCharBuf[1] == 0x00)) { Serial.printf("<Microsoft>"); }
-        // Only use the VictronBuffer for victron stuff, but print other stuff for debug with PC using serial
-        if ((manCharBuf[0] == 0xE1) && (manCharBuf[1] == 0x02)) {
-          snprintf(debugMsg, 120, "<Victron>");
-          snprintf(debugMsg, 120, "");
-          strcat(VictronBuffer, debugMsg);
-          if (advertisedDevice.haveName()) {
-            snprintf(debugMsg, 120, "mac<%s> name<%s> rssi %i", advertisedDevice.getAddress().toString().c_str(), advertisedDevice.getName().c_str(), RSSI);
-          } else {
-            snprintf(debugMsg, 120, "mac<%s> rssi %i", advertisedDevice.getAddress().toString().c_str(), RSSI);
-          }
-          strcat(VictronBuffer, debugMsg);
-          Serial.print(deviceName);
-          Serial.print("> ");
-          Serial.print("Rssi:");
-          Serial.print(RSSI);
-
-          if (ColorSettings.ShowRawDecryptedDataFor == 100) {  // just a random number I selected to allow me to read the actual (encrypted!)data on the data display
-            snprintf(debugMsg, 190, "datalen %i (encrypted):", manData.length());
-            strcat(VictronBuffer, debugMsg);
-            for (int i = 0; i < manData.length(); i++) {
-              snprintf(debugMsg, 120, "%i=[%02X],", i, manCharBuf[i]);
-              strcat(VictronBuffer, debugMsg);
-            }
-            snprintf(debugMsg, 120, "\n");
-            strcat(VictronBuffer, debugMsg);
-          }
-        }
-        Serial.println(VictronBuffer);
+    if (ColorSettings.BLEDebug) {  //SERIAL print shows ANY BLE with MFr data.
+      Serial.printf("BLE: mac<%s> type<%02X> <%s> ", advertisedDevice.getAddress().toString().c_str(),
+                    manCharBuf[1], Co_BLEIdentifier_Into_Char(manCharBuf[0], manCharBuf[1]));
+      if (advertisedDevice.haveName()) {
+        Serial.printf("name<%s> len<%i> rssi %i\n", advertisedDevice.getName().c_str(), advertisedDevice.getManufacturerData().length(), advertisedDevice.getRSSI());
+      } else {
+        Serial.printf("len<%i> rssi %i\n", advertisedDevice.getManufacturerData().length(), advertisedDevice.getRSSI());
       }
+    }
 
-      if ((manCharBuf[0] == 0xE1) && (manCharBuf[1] == 0x02) && (manCharBuf[2] == 0x10)) {  // This is a Victron (02E1) Advertizing beacon (0x10)
-        //Serial.print(" Victron beacon ");
-        char receivedMacStr[18];                                                   // mac with colons!
-        strcpy(receivedMacStr, advertisedDevice.getAddress().toString().c_str());  // == toString()(convert a string object into a string) with a null (c_str(): Returns a pointer to a null-terminated C-style string representation)
+    if ((manCharBuf[2] != 0x10)) { return; }  // is not a beacon, not interested! use saved value, just to make sure its consistent with debug
 
-        for (int i = 0; i < Num_Victron_Devices; i++) {
-          if (CompareString_Mac(receivedMacStr, victronDevices.charMacAddr[i])) {
-            FoundMyDevices++;
-            victronDevices.displayed[i] = false;
-            victronDevices.greyed[i] = false;
-            victronDevices.updated[i] = millis();
-            strcpy(victronDevices.DeviceVictronName[i], deviceName);
-            //  Serial.printf("Recognised as device %x  building data \n", i);
-            victronDevices.ManuDataLength[i] = manData.length();
-            for (int j = 0; j < manData.length(); j++) {
-              //     Serial.printf("[%X]", manCharBuf[j]);
-              victronDevices.manCharBuf[i][j] = manCharBuf[j];  // Matches one of our known devices so copy data for decrypt later
-            }
+    if (ColorSettings.Debug) {  // MFR DATA and IS BEACON, use saved values in case of corruption due to delays / interruptions in callbacks
+      snprintf(debugMsg, 120, "Beacon: mac<%s> <%s>", advertisedDevice.getAddress().toString().c_str(), Co_BLEIdentifier_Into_Char(manCharBuf[0], manCharBuf[1]));
+      strcat(VictronBuffer, debugMsg);
+      if (advertisedDevice.haveName()) {
+        snprintf(debugMsg, 120, " name<%s> len<%i> rssi %i", advertisedDevice.getName().c_str(), advertisedDevice.getManufacturerData().length(), advertisedDevice.getRSSI());
+      } else {
+        snprintf(debugMsg, 120, " len<%i> rssi %i", advertisedDevice.getManufacturerData().length(), advertisedDevice.getRSSI());
+      }
+      strcat(VictronBuffer, debugMsg);
+    }                                                                                     // end of MFR DATA and IS BEACON debug snprintf's
+    if ((manCharBuf[0] == 0xE1) && (manCharBuf[1] == 0x02) && (manCharBuf[2] == 0x10)) {  // This is a Victron (02E1) Advertizing beacon (0x10)
+      for (int i = 0; i < Num_Victron_Devices; i++) {
+        if (CompareString_Mac(advertisedDevice.getAddress().toString().c_str(), victronDevices.charMacAddr[i])) {
+          FoundMyDevices++;
+          victronDevices.displayed[i] = false;
+          victronDevices.greyed[i] = false;
+          victronDevices.updated[i] = millis();
+          if (advertisedDevice.haveName()) { strcpy(victronDevices.DeviceVictronName[i], advertisedDevice.getName().c_str()); }
+          if (ColorSettings.Debug) {  //  Serial.printf("Recognised as my device '%x'  building data \n", i);
+            snprintf(debugMsg, 120, " is my device (%i)", i);
+            strcat(VictronBuffer, debugMsg);
+          }
+          victronDevices.ManuDataLength[i] = advertisedDevice.getManufacturerData().length();
+          for (int j = 0; j < advertisedDevice.getManufacturerData().length(); j++) {
+            victronDevices.manCharBuf[i][j] = manCharBuf[j];  // Matches one of our known devices so copy data for decrypt later
           }
         }
-      }  //data now safely saved in my _sMyVictronDevices structured array[i] to be worked on later!
-      //packetReceived = true;
+      }
     }
+    //data now safely saved in my _sMyVictronDevices structured array[i] to be worked on later!
+    if ((ColorSettings.Debug) && (ColorSettings.ShowRawDecryptedDataFor == 100)) {  // just a random number I selected to allow me to read the actual (encrypted!)data in debug
+      snprintf(debugMsg, 190, "manCharBuf len<%i> :", advertisedDevice.getManufacturerData().length());
+      strcat(VictronBuffer, debugMsg);
+      for (int i = 0; i < advertisedDevice.getManufacturerData().length(); i++) {
+        snprintf(debugMsg, 120, "%i=[%02X],", i, manCharBuf[i]);
+        strcat(VictronBuffer, debugMsg);
+      }
+    }
+    if (ColorSettings.Debug) {
+      snprintf(debugMsg, 120, "\n");
+      strcat(VictronBuffer, debugMsg);
+      Serial.println(VictronBuffer);
+    }  // serial print if we are in debug mode..    //packetReceived = true;
   }
 };
 
@@ -750,7 +791,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
     snprintf(debugMsg, 120, "PVPower<%3.2f> Batt.Volts<%3.2f>,Batt.current<%3.2f>, Load<%3.2fA>\n ", pv_power, battery_voltage, battery_current, load_current);
     strcat(VictronBuffer, debugMsg);
     if (Display_Page == -87) {
-      DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, victronDevices.displayHeight[i], victronDevices.displayH[i], victronDevices.displayV[i], victronDevices.FileCommentName[i]);
+      DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, i);
       if (victronDevices.greyed[i]) { DisplayOuterbox.TextColor = DARKGREY; }
       if (ColorSettings.Simulate) { AddTitleInsideBox(7, 2, DisplayOuterbox, "-simulated-"); }
       DisplayOuterbox.PrintLine = 5;
@@ -783,7 +824,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
     snprintf(debugMsg, 120, "Volts<%3.2f>,AMPS<%3.2f>, SOC<%3.0f%>, AUX<%3.2f> \n", battery_voltage, battery_current, state_of_charge, aux_input);
     strcat(VictronBuffer, debugMsg);
     if (Display_Page == -87) {
-      DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, victronDevices.displayHeight[i], victronDevices.displayH[i], victronDevices.displayV[i], victronDevices.FileCommentName[i]);
+      DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, i);
       if (victronDevices.greyed[i]) { DisplayOuterbox.TextColor = DARKGREY; }
       DisplayOuterbox.PrintLine = 5;
       if (ColorSettings.Simulate) { AddTitleInsideBox(7, 2, DisplayOuterbox, "-simulated-"); }
@@ -824,7 +865,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
     snprintf(debugMsg, 120, "battery_voltage_1<%3.2f> battery_current_1<%3.2f>, load<%3.2fA>, temp<%2.0f deg>\n", battery_voltage_1, battery_current_1, temperature - 273.15);
     strcat(VictronBuffer, debugMsg);
     if (Display_Page == -87) {
-      DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, victronDevices.displayHeight[i], victronDevices.displayH[i], victronDevices.displayV[i], victronDevices.FileCommentName[i]);
+      DisplayOuterbox = Setup_N_Display(Vic_Inst_Master, i);
       if (victronDevices.greyed[i]) { DisplayOuterbox.TextColor = DARKGREY; }
       DisplayOuterbox.PrintLine = 5;
       if (ColorSettings.Simulate) { AddTitleInsideBox(7, 2, DisplayOuterbox, "-simulated-"); }
@@ -892,9 +933,9 @@ void BLEloop() {
 #if ESP_ARDUINO_VERSION_MAJOR == 3
       pBLEScan->start(1, scanCompleteCB);
 #else
-      BLEScanResults foundDevices = pBLEScan->start(1, false);       //scanTime>0 is essential or it locks in continuous!, true);  // what does the iscontinue do? (the true/false is set false in examples. )
-                                                                     // Serial.printf("Found %i BLE and %i are myVictrons \n", foundDevices.getCount(), FoundMyDevices);
-      pBLEScan->clearResults();                                      // delete results fromBLEScan buffer to release memory
+      BLEScanResults foundDevices = pBLEScan->start(1, false);  //scanTime>0 is essential or it locks in continuous!, true);  // what does the iscontinue do? (the true/false is set false in examples. )
+                                                                // Serial.printf("Found %i BLE and %i are myVictrons \n", foundDevices.getCount(), FoundMyDevices);
+      pBLEScan->clearResults();                                 // delete results fromBLEScan buffer to release memory
 #endif
     }
     BLESCANINTERVAL = millis() + _BLESCANINTERVAL;  // wait scan interval AFTER the finish!!

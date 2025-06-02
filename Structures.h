@@ -47,6 +47,7 @@ struct _MyColors {  // for later Day/Night settings
   int ShowRawDecryptedDataFor;
   bool Frame;
   bool Debug;
+  bool BLEDebug;
 };
 
 struct _sInstData {  // struct to hold instrument data AND the time it was updated.
@@ -123,7 +124,7 @@ struct _sMyVictronDevices{   // equivalent to _sDisplay_Config all known victron
                 //10 index for multiple saved instrument settings first
   char charMacAddr[20][13];   // a 12 char (+1!) array  typ= "ea9df3ebc625"  
   char charKey [20][33];      //32 etc...
-  char FileCommentName [20][32];
+  char FileCommentName [20][32];  // name from file that will be used in Display
   int displayV[20];
   int displayH[20];
   char DisplayShow[20][10];  // to be used to decide which variables will be diaplayed = eg V volts I current

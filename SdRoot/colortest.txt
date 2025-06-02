@@ -14,6 +14,7 @@
   "FontS": 10,
   "Simulate": "true",
   "Debug": "false",
+  "BLEDebug": "false",
   "ShowRawDecryptedDataFor": 35,
   "Frame": "false"
 }

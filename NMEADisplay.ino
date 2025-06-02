@@ -17,15 +17,19 @@ Schreibfaul1 esp32 audio needs V3 for V3 compiler:
 or 2.0.0 for Version 2.0.17 -- its not cross compatible.  
 
 GFX seems ok , but change the.h as noted: but Jpeg screen seems to flicker with GFX 1.6 and Version3.2.0 compiler. 
-COMPILED AGAIN wITH 2.0.17 AND GFX 1.6 flicker less 
+COMPILED AGAIN wITH 2.0.17 AND GFX 1.6 flicker less , but there is an occasional ble glitch
 
 */
+
+//const char soft_version[] = "Version 4.05";
+//const char compile_date[] = __DATE__ " " __TIME__;
+const char soft_version[] = "VERSION 4.32";
 
 #if ESP_ARDUINO_VERSION_MAJOR == 3  // hoping this #if will work in the called .cpp !!
 #define UsingV3Compiler             // this #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
 #endif
 
-#define AUDIO
+//#define AUDIO
 
 
 #include <NMEA0183.h>
@@ -90,9 +94,7 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 
 
-//const char soft_version[] = "Version 4.05";
-//const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "VERSION 4.31";
+
 
 bool hasSD;
 
@@ -388,6 +390,7 @@ void SaveDisplayConfiguration(const char* filename, _MyColors& set) {
   doc["FontS"] = set.FontS;
   doc["Simulate"] = set.Simulate True_False;
   doc["Debug"] = set.Debug True_False;
+  doc["BLEDebug"] = set.BLEDebug True_False;
   doc["ShowRawDecryptedDataFor"] = set.ShowRawDecryptedDataFor;
   doc["Frame"] = set.Frame True_False;
 
@@ -430,6 +433,8 @@ bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
   set.Frame = (strcmp(temp, "false"));
   strlcpy(temp, doc["Debug"] | "false", sizeof(temp));
   set.Debug = (strcmp(temp, "false"));
+    strlcpy(temp, doc["BLEDebug"] | "false", sizeof(temp));
+  set.BLEDebug = (strcmp(temp, "false"));
 
   set.ShowRawDecryptedDataFor = doc["ShowRawDecryptedDataFor"] | 1;
   // Close the file (Curiously, File's destructor doesn't close the file)
@@ -2041,7 +2046,7 @@ void loop() {
     delay(50);  // change page back, having set zero above which alows the graphics to reset up the boxes etc.
   }
 
-  if ((ColorSettings.Debug) && (millis() >= DebugInterval)) {
+  if (((ColorSettings.Debug)||(ColorSettings.BLEDebug)) && (millis() >= DebugInterval)) {
     DebugInterval = millis() + 1000;
     size_t current_free_heap = esp_get_free_heap_size();
     Serial.printf("Current Free Heap Size: %zu bytes, ", current_free_heap);
