@@ -1,4 +1,4 @@
-POesp_toml_version = 1.0
+esp_toml_version = 1.0
 
 # This should be a publicly accessible URL of the file server where your firmware binaries are available for download
 firmware_images_url = "<https://github.com/dagnall53/NMEADisplay/tree/Compiler-tests/build/esp32.esp32.esp32s3>"
