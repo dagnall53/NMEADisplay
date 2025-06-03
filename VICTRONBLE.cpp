@@ -830,7 +830,9 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
       if (ColorSettings.Simulate) { AddTitleInsideBox(7, 2, DisplayOuterbox, "-simulated-"); }
       if (strstr(victronDevices.DisplayShow[i], "S")) { DrawBar(DisplayOuterbox, victronDevices.FileCommentName[i], GREEN, state_of_charge); }
       if (strstr(victronDevices.DisplayShow[i], "V")) { UpdateTwoSize_MultiLine(1, true, false, 11, 10, DisplayOuterbox, "%2.1FV", battery_voltage); }
-      if (strstr(victronDevices.DisplayShow[i], "I")) { UpdateTwoSize_MultiLine(1, true, false, 11, 10, DisplayOuterbox, "%2.1FA", battery_current); }
+      if (strstr(victronDevices.DisplayShow[i], "I")) { if (abs(battery_current)>=9.9){UpdateTwoSize_MultiLine(1, true, false, 11, 10, DisplayOuterbox, "%2.1FA", battery_current);}
+      else{UpdateTwoSize_MultiLine(1, true, false, 11, 10, DisplayOuterbox, "%1.2FA", battery_current);}
+        }
       if (strstr(victronDevices.DisplayShow[i], "A")) {
         if (auxtype == 2) {
           UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "");                               //temperature 3rd line // use DisplayShow ?? config.DisplayShow[index]
