@@ -16,6 +16,12 @@ Images of previous versions of the display
 
 
 ## HOW TO INSTALL FIRST TIME
+
+Experimental ESPLaunchpad: <a href="https://espressif.github.io/esp-launchpad/">
+    <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
+</a>
+
+
  
 First, plug your module into a com port on your PC and record which port it is using. 
 If confused, check Device Manager and look for the USB-SERIAL CH340 port. 
