@@ -18,7 +18,7 @@ Images of previous versions of the display
 ## HOW TO INSTALL FIRST TIME
 
 Experimental ESPLaunchpad: <a href="https://espressif.github.io/esp-launchpad/">
-    <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
+    <img alt="Try it with ESP Launchpad" src="https://github.com/dagnall53/NMEADisplay/blob/Compiler-tests/documents/config.toml" width="250" height="70">
 </a>
 
 
