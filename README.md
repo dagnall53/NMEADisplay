@@ -17,11 +17,13 @@ Images of previous versions of the display
 
 ## HOW TO INSTALL FIRST TIME
 Experiment with batch file: 
-<a href="https://github.com/dagnall53/NMEADisplay/blob/main/build/esp32.esp32.esp32s3/ProgramBoard.bat">
+<a href={Run BAT file]"https://dagnall53.github.io/NMEADisplay/blob/main/build/esp32.esp32.esp32s3/ProgramBoard.bat">
     <img alt="Try to run bat file" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
 </a>
-
-
+Experiment with web batch file: 
+<a href="https://dagnall53.github.io/NMEADisplay/blob/main/build/esp32.esp32.esp32s3/ProgramBoard.bat">
+    <img src="https://github.com/user-attachments/assets/f7ee5526-b172-4278-a29b-25652bf69c3d" width="250" height="70">
+</a>
  
 First, plug your module into a com port on your PC and record which port it is using. 
 If confused, check Device Manager and look for the USB-SERIAL CH340 port. 
