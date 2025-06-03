@@ -17,7 +17,7 @@ Images of previous versions of the display
 
 ## HOW TO INSTALL FIRST TIME
 Experiment with batch file: 
-<a href="https://dagnall53.github.io/NMEADisplay/blob/Compiler-tests/documents/config.toml">
+<a href="https://github.com/dagnall53/NMEADisplay/blob/Compiler-tests/build/esp32.esp32.esp32s3/ProgramBoard.bat">
     <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
 </a>
 
