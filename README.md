@@ -20,7 +20,10 @@ Experiment with batch file:
 <a href="[ProgramBoard](https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/esptool.exe --chip esp32s3 --port COM 7 --baud 921600  --before default_reset --after hard_reset write_flash  -z --flash_mode dio --flash_freq 80m --flash_size 8MB 0x0 https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/NMEADisplay.ino.bootloader.bin 0x8000 https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/NMEADisplay.ino.partitions.bin 0xe000 https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/boot_app0.bin 0x10000 https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/NMEADisplay.ino.bin)">
     <img alt="COM7 test"  width="250" height="70">
 </a>
-
+Experiment with ESPTool:
+<a href="https://espressif.github.io/esp-launchpad/?flashConfigURL=https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/config.toml">
+    <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
+</a>
  
 First, plug your module into a com port on your PC and record which port it is using. 
 If confused, check Device Manager and look for the USB-SERIAL CH340 port. 
