@@ -1,7 +1,7 @@
 esp_toml_version = 1.0
 
 # This should be a publicly accessible URL of the file server where your firmware binaries are available for download
-firmware_images_url = "<https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3>"
+firmware_images_url = "<https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/>"
 
 # Apps that you support and for which the binaries are available to publish. You can have multiple apps as a comma separated list
 # The launch pad UI will automatically show these Apps in the available apps dropdown
