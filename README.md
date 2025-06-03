@@ -17,13 +17,11 @@ Images of previous versions of the display
 
 ## HOW TO INSTALL FIRST TIME
 
-Experimental ESPLaunchpad:
+Experimental ESPLaunchpad TEST:
 
-<a href="https://espressif.github.io/esp-launchpad/?flashConfigURL=https://dagnall53.github.io/NMEADisplay/main/build/esp32.esp32.esp32s3/config.toml">
+<a href="https://espressif.github.io/esp-launchpad/?flashConfigURL=https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/config.toml">
     <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
 </a>
-
-
 
  
 First, plug your module into a com port on your PC and record which port it is using. 
