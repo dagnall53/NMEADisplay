@@ -18,12 +18,9 @@ Images of previous versions of the display
 ## HOW TO INSTALL FIRST TIME
 Experiment with batch file: 
 <a href="[ProgramBoard](https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/esptool.exe --chip esp32s3 --port COM 7 --baud 921600  --before default_reset --after hard_reset write_flash  -z --flash_mode dio --flash_freq 80m --flash_size 8MB 0x0 https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/NMEADisplay.ino.bootloader.bin 0x8000 https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/NMEADisplay.ino.partitions.bin 0xe000 https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/boot_app0.bin 0x10000 https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/NMEADisplay.ino.bin)">
-    <img alt="Try to run bat file"  width="250" height="70">
+    <img alt="COM7 test"  width="250" height="70">
 </a>
-Experiment with web batch file: 
-<a href="https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/esptool.exe">
-    <img src="https://github.com/user-attachments/assets/f7ee5526-b172-4278-a29b-25652bf69c3d" width="70" height="70">
-</a>
+
  
 First, plug your module into a com port on your PC and record which port it is using. 
 If confused, check Device Manager and look for the USB-SERIAL CH340 port. 
