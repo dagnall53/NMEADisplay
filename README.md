@@ -18,6 +18,11 @@ Images of previous versions of the display
 ## HOW TO INSTALL FIRST TIME
 
 Experimental ESPLaunchpad:
+https://espressif.github.io/esp-launchpad/?flashConfigURL=C:/config.toml 
+<a href="https://espressif.github.io/esp-launchpad/?flashConfigURL=C:/config.toml">
+    <img alt="LOCAL?" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
+</a>
+
 <a href="https://espressif.github.io/esp-launchpad/">
     <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
 </a>
