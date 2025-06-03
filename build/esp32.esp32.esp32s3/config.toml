@@ -22,8 +22,15 @@ developKits.esp32-s3 = ["esp32-s3GuitronDisplay", "esp32-s3Other"]
 image.esp32-s3 = "NMEADisplay.ino.bin"
 image.esp32-s3GuitronDisplay ="NMEADisplay.ino.bin"
 image.esp32-s3Other ="NMEADisplay.ino.bin"
+
+[NMEA DISPLAY]
+# ESP32 Chipsets for which you have a supported Firmware App. Define a property for each supported chipset in the given format.
+chipsets = ["ESP32-S3"]
+# Optional: Set development board for chip model.
+# Configure the name of the binary file
+image.esp32-s3 = "NMEADisplay.ino.bin"
 # Optional: A brief introduction to this app.
-description = "Description of the firmware app"
+description = "MFD for boats"
 # Optional: Phone APP URLs if any for Playstores
 android_app_url = ""
 ios_app_url = ""
