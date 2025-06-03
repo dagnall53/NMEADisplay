@@ -16,6 +16,16 @@ Images of previous versions of the display
 
 
 ## HOW TO INSTALL FIRST TIME
+Experiment with batch file: 
+<a href="https://dagnall53.github.io/NMEADisplay/blob/Compiler-tests/documents/config.toml">
+    <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
+</a>
+
+Experimental ESPLaunchpad:
+<a href="https://espressif.github.io/esp-launchpad/?flashConfigURL=https://dagnall53.github.io/NMEADisplay/blob/Compiler-tests/documents/config.toml">
+    <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
+</a>
+
  
 First, plug your module into a com port on your PC and record which port it is using. 
 If confused, check Device Manager and look for the USB-SERIAL CH340 port. 
