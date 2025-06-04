@@ -46,18 +46,23 @@ The Esptool program will upload the program onto your board and the display boar
 
 You will next need to get a new microSD card, ( I used 4Gb), and format it using FAT32.
 Then copy the whole of the "SdRoot" folder onto the SD card. 
+I have a bat file that can do this.. Click the link below to download the file "MakeSDcard.bat" from the github.
+<a href="Click to download/" download>https://dagnall53.github.io/NMEADisplay/build/MakeSDcard.bat</a>
+Save this somewhere convenient such as downloads. Run the program .. 
+It will download files from github SdRoot to the (root of) the Drive you specify.
+
 You should then see it will have two sub directories: edit and logs.
 The /edit subdirectory will have two files 'index.htm', and 'ace.js' which are vital for the SD Web viewer/editor!.
 
-The root of the SD should have (at least) these files:
+The root of the SD should now have (at least) these files:
 config.txt, ( a json file with user settings) and 
 vconfig.txt ( a json with settings for the ble victron mode )
 colortest.txt ( a json with settings that will eventually allow global day/night colours and also has some simulation/debug settings for the BLE part of the display)
-These txt files may (should!) self initiate if not present, but its better to have defaults present! 
+  These txt files may (should!) self initiate if not present, but its better to have defaults present! 
 logo4.jpg (the new generic start screen image), 
 v3small.jpg (used in the webbrowser start screen).
 and loading.jpg, (a picture that appears during OTA updates). 
-startsound.mp3 is bells that will play on start if you have modified the board to enable the audio.
+Add startsound.mp3 to play on start if you have modified the board to enable the audio.
 
 Re insert the SD card into the module and restart. 
 
