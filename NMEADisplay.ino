@@ -96,6 +96,11 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 
 
+//const char soft_version[] = "Version 4.05";
+//const char compile_date[] = __DATE__ " " __TIME__;
+const char soft_version[] = "VERSION 4.30";
+
+
 bool hasSD;
 
 
@@ -308,6 +313,7 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     strlcpy(config.DisplayShow[index], doc["device" + String(index) + ".DisplayShow"] | "PVIA", sizeof(config.DisplayShow[index]));
   }
   // Close the file (Curiously, File's destructor doesn't close the file)
+
   file.close();
 
   return !fault;  // report success
@@ -393,9 +399,6 @@ void SaveDisplayConfiguration(const char* filename, _MyColors& set) {
   doc["BLEDebug"] = set.BLEDebug True_False;
   doc["ShowRawDecryptedDataFor"] = set.ShowRawDecryptedDataFor;
   doc["Frame"] = set.Frame True_False;
-
-
-
   // Serialize JSON to file
   if (serializeJsonPretty(doc, file) == 0) {  // use 'pretty format' with line feeds
     Serial.println(F("JSON: Failed to write to SD file"));
@@ -419,6 +422,7 @@ bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
     Serial.println(F("**Failed to deserialise JSON file"));
   }
   // gett here means we can set defaults, regardless!
+
   set.TextColor = doc["TextColor"] | BLACK;
   set.BackColor = doc["BackColor"] | WHITE;
   set.BorderColor = doc["BorderColor"] | BLUE;
@@ -1737,6 +1741,7 @@ void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes increment
   MasterFont = fontinput;
   switch (fontinput) {  //select font and automatically set height/offset based on character '['
     // set the heights and offset to print [ in boxes. Heights in pixels are NOT the point heights!
+
     case 0:                        // SMALL 8pt
       Fontname = "FreeMono8pt7b";  //9 to 14 high?
       gfx->setFont(&FreeMono8pt7b);

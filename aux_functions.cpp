@@ -595,7 +595,7 @@ void GFXBorderBoxPrintf(_sButton button, const char *fmt, ...) {
   CommonSub_UpdateLine(true, true, button.TextColor, MasterFont, button, msg);
 }
 
-void AddTitleBorderBox(int font, _sButton button, const char *fmt, ...) {  // add a top left title to the box
+void AddTitleBorderBox(int font, _sButton button, const char *fmt, ...) {  // add a top left title to the box Best used with FONT 0 ,FreeMono8pt7b
   int Font_Before;
   //Serial.println("Font at start is %i",MasterFont);
   Font_Before = MasterFont;
