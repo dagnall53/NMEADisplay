@@ -11,8 +11,8 @@ extern bool EspNowIsRunning;
 //local
 
 
-bool Start_ESP_EXT();  // start espnow and run Update_ESPNOW() when data is seen
-void Update_ESPNOW(const uint8_t* mac, const uint8_t* incomingData, int len);
+bool Start_ESP_EXT();  // start espnow 
+ 
 bool Test_ESP_NOW(); // for the loop to update 
 
 void EXTHeartbeat();

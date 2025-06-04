@@ -16,10 +16,17 @@ Images of previous versions of the display
 
 
 ## HOW TO INSTALL FIRST TIME
- 
+
 First, plug your module into a com port on your PC and record which port it is using. 
 If confused, check Device Manager and look for the USB-SERIAL CH340 port. 
 Remember the port number!
+
+Download the file "WebProgram.bat" from the github. - it is in subdirectory /build.
+save this somewhere convenient such as downloads.
+Run the program .. It will download the latest binaries and program to upload to the hardware. and then delete the binaries and the tool used to upload after it has completed. 
+
+
+If you prefer to see all the code: 
 Download the Zip file of the GitHub Project. (green button -<>CODE and select 'Download Zip')
 Save the file and extract all the files using a zip tool to somewhere on your PC. - I suggest /downloads.
 You will then have a directory something like: C:\Users\admin\Downloads\NMEADisplay-main\

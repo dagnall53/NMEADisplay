@@ -7,7 +7,7 @@
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
 // read https://github.com/hoberman/Victron_BLE_Scanner_Display/blob/main/BLE_Adv_Callback.ino for comments.
-
+//     https://communityarchive.victronenergy.com/storage/attachments/extra-manufacturer-data-2022-12-14.pdf
 // for record type list see line 300 on https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
 // for structures see(circa line 600..) https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_ble.h
 // for data types and ranges see https://github.com/Fabian-Schmidt/esphome-victron_ble/blob/main/components/victron_ble/victron_custom_type.h
@@ -168,8 +168,7 @@ typedef struct {
  // Stuff above is generic GATT (?) standard BLE (?) 
  // Start of Victron definition: https://github.com/keshavdv/victron-ble/blob/main/extra-manufacturer-data-2022-12-14.pdf
  // Extra manufacturer Data 
- uint8_t victronRecordType;//aka record_type VICTRON_BLE_RECORD_TYPE 00 = solar charger 01 = Smartshunt and battery monitor .. etc ()
- 
+ uint8_t VICTRON_BLE_RECORD_TYPE;// record_type VICTRON_BLE_RECORD_TYPE 
  u_int8_t data_counter_lsb;
  u_int8_t data_counter_msb;
  uint8_t encryption_key_0; // Byte 0 of the encryption key (bindkey)
@@ -177,7 +176,8 @@ typedef struct {
  uint8_t nullPad;
 } __attribute__((packed)) victronManufacturerData;
 
-void hexCharStrToByteArray(char * hexCharStr, byte * byteArray); // called in LoadVictronConfiguration to set byte version of the input string 
+void hexCharStrToByteArray(char * hexCharStr, unsigned char * byteArray); // called in LoadVictronConfiguration to set unsigned char version of the input string 
+
 
 
 void BLEsetup();  // called from main void setup();

@@ -46,6 +46,8 @@ struct _MyColors {  // for later Day/Night settings
   bool Simulate;
   int ShowRawDecryptedDataFor;
   bool Frame;
+  bool Debug;
+  bool BLEDebug;
 };
 
 struct _sInstData {  // struct to hold instrument data AND the time it was updated.
@@ -95,44 +97,45 @@ struct Phv {   // struct for int positions h v typically on screen
 
 
 //not used -- maybe later? 
-struct _sVicdevice {  // will need a new equivalent to toNewStruct(char *field, _sInstData &data); 
-  int Device_Type=0;   // selector equivalent to victronRecordType {1=solar 2=smartshunt..     }
-  double data; // use for main reading, assumed voltage
-  double lastdata ;
-  double data2 ; // use for secondary reading, assumed current
-  double lastdata2 ;
-  double data3 ; // use for tertiary reading, aux batt, temp? etc.. 
-  double lastdata3 ;
-  double data4; // use for quadrenary (?) reading, aux batt, temp? etc.. 
-  double lastdata4 ;
+// struct _sVicdevice {  // will need a new equivalent to toNewStruct(char *field, _sInstData &data); 
+//   int Device_Type=0;   // selector equivalent to VICTRON_BLE_RECORD_TYPE {1=solar 2=smartshunt..     }
+//   double data; // use for main reading, assumed voltage
+//   double lastdata ;
+//   double data2 ; // use for secondary reading, assumed current
+//   double lastdata2 ;
+//   double data3 ; // use for tertiary reading, aux batt, temp? etc.. 
+//   double lastdata3 ;
+//   double data4; // use for quadrenary (?) reading, aux batt, temp? etc.. 
+//   double lastdata4 ;
   
-  unsigned long updated;
-  bool displayed;  // displayed is used by Digital displays
-  bool greyed;     // when the data is OLD! 
-  bool graphed;    // is used by Graphs, so you can display digital and graph on same page!
-};
+//   unsigned long updated;
+//   bool displayed;  // displayed is used by Digital displays
+//   bool greyed;     // when the data is OLD! 
+//   bool graphed;    // is used by Graphs, so you can display digital and graph on same page!
+// };
 
-struct _sVictronData {
-  _sVicdevice MainBatteryshunt, AuxbatteryShunt, EngineBatteryshunt,
-  Mainsolar, Secondsolar, mainscharger;
-};
+// struct _sVictronData {
+//   _sVicdevice MainBatteryshunt, AuxbatteryShunt, EngineBatteryshunt,
+//   Mainsolar, Secondsolar, mainscharger;
+// };
 
 
 struct _sMyVictronDevices{   // equivalent to _sDisplay_Config all known victron devices MAc and encryption keys.
                 //10 index for multiple saved instrument settings first
-  char charMacAddr[10][13];   // a 12 char (+1!) array  typ= "ea9df3ebc625"  
-  char charKey [10][33];      //32 etc...
-  char FileCommentName [10][32];
-  int displayV[10];
-  int displayH[10];
-  int displayHeight[10];
-  char DisplayShow[10][10];
-  char DeviceVictronName[10][32];  // My DisplayShow to be used to help differentiate devices that give similar victronRecordType but need more information for a good display
-  int ManuDataLength[10]; 
-  byte manCharBuf[10][33];  //'Raw' data before formatting as victronManufacturerData  believe 33 is entirely big enough for data so far
-  unsigned long updated[10];
-  bool displayed[10];  // displayed is used by Digital displays
-  bool greyed[10];     // when the data is OLD! 
+  char charMacAddr[20][13];   // a 12 char (+1!) array  typ= "ea9df3ebc625"  
+  char charKey [20][33];      //32 etc...
+  char FileCommentName [20][32];  // name from file that will be used in Display
+  int displayV[20];
+  int displayH[20];
+  char DisplayShow[20][10];  // to be used to decide which variables will be diaplayed = eg V volts I current
+  uint8_t VICTRON_BLE_RECORD_TYPE[20];  // INTEGER DESCRIPTOR FOR   DEVICE TYPE (1,2,8 WORK) for use with simulation!
+  int displayHeight[20];
+  char DeviceVictronName[20][32];  // My DisplayShow to be used to help differentiate devices that give similar VICTRON_BLE_RECORD_TYPE but need more information for a good display
+  int ManuDataLength[20]; 
+  unsigned char manCharBuf[20][33];  //'Raw' data before formatting as victronManufacturerData  believe 33 is entirely big enough for data so far
+  unsigned long updated[20];
+  bool displayed[20];  // displayed is used by Digital displays
+  bool greyed[20];     // when the data is OLD! 
 };
 
 #endif  // _Structures_H_

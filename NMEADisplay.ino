@@ -1,6 +1,7 @@
 //*******************************************************************************
 /*
-Compiled and tested with ESp32 V2.0.17  V3has deprecated some functions and this code will not work with V3!
+Compiled and tested with ESp32 V2.0.17  
+early V3 has broken  some functions and this code will not work until  V3.3.0a!
 GFX library for Arduino 1.5.5
 Select "ESP32-S3 DEV Module"
 Select PSRAM "OPI PSRAM" / enabled
@@ -9,9 +10,28 @@ Select PSRAM "OPI PSRAM" / enabled
 8m with spiffs - 3Mb app +spiffs
 
 
+Version 3 tests try to use 
+#if ESP_ARDUINO_VERSION_MAJOR ==3 ? 
 
+Schreibfaul1 esp32 audio needs V3 for V3 compiler:
+or 2.0.0 for Version 2.0.17 -- its not cross compatible.  
+
+GFX seems ok , but change the.h as noted: but Jpeg screen seems to flicker with GFX 1.6 and Version3.2.0 compiler. 
+COMPILED AGAIN wITH 2.0.17 AND GFX 1.6 flicker less , but there is an occasional ble glitch
 
 */
+
+//const char soft_version[] = "Version 4.05";
+//const char compile_date[] = __DATE__ " " __TIME__;
+const char soft_version[] = "VERSION 4.32";
+
+#if ESP_ARDUINO_VERSION_MAJOR == 3  // hoping this #if will work in the called .cpp !!
+#define UsingV3Compiler             // this #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
+#endif
+
+//#define AUDIO
+
+
 #include <NMEA0183.h>
 #include <NMEA0183Msg.h>
 #include <NMEA0183Messages.h>
@@ -26,7 +46,7 @@ Select PSRAM "OPI PSRAM" / enabled
 #include "ESP_NOW_files.h"
 #include "OTA.h"
 
-#define NumVictronDevices 6  // before structures
+//#define NumVictronDevices 10  // before structures
 #include "Structures.h"
 
 #include "aux_functions.h"
@@ -39,14 +59,14 @@ Select PSRAM "OPI PSRAM" / enabled
 TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WIDTH, TOUCH_HEIGHT);
 
 #include <EEPROM.h>
-#include "FONTS/fonts.h"  // have to use reserved directory name src/ for arduino?
-#include "FONTS/FreeSansBold6pt7b.h"    //font 7  9 high
-#include "FONTS/FreeSansBold8pt7b.h"    //font 8  11 high 
-#include "FONTS/FreeSansBold12pt7b.h"   // font 9  18 pixels high
-#include "FONTS/FreeSansBold18pt7b.h"   //font 10  27 pixels 
-#include "FONTS/FreeSansBold27pt7b.h"   // font 11 39 pixels
-#include "FONTS/FreeSansBold40pt7b.h"   //font 12 59 pixels 
-#include "FONTS/FreeSansBold60pt7b.h"   //font 13  88 pixels 
+#include "FONTS/fonts.h"               // have to use reserved directory name src/ for arduino?
+#include "FONTS/FreeSansBold6pt7b.h"   //font 7  9 high
+#include "FONTS/FreeSansBold8pt7b.h"   //font 8  11 high
+#include "FONTS/FreeSansBold12pt7b.h"  // font 9  18 pixels high
+#include "FONTS/FreeSansBold18pt7b.h"  //font 10  27 pixels
+#include "FONTS/FreeSansBold27pt7b.h"  // font 11 39 pixels
+#include "FONTS/FreeSansBold40pt7b.h"  //font 12 59 pixels
+#include "FONTS/FreeSansBold60pt7b.h"  //font 13  88 pixels
 
 
 
@@ -64,13 +84,22 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 #define JPEG_FILENAME_LOGO "/logo4.jpg"  // logo in jpg on sd card
 #define AUDIO_FILENAME_START "/StartSound.mp3"
 //audio
-#include "Audio.h"
 
-#include "VICTRONBLE.h" //sets #ifndef Victronble_h
+//v3 tests.. no audio until I fix the is2  ?  /
+//now compiles using https://github.com/schreibfaul1/ESP32-audioI2S  v 3.0.13 (was using 2.0.0 with V2.0.17   esp32 compiler)
+#ifdef AUDIO
+#include "Audio.h"
+#endif
+#include "VICTRONBLE.h"  //sets #ifndef Victronble_h
+
+
+
+
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
 const char soft_version[] = "VERSION 4.30";
+
 
 bool hasSD;
 
@@ -84,18 +113,19 @@ const char* Setupfilename = "/config.txt";  // <- SD library uses 8.3 filenames
 
 int Num_Victron_Devices;
 const char* VictronDevicesSetupfilename = "/vconfig.txt";  // <- SD library uses 8.3 filenames
-_sMyVictronDevices  victronDevices;
+_sMyVictronDevices victronDevices;
 
-char  VictronBuffer[800];  // way to transfer results in a way similar to NMEA text.
+char VictronBuffer[2000];  // way to transfer results in a way similar to NMEA text.
 
-_sVictronData VictronData;  // Victron sensor Data values, int double etc for use in graphics 
+// _sVictronData VictronData;  // Victron sensor Data values, int double etc for use in graphics
 
 const char* ColorsFilename = "/colortest.txt";  // <- SD library uses 8.3 filenames?
 _MyColors ColorSettings;
 
 //set up Audio
+#ifdef AUDIO
 Audio audio;
-
+#endif
 
 // some wifi stuff
 //NB these may not be used -- I have tried to do some simplification
@@ -151,7 +181,7 @@ _sWiFi_settings_Config Default_Settings = { 17, "GUESTBOAT", "12345678", "2002",
   strlcpy(config.FourWayBL, doc["FourWayBL"] | "DEPTH", sizeof(config.FourWayBL));
   strlcpy(config.FourWayTR, doc["FourWayTR"] | "WIND", sizeof(config.FourWayTR));
   strlcpy(config.FourWayTL, doc["FourWayTL"] | "STW */
-_sDisplay_Config Default_JSON = { "0.5", 4, 0,"nmeadisplay", "12345678","SOG","DEPTH","WIND","STW" }; // many display stuff set default circa 265 etc. 
+_sDisplay_Config Default_JSON = { "0.5", 4, 0, "nmeadisplay", "12345678", "SOG", "DEPTH", "WIND", "STW" };  // many display stuff set default circa 265 etc.
 _sDisplay_Config Display_Config;
 int Display_Page = 4;  //set last in setup(), but here for clarity?
 _sWiFi_settings_Config Saved_Settings;
@@ -176,8 +206,8 @@ int text_char_width = 12;  // useful for monotype? only NOT USED YET! Try gfx->g
 //****  My displays are based on '_sButton' structures to define position, width height, borders and colours.
 // int h, v, width, height, bordersize;  uint16_t BackColor, TextColor, BorderColor;
 
-_sButton FullSize = { 10, 0, 460, 460, 0, BLUE, WHITE, BLACK }; 
-_sButton FullSizeShadow = { 5, 10, 460, 460, 0, BLUE, WHITE, BLACK }; 
+_sButton FullSize = { 10, 0, 460, 460, 0, BLUE, WHITE, BLACK };
+_sButton FullSizeShadow = { 5, 10, 460, 460, 0, BLUE, WHITE, BLACK };
 _sButton CurrentSettingsBox = { 0, 0, 480, 80, 2, BLUE, WHITE, BLACK };  //also used for showing the current settings
 
 _sButton FontBox = { 0, 80, 480, 330, 5, BLUE, WHITE, BLUE };
@@ -236,7 +266,7 @@ _sButton Switch10 = { 340, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
 _sButton Switch11 = { 420, 60, sw_width, 35, 5, WHITE, BLACK, BLACK };
 
 
-_sButton Terminal = { 0, 100, 480, 330, 5, WHITE, BLACK, WHITE };  //BORDER invisible as == background col) to try and help debug printing better! reset to { 0, 240, 480, 240, 5, WHITE, BLACK, BLUE };
+_sButton Terminal = { 0, 100, 480, 330, 2, WHITE, BLACK, BLUE };
 //for selections
 _sButton FullTopCenter = { 80, 0, 320, 50, 5, BLUE, WHITE, BLACK };
 
@@ -252,15 +282,15 @@ _sButton Full6Center = { 80, 385, 320, 50, 5, BLUE, WHITE, BLACK };  // intefere
 #define True_False ? "true" : "false"
 bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) {
   // Open SD file for reading
-  bool fault=false;
+  bool fault = false;
   if (!SD.exists(filename)) {
     Serial.printf(" Json Victron file %s did not exist\n Using defaults\n", filename);
-    fault=true;
+    fault = true;
   }
   File file = SD.open(filename, FILE_READ);
   if (!file) {
     Serial.println(F("**Failed to read Victron JSON file"));
-    fault=true;
+    fault = true;
   }
   // Allocate a temporary JsonDocument
   char temp[15];
@@ -269,25 +299,27 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
   DeserializationError error = deserializeJson(doc, file);
   if (error) {
     Serial.println(F("**Failed to deserialise victron JSON file"));
-    fault=true;
+    fault = true;
   }
-  Num_Victron_Devices= doc["Num_Devices"] | 4;
-  for (int index=0;index<=Num_Victron_Devices;index++){
-    strlcpy(config.charMacAddr[index], doc["device"+String(index)+".mac"] | "macaddress", sizeof(config.charMacAddr[index]));
-    strlcpy(config.charKey[index], doc["device"+String(index)+".key"] | "key", sizeof(config.charKey[index]));
-    strlcpy(config.FileCommentName[index], doc["device"+String(index)+".comment"] | "?name?", sizeof(config.FileCommentName[index]));
-   config.displayH[index]= doc["device"+String(index)+".DisplayH"]|10;
-   config.displayHeight[index]= doc["device"+String(index)+".DisplayHeight"]|150;
-   config.displayV[index]= doc["device"+String(index)+".DisplayV"]|10;
-   strlcpy(config.DisplayShow[index], doc["device"+String(index)+".DisplayShow"] | "PVIASL", sizeof(config.DisplayShow[index]));
-  } 
-    // Close the file (Curiously, File's destructor doesn't close the file)
+  Num_Victron_Devices = doc["Num_Devices"] | 4;
+  for (int index = 0; index < Num_Victron_Devices; index++) {
+    strlcpy(config.charMacAddr[index], doc["device" + String(index) + ".mac"] | "macaddress", sizeof(config.charMacAddr[index]));
+    strlcpy(config.charKey[index], doc["device" + String(index) + ".key"] | "key", sizeof(config.charKey[index]));
+    strlcpy(config.FileCommentName[index], doc["device" + String(index) + ".comment"] | "?name?", sizeof(config.FileCommentName[index]));
+    config.VICTRON_BLE_RECORD_TYPE[index] = doc["device" + String(index) + ".VICTRON_BLE_RECORD_TYPE"] | 1;  //default solar Mppt
+    config.displayH[index] = doc["device" + String(index) + ".DisplayH"];
+    config.displayV[index] = doc["device" + String(index) + ".DisplayV"];
+    config.displayHeight[index] = doc["device" + String(index) + ".DisplayHeight"] | 150;
+    strlcpy(config.DisplayShow[index], doc["device" + String(index) + ".DisplayShow"] | "PVIA", sizeof(config.DisplayShow[index]));
+  }
+  // Close the file (Curiously, File's destructor doesn't close the file)
+
   file.close();
- 
- return !fault; // report success
+
+  return !fault;  // report success
 }
 void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) {
-  // USED for adding extra devices or for creating a new file if missing 
+  // USED for adding extra devices or for creating a new file if missing
   //Delete existing file, otherwise the configuration is appended to the file
   SD.remove(filename);
   char buff[15];
@@ -297,27 +329,32 @@ void SaveVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     Serial.println(F("JSON: Victron: Failed to create SD file"));
     return;
   }
-  Serial.printf(" We expect %i Victron devices",Num_Victron_Devices);
+  Serial.printf(" We expect %i Victron devices", Num_Victron_Devices);
   // Allocate a temporary JsonDocument
   JsonDocument doc;
-  doc[" Comment"]= " DisplayShow Options: 'P' Power 'V' Battery Volts 'I' Battery Current";
-  doc[" C"]= " 'v' second Battery Volts 'i' second Battery Current  (ac charger only)";
-  doc[" C1"]="'L' Load current 'S' State of charge 'E' error codes 'T' Temperature";
-  doc[" C2"]=" 'A' Aux reading(t or starter) ";
- 
-  
-  doc[" Example"]= "for SmartShunt, IAS will display current, State of charge and Additional data( starter V or temperature)";
-  doc[" Example"]= "for Battery Monitor: V will display Voltage (only)";
-  doc[" note"]= "Display height is also adjustable for each 'device', and devices can be duplicated"; 
-  doc["Num_Devices"]=Num_Victron_Devices;
-  for (int index=0;index<=Num_Victron_Devices-1;index++){
-    doc["device"+String(index)+".mac"]=config.charMacAddr[index];
-    doc["device"+String(index)+".key"]=config.charKey[index];
-    doc["device"+String(index)+".comment"]=config.FileCommentName[index];
-    doc["device"+String(index)+".DisplayH"]=config.displayH[index];
-    doc["device"+String(index)+".DisplayV"]=config.displayV[index];
-    doc["device"+String(index)+".DisplayHeight"]=config.displayHeight[index];
-    doc["device"+String(index)+".DisplayShow"]=config.DisplayShow[index];
+  doc[" Comment"] = " DisplayShow Options: 'P' Power 'V' Battery Volts 'I' Battery Current";
+  doc[" C"] = " 'v' second Battery Volts 'i' second Battery Current  (ac charger only)";
+  doc[" C1"] = "'L' Load current 'S' State of charge 'E' error codes 'T' Temperature";
+  doc[" C2"] = " 'A' Aux reading(t or starter) ";
+
+
+  doc[" Example"] = "for SmartShunt, IAS will display current, State of charge and Additional data( starter V or temperature)";
+  doc[" Example"] = "for Battery Monitor: V will display Voltage (only)";
+  doc[" note"] = "Display height is also adjustable for each 'device', and devices can be duplicated";
+  doc[" note "] = "VICTRON_BLE_RECORD_TYPE:   SOLAR_CHARGER =1,  BATTERY_MONITOR = 2, AC Charger = 8";
+  doc["Num_Devices"] = Num_Victron_Devices;
+
+  // doc[" Comment1"]= "for Shunt, VIA will display Battery Volts, Current, Additional data";
+  // doc[" Comment2"]= "for SOLAR, PIA will display solar Power, battery Current, Additional data";
+  for (int index = 0; index < Num_Victron_Devices; index++) {
+    doc["device" + String(index) + ".mac"] = config.charMacAddr[index];
+    doc["device" + String(index) + ".key"] = config.charKey[index];
+    doc["device" + String(index) + ".comment"] = config.FileCommentName[index];
+    doc["device" + String(index) + ".VICTRON_BLE_RECORD_TYPE"] = config.VICTRON_BLE_RECORD_TYPE[index];
+    doc["device" + String(index) + ".DisplayH"] = config.displayH[index];
+    doc["device" + String(index) + ".DisplayV"] = config.displayV[index];
+    doc["device" + String(index) + ".DisplayHeight"] = config.displayHeight[index];
+    doc["device" + String(index) + ".DisplayShow"] = config.DisplayShow[index];
   }
 
   // Serialize JSON to file
@@ -343,25 +380,25 @@ void SaveDisplayConfiguration(const char* filename, _MyColors& set) {
   // Set the values in the JSON file.. // NOT ALL ARE read yet!!
   //modify how the display works
   doc["_comments_"] = "Colours as integers";
-  doc["WHITE"]=WHITE;
-  doc["BLUE"]=BLUE;
-  doc["BLACK"]=BLACK;
-  doc["GREEN"]=GREEN;
-  doc["RED"]=RED;
+  doc["WHITE"] = WHITE;
+  doc["BLUE"] = BLUE;
+  doc["BLACK"] = BLACK;
+  doc["GREEN"] = GREEN;
+  doc["RED"] = RED;
 
-  doc["TextColor"]= set.TextColor; 
-  doc["BackColor"]= set.BackColor;  
-  doc["BorderColor"]=set.BackColor; 
+  doc["TextColor"] = set.TextColor;
+  doc["BackColor"] = set.BackColor;
+  doc["BorderColor"] = set.BorderColor;
   doc["_comments_"] = "These sizes below are for some font tests in victron display!";
-  doc["BoxH"]=set.BoxH; 
-  doc["BoxW"]=set.BoxW; 
-  doc["FontH"]=set.FontH; 
-  doc["FontS"]=set.FontS; 
-  doc["Simulate"]=set.Simulate True_False;
-  doc["ShowRawDecryptedDataFor"]=set.ShowRawDecryptedDataFor;
-  doc["Frame"]=set.Frame True_False;
-  
-
+  doc["BoxH"] = set.BoxH;
+  doc["BoxW"] = set.BoxW;
+  doc["FontH"] = set.FontH;
+  doc["FontS"] = set.FontS;
+  doc["Simulate"] = set.Simulate True_False;
+  doc["Debug"] = set.Debug True_False;
+  doc["BLEDebug"] = set.BLEDebug True_False;
+  doc["ShowRawDecryptedDataFor"] = set.ShowRawDecryptedDataFor;
+  doc["Frame"] = set.Frame True_False;
   // Serialize JSON to file
   if (serializeJsonPretty(doc, file) == 0) {  // use 'pretty format' with line feeds
     Serial.println(F("JSON: Failed to write to SD file"));
@@ -372,10 +409,10 @@ void SaveDisplayConfiguration(const char* filename, _MyColors& set) {
 }
 bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
   // Open SD file for reading
- File file = SD.open(filename, FILE_READ);
+  File file = SD.open(filename, FILE_READ);
   if (!file) {
     Serial.println(F("**Failed to read JSON file"));
-    }
+  }
   // Allocate a temporary JsonDocument
   char temp[15];
   JsonDocument doc;
@@ -385,19 +422,25 @@ bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
     Serial.println(F("**Failed to deserialise JSON file"));
   }
   // gett here means we can set defaults, regardless!
-  set.TextColor = doc["TextColor"] | BLACK;  
-  set.BackColor = doc["BackColor"] | WHITE;  
-  set.BackColor = doc["BorderColor"] | BLUE; 
-  set.BoxW = doc["BoxW"] | 100; 
-  set.BoxH = doc["BoxH"] | 50; 
-  
-  set.FontH = doc["FontH"] | WHITE; 
-  set.FontS = doc["FontS"] | WHITE; 
-  strlcpy(temp,doc["Simulate"] |"false",sizeof(temp));
-  set.Simulate =(strcmp(temp,"false"));
-  strlcpy(temp,doc["Frame"] |"false",sizeof(temp));
-  set.Frame =(strcmp(temp,"false"));
-  set.ShowRawDecryptedDataFor=doc["ShowRawDecryptedDataFor"]|1;
+
+  set.TextColor = doc["TextColor"] | BLACK;
+  set.BackColor = doc["BackColor"] | WHITE;
+  set.BorderColor = doc["BorderColor"] | BLUE;
+  set.BoxW = doc["BoxW"] | 46;
+  set.BoxH = doc["BoxH"] | 100;
+
+  set.FontH = doc["FontH"] | WHITE;
+  set.FontS = doc["FontS"] | WHITE;
+  strlcpy(temp, doc["Simulate"] | "false", sizeof(temp));
+  set.Simulate = (strcmp(temp, "false"));
+  strlcpy(temp, doc["Frame"] | "false", sizeof(temp));
+  set.Frame = (strcmp(temp, "false"));
+  strlcpy(temp, doc["Debug"] | "false", sizeof(temp));
+  set.Debug = (strcmp(temp, "false"));
+    strlcpy(temp, doc["BLEDebug"] | "false", sizeof(temp));
+  set.BLEDebug = (strcmp(temp, "false"));
+
+  set.ShowRawDecryptedDataFor = doc["ShowRawDecryptedDataFor"] | 1;
   // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
   if (!error) { return true; }
@@ -408,7 +451,7 @@ bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   // Open SD file for reading
   if (!SD.exists(filename)) {
     Serial.printf("**JSON file %s did not exist\n Using defaults\n", filename);
-    SaveConfiguration(filename, Default_JSON, Default_Settings); //save defaults to sd file
+    SaveConfiguration(filename, Default_JSON, Default_Settings);  //save defaults to sd file
     config = Default_JSON;
     settings = Default_Settings;
     return false;
@@ -429,11 +472,11 @@ bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   }
   // Copy values (or defaults) from the JsonDocument to the config / settings
   if (doc["Start_Page"] == 0) { return false; }  //secondary backup in case the file is present (passes error) but zeroed!
-  config.LocalTimeOffset= doc["LocalTimeOffset"] | 0;
+  config.LocalTimeOffset = doc["LocalTimeOffset"] | 0;
   config.Start_Page = doc["Start_Page"] | 4;  // 4 is default page int - no problem...
   strlcpy(temp, doc["Mag_Var"] | "1.15", sizeof(temp));
   BoatData.Variation = atof(temp);  //  (+ = easterly) Positive: If the magnetic north is to the east of true north, the declination is positive (or easterly).
-  
+
   strlcpy(config.FourWayBR, doc["FourWayBR"] | "SOG", sizeof(config.FourWayBR));
   strlcpy(config.FourWayBL, doc["FourWayBL"] | "DEPTH", sizeof(config.FourWayBL));
   strlcpy(config.FourWayTR, doc["FourWayTR"] | "WIND", sizeof(config.FourWayTR));
@@ -445,40 +488,40 @@ bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
           doc["APpassword"] | "12345678",  // <- and default in case Json is corrupt / missing !
           sizeof(config.APpassword));
 
-  
+
 
 
 
   // only change settings if we have read the file! else we will use the EEPROM settings
   if (!error) {
-  strlcpy(settings.ssid,               // <- destination
-            doc["ssid"] | "GuestBoat",   // <- source and default in case Json is corrupt!
-            sizeof(settings.ssid));      // <- destination's capacity
-  strlcpy(settings.password,             // <- destination
-          doc["password"] | "12345678",  // <- source and default
-          sizeof(settings.password));    // <- destination's capacity
-  strlcpy(settings.UDP_PORT,             // <- destination
-          doc["UDP_PORT"] | "2000",      // <- source and default.
-          sizeof(settings.UDP_PORT));    // <- destination's capacity
+    strlcpy(settings.ssid,                 // <- destination
+            doc["ssid"] | "GuestBoat",     // <- source and default in case Json is corrupt!
+            sizeof(settings.ssid));        // <- destination's capacity
+    strlcpy(settings.password,             // <- destination
+            doc["password"] | "12345678",  // <- source and default
+            sizeof(settings.password));    // <- destination's capacity
+    strlcpy(settings.UDP_PORT,             // <- destination
+            doc["UDP_PORT"] | "2000",      // <- source and default.
+            sizeof(settings.UDP_PORT));    // <- destination's capacity
 
-  strlcpy(temp,doc["Serial"]|"false",sizeof(temp));
-  settings.Serial_on= (strcmp(temp,"false"));
-   
-  strlcpy(temp,doc["UDP"]|"true",sizeof(temp));
-  settings.UDP_ON= (strcmp(temp,"false"));
-  strlcpy(temp,doc["ESP"]|"false",sizeof(temp));
-  settings.ESP_NOW_ON= (strcmp(temp,"false"));
-  strlcpy(temp,doc["LOG"]|"false",sizeof(temp));
-  settings.Log_ON= (strcmp(temp,"false"));
-  strlcpy(temp,doc["NMEALOG"]|"false",sizeof(temp));
-  settings.NMEA_log_ON= (strcmp(temp,"false"));
-  settings.log_interval_setting=doc["LogInterval"]|60;
+    strlcpy(temp, doc["Serial"] | "false", sizeof(temp));
+    settings.Serial_on = (strcmp(temp, "false"));
+
+    strlcpy(temp, doc["UDP"] | "true", sizeof(temp));
+    settings.UDP_ON = (strcmp(temp, "false"));
+    strlcpy(temp, doc["ESP"] | "false", sizeof(temp));
+    settings.ESP_NOW_ON = (strcmp(temp, "false"));
+    strlcpy(temp, doc["LOG"] | "false", sizeof(temp));
+    settings.Log_ON = (strcmp(temp, "false"));
+    strlcpy(temp, doc["NMEALOG"] | "false", sizeof(temp));
+    settings.NMEA_log_ON = (strcmp(temp, "false"));
+    settings.log_interval_setting = doc["LogInterval"] | 60;
   }
 
-  strlcpy(temp,doc["BLE_enable"]|"false",sizeof(temp));
-  settings.BLE_enable= (strcmp(temp,"false"));
-  
- 
+  strlcpy(temp, doc["BLE_enable"] | "false", sizeof(temp));
+  settings.BLE_enable = (strcmp(temp, "false"));
+
+
   // Close the file (Curiously, File's destructor doesn't close the file)
   file.close();
   if (!error) { return true; }
@@ -501,7 +544,7 @@ void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   // Set the values in the JSON file.. // NOT ALL ARE read yet!!
   //modify how the display works
   doc["Start_Page"] = config.Start_Page;
-  doc["LocalTimeOffset"]= config.LocalTimeOffset;
+  doc["LocalTimeOffset"] = config.LocalTimeOffset;
   Serial.print("save magvar:");
   Serial.printf("%5.3f", BoatData.Variation);
   snprintf(buff, sizeof(buff), "%5.3f", BoatData.Variation);
@@ -518,23 +561,23 @@ void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   doc["Serial"] = settings.Serial_on True_False;
   doc["UDP"] = settings.UDP_ON True_False;
   doc["ESP"] = settings.ESP_NOW_ON True_False;
-  doc["LogComments0"]= "LOG saves read data in file with date as name- BUT only when GPS date has been seen!";
-  doc["LogComments1"]= "NMEALOG saves every message. Use NMEALOG only for debugging!";
-  doc["LogComments2"]= "or the NMEALOG files will become huge";
+  doc["LogComments0"] = "LOG saves read data in file with date as name- BUT only when GPS date has been seen!";
+  doc["LogComments1"] = "NMEALOG saves every message. Use NMEALOG only for debugging!";
+  doc["LogComments2"] = "or the NMEALOG files will become huge";
   doc["LOG"] = settings.Log_ON True_False;
-  doc["LogInterval"]= settings.log_interval_setting;
+  doc["LogInterval"] = settings.log_interval_setting;
   doc["NMEALOG"] = settings.NMEA_log_ON True_False;
-  doc["DisplayComment1"]= "These settings allow modification of the bottom two 'quad' displays";
-  doc["DisplayComment2"]= "options are : SOG SOGGRAPH STW STWGRAPH GPS DEPTH DGRAPH DGRAPH2 ";
-  doc["DisplayComment3"]= "DGRAPH  and DGRAPH2 display 10 and 30 m ranges respectively";
+  doc["DisplayComment1"] = "These settings allow modification of the bottom two 'quad' displays";
+  doc["DisplayComment2"] = "options are : SOG SOGGRAPH STW STWGRAPH GPS DEPTH DGRAPH DGRAPH2 ";
+  doc["DisplayComment3"] = "DGRAPH  and DGRAPH2 display 10 and 30 m ranges respectively";
   doc["FourWayBR"] = config.FourWayBR;
   doc["FourWayBL"] = config.FourWayBL;
-  doc["DisplayComment4"]= "Top row right can be WIND or TIME (UTC) or TIMEL (LOCAL)";
+  doc["DisplayComment4"] = "Top row right can be WIND or TIME (UTC) or TIMEL (LOCAL)";
   doc["FourWayTR"] = config.FourWayTR;
   doc["FourWayTL"] = config.FourWayTL;
 
-  doc["_comment_"]= "These settings below apply only to Victron display pages";
-  doc["BLE_enable"]=settings.BLE_enable True_False;
+  doc["_comment_"] = "These settings below apply only to Victron display pages";
+  doc["BLE_enable"] = settings.BLE_enable True_False;
 
 
 
@@ -548,14 +591,15 @@ void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
 }
 
 
-void PrintJsonFile( const char* comment, const char* filename) {
+void PrintJsonFile(const char* comment, const char* filename) {
   // Open file for reading
   File file = SD.open(filename, FILE_READ);
-  Serial.printf(" %s JSON FILE %s is.",comment,filename);
+  Serial.printf(" %s JSON FILE %s is.", comment, filename);
   if (!file) {
     Serial.println(F("Failed to read file"));
     return;
-  }Serial.println();
+  }
+  Serial.println();
   // Extract each characters by one by one
   while (file.available()) {
     Serial.print((char)file.read());
@@ -608,7 +652,7 @@ void WindArrowSub(_sButton button, _sInstData Speed, _sInstData& wind) {
     if (rad <= 130) {
       UpdateDataTwoSize(true, true, 8, 7, button, Speed, "%2.0fkt");
     } else {
-      UpdateDataTwoSize(true,true, 10, 9, button, Speed, "%2.0fkt");
+      UpdateDataTwoSize(true, true, 10, 9, button, Speed, "%2.0fkt");
     }
   }
 
@@ -634,14 +678,6 @@ Phv translate(Phv center, double angle, int rad) {  // 'full version with full a
   moved.v = center.v - (rad * cos(angle * 0.0174533));  // v is minus as this is positive  down in gfx
   return moved;
 }
-
-// Phv translate1(Phv center, int angle, int rad) {
-//   Phv moved;
-//   moved.h = center.h + ((rad * getSine(angle)) / 100);
-//   moved.v = center.v + ((rad * getCosine(angle)) / 100);
-//   return moved;
-// }
-
 
 void DrawCompass(_sButton button) {
   //x y are center in drawcompass
@@ -691,54 +727,52 @@ void ShowToplinesettings(String Text) {
   ShowToplinesettings(Current_Settings, Text);
 }
 
-void ShowGPSinBox(int font, _sButton button){
+void ShowGPSinBox(int font, _sButton button) {
   static double lastTime;
   //Serial.printf("In ShowGPSinBox  %i\n",int(BoatData.GPSTime));
-   if ((BoatData.GPSTime != NMEA0183DoubleNA) && (BoatData.GPSTime != lastTime))  {
-    lastTime=BoatData.GPSTime;
-    GFXBorderBoxPrintf(button,"");
+  if ((BoatData.GPSTime != NMEA0183DoubleNA) && (BoatData.GPSTime != lastTime)) {
+    lastTime = BoatData.GPSTime;
+    GFXBorderBoxPrintf(button, "");
     AddTitleInsideBox(9, 2, button, " GPS");
-        button.PrintLine = 0;
-        if (BoatData.SatsInView != NMEA0183DoubleNA) { UpdateLinef(font, button, "Satellites in view %.0f ", BoatData.SatsInView); }
-        if (BoatData.GPSTime != NMEA0183DoubleNA) {
-          //UpdateLinef(font, button, "");
-          UpdateLinef(font, button, "Date: %06i ", int(BoatData.GPSDate));
-          //UpdateLinef(font, button, "");
-          UpdateLinef(font, button, "TIME: %02i:%02i:%02i",
-                      int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
-        }
-        if (BoatData.Latitude.data != NMEA0183DoubleNA) {
-          UpdateLinef(font, button, "LAT");
-          UpdateLinef(font, button, "%s", LattoString(BoatData.Latitude.data));
-           UpdateLinef(font, button, "LON");
-          UpdateLinef(font, button, "%s", LongtoString(BoatData.Longitude.data));
-          UpdateLinef(font, button, "");
-        }
-   }  
+    button.PrintLine = 0;
+    if (BoatData.SatsInView != NMEA0183DoubleNA) { UpdateLinef(font, button, "Satellites in view %.0f ", BoatData.SatsInView); }
+    if (BoatData.GPSTime != NMEA0183DoubleNA) {
+      //UpdateLinef(font, button, "");
+      UpdateLinef(font, button, "Date: %06i ", int(BoatData.GPSDate));
+      //UpdateLinef(font, button, "");
+      UpdateLinef(font, button, "TIME: %02i:%02i:%02i",
+                  int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60);
+    }
+    if (BoatData.Latitude.data != NMEA0183DoubleNA) {
+      UpdateLinef(font, button, "LAT");
+      UpdateLinef(font, button, "%s", LattoString(BoatData.Latitude.data));
+      UpdateLinef(font, button, "LON");
+      UpdateLinef(font, button, "%s", LongtoString(BoatData.Longitude.data));
+      UpdateLinef(font, button, "");
+    }
+  }
 }
-
-
 
 //***************************   DISPLAY .. The main place where the pages are described ****************
 void Display(int page) {
   Display(false, page);
 }
 
-void showPicture(const char* name){
-   jpegDraw(name, jpegDrawCallback, true /* useBigEndian */,
-                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+void showPicture(const char* name) {
+  jpegDraw(name, jpegDrawCallback, true /* useBigEndian */,
+           0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
 }
-void showPictureFrame(_sButton &button,const char* name){
-  if (!SD.exists(name)){return;}
-   jpegDraw(name, jpegDrawCallback, true /* useBigEndian */,
-                 button.h /* x */, button.v /* y */, button.width /* widthLimit */, button.height /* heightLimit */);
-   gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
+void showPictureFrame(_sButton& button, const char* name) {
+  if (!SD.exists(name)) { return; }
+  jpegDraw(name, jpegDrawCallback, true /* useBigEndian */,
+           button.h /* x */, button.v /* y */, button.width /* widthLimit */, button.height /* heightLimit */);
+  gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
                 button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
 }
 
 void Display(bool reset, int page) {  // setups for alternate pages to be selected by page.
   static unsigned long flashinterval;
-  static bool flash; 
+  static bool flash;
   static double startposlat, startposlon;
   double LatD, LongD;  //deltas
   double wind_gnd;
@@ -754,7 +788,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
   static unsigned int slowdown, timer2;
   //static float wind, SOG, Depth;
   float temp;
-  static _sInstData LocalCopy ; // needed only where two digital displays wanted for the same data variable.
+  static _sInstData LocalCopy;  // needed only where two digital displays wanted for the same data variable.
   static int fontlocal;
   static int FileIndex, Playing;  // static to hold after selection and before pressing play!
   static int V_offset;            // used in the audio file selection to sort print area
@@ -762,10 +796,15 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
   //String tempstring;
   // int FS = 1;  // for font size test
   // int tempint;
-  if (page != LastPageselected) { WIFIGFXBoxdisplaystarted = false; // will have reset the screen, so turn off the auto wifibox blanking if there was a wifiiterrupt box
-                        // this (above) saves a timed screen refresh that can clear keyboard stuff 
-   RunSetup = true; }
-  if (reset) {WIFIGFXBoxdisplaystarted = false; RunSetup = true; }
+  if (page != LastPageselected) {
+    WIFIGFXBoxdisplaystarted = false;  // will have reset the screen, so turn off the auto wifibox blanking if there was a wifiiterrupt box
+                                       // this (above) saves a timed screen refresh that can clear keyboard stuff
+    RunSetup = true;
+  }
+  if (reset) {
+    WIFIGFXBoxdisplaystarted = false;
+    RunSetup = true;
+  }
   //generic setup stuff for ALL pages
   if (RunSetup) {
     gfx->fillScreen(BLUE);
@@ -773,16 +812,18 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
     setFont(3);
     GFXBorderBoxPrintf(StatusBox, "");  // common to all pages
   }
-    if ((millis() >= flashinterval)) {
+  if ((millis() >= flashinterval)) {
     flashinterval = millis() + 1000;
     StatusBox.PrintLine = 0;  // always start / only use / the top line 0  of this box
-    UpdateLinef(3, StatusBox, "%s page:%i  Log Status %s NMEA %s  ",Display_Config.PanelName,Display_Page,
-                    Current_Settings.Log_ON On_Off, Current_Settings.NMEA_log_ON On_Off);
+    UpdateLinef(3, StatusBox, "%s page:%i  Log Status %s NMEA %s  ", Display_Config.PanelName, Display_Page,
+                Current_Settings.Log_ON On_Off, Current_Settings.NMEA_log_ON On_Off);
     if (Current_Settings.Log_ON || Current_Settings.NMEA_log_ON) {
       flash = !flash;
-    if (!flash) {UpdateLinef(3, StatusBox, "%s page:%i  Log Status     NMEA     ",Display_Config.PanelName, Display_Page);
-      } }
+      if (!flash) {
+        UpdateLinef(3, StatusBox, "%s page:%i  Log Status     NMEA     ", Display_Config.PanelName, Display_Page);
+      }
     }
+  }
   // add any other generic stuff here
   if (CheckButton(StatusBox)) { Display_Page = 0; }  // go to settings
   // Now specific stuff for each page
@@ -852,24 +893,25 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
 
       break;
- case -87:    // page for graphic display of Vicron data 
-     if (RunSetup) {
+    case -87:  // page for graphic display of Vicron data
+      if (RunSetup) {
         jpegDraw("/vicback.jpg", jpegDrawCallback, true /* useBigEndian */,
                  0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
-       }
+        Serial.println("redrawing background");
+      }
 
-     // all graphics done in VICTRONBLE 
-     if (CheckButton(FullTopCenter)) { Display_Page = -86; }
-    break;
- case -86:                                              // page for text display of Vicron data 
+      // all graphics done in VICTRONBLE
+      if (CheckButton(FullTopCenter)) { Display_Page = -86; }
+      break;
+    case -86:                                              // page for text display of Vicron data
       if (RunSetup) { GFXBorderBoxPrintf(Terminal, ""); }  // only for setup, not changed data
       if (RunSetup || DataChanged) {
-        setFont(3);
-        GFXBorderBoxPrintf(FullTopCenter, "VICTRON DATA DISPLAY ");
+        setFont(3);  // different from most pages, displays in terminal from see ~line 2145
+        GFXBorderBoxPrintf(FullTopCenter, "Return to VICTRON graphic display");
         if (!Terminal.debugpause) {
-          AddTitleBorderBox(0, Terminal, "Display");
+          AddTitleBorderBox(0, Terminal, "-running-");
         } else {
-          AddTitleBorderBox(0, Terminal, "-Paused-");
+          AddTitleBorderBox(0, Terminal, "-paused-");
         }
         DataChanged = false;
       }
@@ -879,9 +921,14 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(FullTopCenter)) { Display_Page = -87; }
       if (CheckButton(Terminal)) {
         Terminal.debugpause = !Terminal.debugpause;
-        DataChanged = true;
+        DataChanged = true;  // for more immediate visual response to touch!
+        if (!Terminal.debugpause) {
+          AddTitleBorderBox(0, Terminal, "-running-");
+        } else {
+          AddTitleBorderBox(0, Terminal, "-paused-");
+        }
       }
-    
+
       break;
 
 
@@ -908,7 +955,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(Full0Center)) { Display_Page = -200; }
       if (CheckButton(Full1Center)) { Display_Page = -9; }
       if (CheckButton(Full2Center)) { Display_Page = -10; }
-      if (CheckButton(Full3Center)) { Display_Page = -86; } // V for Victron
+      if (CheckButton(Full3Center)) { Display_Page = -87; }  // V for Victron go straight to graphic display
       //   if (CheckButton(Full4Center)) { Display_Page = -10; }
       if (CheckButton(Full5Center)) { Display_Page = 0; }
       break;
@@ -927,7 +974,6 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(Switch10, Current_Settings.ESP_NOW_ON On_Off);
         AddTitleBorderBox(0, Switch10, "ESP-Now");
 
-
         if (!Terminal.debugpause) {
           AddTitleBorderBox(0, Terminal, "TERMINAL");
         } else {
@@ -942,6 +988,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(Terminal)) {
         Terminal.debugpause = !Terminal.debugpause;
         DataChanged = true;
+        if (!Terminal.debugpause) {
+          AddTitleBorderBox(0, Terminal, "-running-");
+        } else {
+          AddTitleBorderBox(0, Terminal, "-paused-");
+        }
       }
       if (CheckButton(Switch6)) {
         Current_Settings.Log_ON = !Current_Settings.Log_ON;
@@ -1012,6 +1063,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       break;
 
     case -9:  // Play with the audio ..NOTE  Needs the resistors resoldered to connect to the audio chip on the Guitron (mains relay type) version!!
+     #ifdef AUDIO
       if (RunSetup || DataChanged) {
         setFont(4);
         gfx->setTextColor(WHITE, BLUE);
@@ -1077,6 +1129,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         audio.setVolume(volume);
         DataChanged = true;
       }
+      #endif
       break;
 
     case -5:  ///Wifiscan
@@ -1148,7 +1201,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       }
       if (CheckButton(TopRightbutton)) {
         GFXBorderBoxPrintf(SecondRowButton, " Starting WiFi re-SCAN / reconnect ");
-        AttemptingConnect=false; // so that Scan can do a full scan..
+        AttemptingConnect = false;  // so that Scan can do a full scan..
         ScanAndConnect(false);
         DataChanged = true;
       }  // do the scan again
@@ -1220,8 +1273,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         ShowToplinesettings(Saved_Settings, "EEPROM");
         setFont(4);
         GFXBorderBoxPrintf(SecondRowButton, "SSID <%s>", Current_Settings.ssid);
-        if (IsConnected){AddTitleBorderBox(0, SecondRowButton, "Current Setting <CONNECTED>");}else
-        {AddTitleBorderBox(0, SecondRowButton, "Current Setting <NOT CONNECTED>");}
+        if (IsConnected) {
+          AddTitleBorderBox(0, SecondRowButton, "Current Setting <CONNECTED>");
+        } else {
+          AddTitleBorderBox(0, SecondRowButton, "Current Setting <NOT CONNECTED>");
+        }
         GFXBorderBoxPrintf(ThirdRowButton, "Password <%s>", Current_Settings.password);
         AddTitleBorderBox(0, ThirdRowButton, "Current Setting");
         GFXBorderBoxPrintf(FourthRowButton, "UDP Port <%s>", Current_Settings.UDP_PORT);
@@ -1280,9 +1336,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(Full2Center, "NMEA DISPLAY");
         GFXBorderBoxPrintf(Full3Center, "Debug + LOG");
         GFXBorderBoxPrintf(Full4Center, "GPS Display");
-        GFXBorderBoxPrintf(Full5Center, "Save / Reset ");
-        setFont(3);
-        GFXBorderBoxPrintf(Full6Center, "PanelName<%s>", Display_Config.PanelName);
+        GFXBorderBoxPrintf(Full5Center, "Victron Display");
+        GFXBorderBoxPrintf(Full6Center, "Save / Reset ");
       }
       if (millis() > slowdown + 500) {
         slowdown = millis();
@@ -1292,11 +1347,12 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(Full2Center)) { Display_Page = 4; }
       if (CheckButton(Full3Center)) { Display_Page = -21; }
       if (CheckButton(Full4Center)) { Display_Page = 9; }
-      if (CheckButton(Full5Center)) {
+      if (CheckButton(Full5Center)) { Display_Page = -87; }
+      if (CheckButton(Full6Center)) {
         //Display_Page = 4;
         EEPROM_WRITE(Display_Config, Current_Settings);
         delay(50);
-          WiFi.disconnect();
+        WiFi.disconnect();
         ESP.restart();
       }
       break;
@@ -1306,69 +1362,74 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         setFont(10);
         gfx->fillScreen(BLACK);
         // DrawCompass(360, 120, 120);
-        if(String(Display_Config.FourWayTR) == "WIND") { DrawCompass(topRightquarter); AddTitleInsideBox(8, 3, topRightquarter, "WIND APP ");}
+        if (String(Display_Config.FourWayTR) == "WIND") {
+          DrawCompass(topRightquarter);
+          AddTitleInsideBox(8, 3, topRightquarter, "WIND APP ");
+        }
         GFXBorderBoxPrintf(topLeftquarter, "");
         AddTitleInsideBox(9, 3, topLeftquarter, "STW ");
         AddTitleInsideBox(9, 2, topLeftquarter, " Kts");  //font,position
-        setFont(10); 
+        setFont(10);
       }
-       if (millis() > slowdown +1000) {
-        slowdown = millis();//only make/update copies every second!  else undisplayed copies will be redrawn!
-        // could have more complex that accounts for displayed already? 
-        setFont(12); 
-       if(String(Display_Config.FourWayTR) == "TIME") { GFXBorderBoxPrintf(topRightquarter, "%02i:%02i",
-                      int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60);
-                      AddTitleInsideBox(9, 3, topRightquarter, "UTC ");
-                      
-                      }
-      if(String(Display_Config.FourWayTR) == "TIMEL") { GFXBorderBoxPrintf(topRightquarter, "%02i:%02i",
-                      int(BoatData.LOCTime) / 3600, (int(BoatData.LOCTime) % 3600) / 60);
-                      AddTitleInsideBox(9, 3, topRightquarter, "LOCAL ");
-                      
-                      }               
-         setFont(10);               
-       
-       }
-      
-      UpdateDataTwoSize(true,true, 13, 11, topLeftquarter, BoatData.STW, "%.1f");
+      if (millis() > slowdown + 1000) {
+        slowdown = millis();  //only make/update copies every second!  else undisplayed copies will be redrawn!
+        // could have more complex that accounts for displayed already?
+        setFont(12);
+        if (String(Display_Config.FourWayTR) == "TIME") {
+          GFXBorderBoxPrintf(topRightquarter, "%02i:%02i",
+                             int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60);
+          AddTitleInsideBox(9, 3, topRightquarter, "UTC ");
+        }
+        if (String(Display_Config.FourWayTR) == "TIMEL") {
+          GFXBorderBoxPrintf(topRightquarter, "%02i:%02i",
+                             int(BoatData.LOCTime) / 3600, (int(BoatData.LOCTime) % 3600) / 60);
+          AddTitleInsideBox(9, 3, topRightquarter, "LOCAL ");
+        }
+        setFont(10);
+      }
 
-      
-      if(String(Display_Config.FourWayTR) == "WIND") { WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp);  }
-                      
-      
+      UpdateDataTwoSize(true, true, 13, 11, topLeftquarter, BoatData.STW, "%.1f");
+
+
+      if (String(Display_Config.FourWayTR) == "WIND") { WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp); }
+
+
       //seeing if JSON setting of (bottom two sides of) quad is useful.. TROUBLE with two scrollGraphss so there is now extra 'instances' settings allowing two to run simultaneously!! ?
-      
-      if(String(Display_Config.FourWayBL) == "DEPTH"){UpdateDataTwoSize(RunSetup,"DEPTH"," M", true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%.1f");}
-      if(String(Display_Config.FourWayBL) == "SOG"){UpdateDataTwoSize(RunSetup,"SOG"," Kts", true, true, 13, 11, bottomLeftquarter, BoatData.SOG, "%.1f");}
-      if(String(Display_Config.FourWayBL) == "STW"){UpdateDataTwoSize(RunSetup,"STW"," Kts", true, true, 13, 11, bottomLeftquarter, BoatData.STW, "%.1f");}
-      
-      if(String(Display_Config.FourWayBL) == "GPS"){ShowGPSinBox(9,bottomLeftquarter);}
 
-      if(String(Display_Config.FourWayBL) == "DGRAPH"){SCROLLGraph(RunSetup,0,1,true,bottomLeftquarter, BoatData.WaterDepth, 10, 0, 8, "Fathmometer 10m ", "m");}
-      if(String(Display_Config.FourWayBL) == "DGRAPH2"){SCROLLGraph(RunSetup,0,1,true,bottomLeftquarter, BoatData.WaterDepth, 50, 0, 8, "Fathmometer 50m ", "m");}
-      if(String(Display_Config.FourWayBL) == "STWGRAPH"){SCROLLGraph(RunSetup,0,1,true,bottomLeftquarter, BoatData.STW, 0, 10, 8, "STW ", "kts");}
-      if(String(Display_Config.FourWayBL) == "SOGGRAPH"){SCROLLGraph(RunSetup,0,1,true,bottomLeftquarter, BoatData.SOG, 0, 10, 8, "SOG ", "kts");}
-     
-      // note use of SCROLLGraph2 
-      if(String(Display_Config.FourWayBR) == "DEPTH"){UpdateDataTwoSize(RunSetup,"DEPTH"," M", true, true, 13, 11, bottomRightquarter, BoatData.WaterDepth, "%.1f");}
-      if(String(Display_Config.FourWayBR) == "SOG"){ UpdateDataTwoSize(RunSetup,"SOG"," Kts", true, true, 13, 11, bottomRightquarter, BoatData.SOG, "%.1f");}
-      if(String(Display_Config.FourWayBR) == "STW"){UpdateDataTwoSize(RunSetup,"STW"," Kts", true, true, 13, 11, bottomRightquarter, BoatData.STW, "%.1f");}
-     
-      if(String(Display_Config.FourWayBR) == "GPS"){ShowGPSinBox(9,bottomRightquarter);}
+      if (String(Display_Config.FourWayBL) == "DEPTH") { UpdateDataTwoSize(RunSetup, "DEPTH", " M", true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%.1f"); }
+      if (String(Display_Config.FourWayBL) == "SOG") { UpdateDataTwoSize(RunSetup, "SOG", " Kts", true, true, 13, 11, bottomLeftquarter, BoatData.SOG, "%.1f"); }
+      if (String(Display_Config.FourWayBL) == "STW") { UpdateDataTwoSize(RunSetup, "STW", " Kts", true, true, 13, 11, bottomLeftquarter, BoatData.STW, "%.1f"); }
 
-      if(String(Display_Config.FourWayBR) == "DGRAPH"){SCROLLGraph(RunSetup,1,1,true,bottomRightquarter, BoatData.WaterDepth, 10, 0, 8, "Fathmometer 10m ", "m");}
-      if(String(Display_Config.FourWayBR) == "DGRAPH2"){SCROLLGraph(RunSetup,1,1,true,bottomRightquarter, BoatData.WaterDepth, 50, 0, 8, "Fathmometer 50m ", "m");}
-      if(String(Display_Config.FourWayBR) == "SOGGRAPH"){SCROLLGraph(RunSetup,1,1,true,bottomRightquarter, BoatData.SOG, 0, 10, 8, "SOG ", "kts");}
-      if(String(Display_Config.FourWayBR) == "STWGRAPH"){SCROLLGraph(RunSetup,1,1,true,bottomRightquarter, BoatData.STW, 0, 10, 8, "STW ", "kts");}
-      
-     
-      if (CheckButton(topLeftquarter)) { Display_Page = 6; }      //stw
-      if (CheckButton(bottomLeftquarter)) { Display_Page = 7; }   //depth
-      if (CheckButton(topRightquarter)) { Display_Page = 5; }     // Wind
+      if (String(Display_Config.FourWayBL) == "GPS") { ShowGPSinBox(9, bottomLeftquarter); }
+
+      if (String(Display_Config.FourWayBL) == "DGRAPH") { SCROLLGraph(RunSetup, 0, 1, true, bottomLeftquarter, BoatData.WaterDepth, 10, 0, 8, "Fathmometer 10m ", "m"); }
+      if (String(Display_Config.FourWayBL) == "DGRAPH2") { SCROLLGraph(RunSetup, 0, 1, true, bottomLeftquarter, BoatData.WaterDepth, 50, 0, 8, "Fathmometer 50m ", "m"); }
+      if (String(Display_Config.FourWayBL) == "STWGRAPH") { SCROLLGraph(RunSetup, 0, 1, true, bottomLeftquarter, BoatData.STW, 0, 10, 8, "STW ", "kts"); }
+      if (String(Display_Config.FourWayBL) == "SOGGRAPH") { SCROLLGraph(RunSetup, 0, 1, true, bottomLeftquarter, BoatData.SOG, 0, 10, 8, "SOG ", "kts"); }
+
+      // note use of SCROLLGraph2
+      if (String(Display_Config.FourWayBR) == "DEPTH") { UpdateDataTwoSize(RunSetup, "DEPTH", " M", true, true, 13, 11, bottomRightquarter, BoatData.WaterDepth, "%.1f"); }
+      if (String(Display_Config.FourWayBR) == "SOG") { UpdateDataTwoSize(RunSetup, "SOG", " Kts", true, true, 13, 11, bottomRightquarter, BoatData.SOG, "%.1f"); }
+      if (String(Display_Config.FourWayBR) == "STW") { UpdateDataTwoSize(RunSetup, "STW", " Kts", true, true, 13, 11, bottomRightquarter, BoatData.STW, "%.1f"); }
+
+      if (String(Display_Config.FourWayBR) == "GPS") { ShowGPSinBox(9, bottomRightquarter); }
+
+      if (String(Display_Config.FourWayBR) == "DGRAPH") { SCROLLGraph(RunSetup, 1, 1, true, bottomRightquarter, BoatData.WaterDepth, 10, 0, 8, "Fathmometer 10m ", "m"); }
+      if (String(Display_Config.FourWayBR) == "DGRAPH2") { SCROLLGraph(RunSetup, 1, 1, true, bottomRightquarter, BoatData.WaterDepth, 50, 0, 8, "Fathmometer 50m ", "m"); }
+      if (String(Display_Config.FourWayBR) == "SOGGRAPH") { SCROLLGraph(RunSetup, 1, 1, true, bottomRightquarter, BoatData.SOG, 0, 10, 8, "SOG ", "kts"); }
+      if (String(Display_Config.FourWayBR) == "STWGRAPH") { SCROLLGraph(RunSetup, 1, 1, true, bottomRightquarter, BoatData.STW, 0, 10, 8, "STW ", "kts"); }
+
+
+      if (CheckButton(topLeftquarter)) { Display_Page = 6; }     //stw
+      if (CheckButton(bottomLeftquarter)) { Display_Page = 7; }  //depth
+      if (CheckButton(topRightquarter)) { Display_Page = 5; }    // Wind
       if (CheckButton(bottomRightquarter)) {
-           if(String(Display_Config.FourWayBR) == "GPS"){Display_Page = 9;} 
-                            else{ Display_Page = 8; }  //SOG
-           }
+        if (String(Display_Config.FourWayBR) == "GPS") {
+          Display_Page = 9;
+        } else {
+          Display_Page = 8;
+        }  //SOG
+      }
 
       break;
 
@@ -1384,7 +1445,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-      
+
       WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngleApp);
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WindAngleApp, "%.1f");
       if (CheckButton(BigSingleDisplay)) { Display_Page = 15; }
@@ -1401,12 +1462,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(8, 3, BigSingleTopLeft, "SOG");
         AddTitleInsideBox(8, 2, BigSingleTopLeft, "Kts");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-   
       }
-     
-      SCROLLGraph(RunSetup,0,3,true,BigSingleDisplay, BoatData.STW, 0, 10, 9, "STW Graph ", "Kts");
-      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
-      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
+
+      SCROLLGraph(RunSetup, 0, 3, true, BigSingleDisplay, BoatData.STW, 0, 10, 9, "STW Graph ", "Kts");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
       if (CheckButton(BigSingleDisplay)) { Display_Page = 16; }
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 8; }
@@ -1427,10 +1487,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(8, 3, BigSingleTopLeft, "SOG");
         AddTitleInsideBox(8, 2, BigSingleTopLeft, "Kts");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-       
       }
       LocalCopy = BoatData.STW;
-      UpdateDataTwoSize(3,true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f"); // note magnify 3!! so needs the local copy 
+      UpdateDataTwoSize(3, true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f");  // note magnify 3!! so needs the local copy
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
 
@@ -1447,10 +1506,10 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(8, 2, BigSingleTopRight, " m");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
         //AddTitleInsideBox(9,3,BigSingleDisplay, "Fathmometer 30m");
-          }
+      }
 
-      SCROLLGraph(RunSetup,0,3,true,BigSingleDisplay, BoatData.WaterDepth, 30, 0, 9, "Fathmometer 30m ", "m");
-      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
+      SCROLLGraph(RunSetup, 0, 3, true, BigSingleDisplay, BoatData.WaterDepth, 30, 0, 9, "Fathmometer 30m ", "m");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
 
       if (CheckButton(BigSingleTopRight)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
@@ -1462,13 +1521,13 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (RunSetup) {
         setFont(10);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
-        AddTitleInsideBox(8, 1, BigSingleTopRight, "Depth"); 
+        AddTitleInsideBox(8, 1, BigSingleTopRight, "Depth");
         AddTitleInsideBox(8, 2, BigSingleTopRight, "m");
         GFXBorderBoxPrintf(BigSingleDisplay, "");
-        }
-      
-      SCROLLGraph(RunSetup,0,3,true,BigSingleDisplay, BoatData.WaterDepth, 10, 0, 9, "Fathmometer 10m ", "m");
-      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
+      }
+
+      SCROLLGraph(RunSetup, 0, 3, true, BigSingleDisplay, BoatData.WaterDepth, 10, 0, 9, "Fathmometer 10m ", "m");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
 
       //        TouchCrosshair(20); quarters select big screens
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
@@ -1476,17 +1535,17 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(topRightquarter)) { Display_Page = 7; }
       break;
 
-    case 17:  // Depth (big digital) 
+    case 17:  // Depth (big digital)
       if (RunSetup) {
         setFont(10);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
         AddTitleInsideBox(8, 1, BigSingleTopRight, "Depth");
         AddTitleInsideBox(8, 2, BigSingleTopRight, "m");
-        GFXBorderBoxPrintf(BigSingleDisplay, ""); 
+        GFXBorderBoxPrintf(BigSingleDisplay, "");
         AddTitleInsideBox(10, 2, BigSingleDisplay, "m");
-        }
+      }
       LocalCopy = BoatData.WaterDepth;  //WaterDepth, "%4.1f m");  // nb %4.1 will give leading printing space- giving formatting issues!
-      UpdateDataTwoSize(4,true, true, 12, 10, BigSingleDisplay, LocalCopy, "%.1f");
+      UpdateDataTwoSize(4, true, true, 12, 10, BigSingleDisplay, LocalCopy, "%.1f");
       UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.WaterDepth, "%.1f");
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(BigSingleDisplay)) { Display_Page = 7; }
@@ -1506,10 +1565,10 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
         DataChanged = false;
       }
-      
-      SCROLLGraph(RunSetup,0,3,true,BigSingleDisplay, BoatData.SOG, 0, 10, 9, "SOG Graph ", "kts");
-      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
-      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
+
+      SCROLLGraph(RunSetup, 0, 3, true, BigSingleDisplay, BoatData.SOG, 0, 10, 9, "SOG Graph ", "kts");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
 
       //if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
@@ -1519,7 +1578,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 4; }
       break;
 
-    case 18:  //BIG SOG  
+    case 18:  //BIG SOG
       if (RunSetup || DataChanged) {
         setFont(11);
         GFXBorderBoxPrintf(BigSingleTopRight, "");
@@ -1535,9 +1594,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         slowdown = millis();
       }
       LocalCopy = BoatData.SOG;
-      UpdateDataTwoSize(3, true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f");//note magnify 3 is a repeat display so needs the localCopy 
-      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
-      UpdateDataTwoSize(true,true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
+      UpdateDataTwoSize(3, true, true, 13, 12, BigSingleDisplay, LocalCopy, "%.1f");  //note magnify 3 is a repeat display so needs the localCopy
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopRight, BoatData.STW, "%.1f");
+      UpdateDataTwoSize(true, true, 12, 10, BigSingleTopLeft, BoatData.SOG, "%.1f");
 
       //if (CheckButton(Full0Center)) { Display_Page = 4; }
       //        TouchCrosshair(20); quarters select big screens
@@ -1556,8 +1615,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         GFXBorderBoxPrintf(BigSingleTopLeft, "Click for graphic");
         setFont(10);
       }
-      UpdateDataTwoSize(true,true, 9, 8, TopHalfBigSingleTopRight, BoatData.SOG, "SOG: %.1f kt");
-      UpdateDataTwoSize(true,true, 9, 8, BottomHalfBigSingleTopRight, BoatData.COG, "COG: %.1f d");
+      UpdateDataTwoSize(true, true, 9, 8, TopHalfBigSingleTopRight, BoatData.SOG, "SOG: %.1f kt");
+      UpdateDataTwoSize(true, true, 9, 8, BottomHalfBigSingleTopRight, BoatData.COG, "COG: %.1f d");
       if (millis() > slowdown + 1000) {
         slowdown = millis();
         GFXBorderBoxPrintf(BigSingleDisplay, "");
@@ -1660,9 +1719,9 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (millis() > slowdown + 500) {
         slowdown = millis();
       }
-      UpdateDataTwoSize(true,true, 9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %.1f");
+      UpdateDataTwoSize(true, true, 9, 8, TopHalfBigSingleTopRight, BoatData.WindAngleApp, "app %.1f");
       WindArrow2(BigSingleDisplay, BoatData.WindSpeedK, BoatData.WindAngleGround);
-      UpdateDataTwoSize(true,true, 9, 8, BottomHalfBigSingleTopRight, BoatData.WindAngleGround, "gnd %.1f");
+      UpdateDataTwoSize(true, true, 9, 8, BottomHalfBigSingleTopRight, BoatData.WindAngleGround, "gnd %.1f");
 
       if (CheckButton(topLeftquarter)) { Display_Page = 4; }
       if (CheckButton(BigSingleDisplay)) { Display_Page = 5; }
@@ -1682,7 +1741,8 @@ void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes increment
   MasterFont = fontinput;
   switch (fontinput) {  //select font and automatically set height/offset based on character '['
     // set the heights and offset to print [ in boxes. Heights in pixels are NOT the point heights!
-    case 0:  // SMALL 8pt
+
+    case 0:                        // SMALL 8pt
       Fontname = "FreeMono8pt7b";  //9 to 14 high?
       gfx->setFont(&FreeMono8pt7b);
       text_height = (FreeMono8pt7bGlyphs[0x3D].height) + 1;
@@ -1777,7 +1837,7 @@ void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes increment
       text_offset = -(FreeSansBold40pt7bGlyphs[0x38].yOffset);
       text_char_width = 12;
       break;
-     
+
     case 13:  //sans BOLD 60 pt
       Fontname = "FreeSansBold60pt7b";
       gfx->setFont(&FreeSansBold60pt7b);
@@ -1786,27 +1846,27 @@ void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes increment
       text_char_width = 12;
       break;
 
-    //   case 21:  //Mono oblique BOLD 27 pt
-    //   Fontname = "FreeMonoBoldOblique27pt7b";
-    //   gfx->setFont(&FreeMonoBoldOblique27pt7b);
-    //   text_height = (FreeMonoBoldOblique27pt7bGlyphs[0x38].height) + 1;
-    //   text_offset = -(FreeMonoBoldOblique27pt7bGlyphs[0x38].yOffset);
-    //   text_char_width = 12;
-    //   break;
-    // case 22:  //Mono oblique BOLD 40 pt
-    //   Fontname = "FreeMonoBoldOblique40pt7b";
-    //   gfx->setFont(&FreeMonoBoldOblique40pt7b);
-    //   text_height = (FreeMonoBoldOblique40pt7bGlyphs[0x38].height) + 1;
-    //   text_offset = -(FreeMonoBoldOblique40pt7bGlyphs[0x38].yOffset);
-    //   text_char_width = 12;
-    //   break;
-    //       case 23:  //Mono oblique BOLD 60 pt
-    //   Fontname = "FreeMonoBoldOblique60pt7b";
-    //   gfx->setFont(&FreeMonoBoldOblique60pt7b);
-    //   text_height = (FreeMonoBoldOblique60pt7bGlyphs[0x38].height) + 1;
-    //   text_offset = -(FreeMonoBoldOblique60pt7bGlyphs[0x38].yOffset);
-    //   text_char_width = 12;
-    //   break;
+      //   case 21:  //Mono oblique BOLD 27 pt
+      //   Fontname = "FreeMonoBoldOblique27pt7b";
+      //   gfx->setFont(&FreeMonoBoldOblique27pt7b);
+      //   text_height = (FreeMonoBoldOblique27pt7bGlyphs[0x38].height) + 1;
+      //   text_offset = -(FreeMonoBoldOblique27pt7bGlyphs[0x38].yOffset);
+      //   text_char_width = 12;
+      //   break;
+      // case 22:  //Mono oblique BOLD 40 pt
+      //   Fontname = "FreeMonoBoldOblique40pt7b";
+      //   gfx->setFont(&FreeMonoBoldOblique40pt7b);
+      //   text_height = (FreeMonoBoldOblique40pt7bGlyphs[0x38].height) + 1;
+      //   text_offset = -(FreeMonoBoldOblique40pt7bGlyphs[0x38].yOffset);
+      //   text_char_width = 12;
+      //   break;
+      //       case 23:  //Mono oblique BOLD 60 pt
+      //   Fontname = "FreeMonoBoldOblique60pt7b";
+      //   gfx->setFont(&FreeMonoBoldOblique60pt7b);
+      //   text_height = (FreeMonoBoldOblique60pt7bGlyphs[0x38].height) + 1;
+      //   text_offset = -(FreeMonoBoldOblique60pt7bGlyphs[0x38].yOffset);
+      //   text_char_width = 12;
+      //   break;
 
 
     default:
@@ -1826,16 +1886,16 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Starting NMEA Display ");
   Serial.println(soft_version);
-  
+
   ts.begin();
   Serial.println("ts has begun");
   ts.setRotation(ROTATION_INVERTED);
   // guitron sets GFX_BL 38
   Serial.println("GFX_BL set");
-#ifdef GFX_BL
+  #ifdef GFX_BL
   pinMode(GFX_BL, OUTPUT);
   digitalWrite(GFX_BL, HIGH);
-#endif
+  #endif
   // Init Display
   gfx->begin();
   //if GFX> 1.3.1 try and do this as the invert colours write 21h or 20h to 0Dh has been lost from the structure!
@@ -1846,12 +1906,10 @@ void setup() {
   setFont(4);
   gfx->setCursor(40, 20);
   gfx->println(F("***Display Started***"));
-  SD_Setup();Audio_setup(); // Puts LOGO on screen
- // try earlier? one source says audio needs to be started before gfx display //SD_Setup();Audio_setup();
-
-  // gfx->setCursor(140, 140);
-  // gfx->println(soft_version);
-  
+  SD_Setup();
+  #ifdef AUDIO
+  Audio_setup();  
+  #endif
   
   EEPROM_READ();  // setup and read Saved_Settings (saved variables)
   Current_Settings = Saved_Settings;
@@ -1865,19 +1923,21 @@ void setup() {
     Display_Config = Default_JSON;
     Serial.println(" USING EEPROM data, display set to defaults");
   }
-  
-  if (LoadVictronConfiguration(VictronDevicesSetupfilename,victronDevices)){
+
+  if (LoadVictronConfiguration(VictronDevicesSetupfilename, victronDevices)) {
     Serial.println(" USING JSON for Victron data settings");
-    }else { Serial.println("\n\n***FAILED TO GET Victron JSON FILE****\n**** SAVING DEFAULT and Making File on SD****\n\n");
-    Num_Victron_Devices=6;
-    SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices);// should write a default file if it was missing?
-    }
-  if (LoadDisplayConfiguration(ColorsFilename,ColorSettings) ){
+  } else {
+    Serial.println("\n\n***FAILED TO GET Victron JSON FILE****\n**** SAVING DEFAULT and Making File on SD****\n\n");
+    Num_Victron_Devices = 6;
+    SaveVictronConfiguration(VictronDevicesSetupfilename, victronDevices);  // should write a default file if it was missing?
+  }
+  if (LoadDisplayConfiguration(ColorsFilename, ColorSettings)) {
     Serial.println(" USING JSON for Colours data settings");
-    }else { Serial.println("\n\n***FAILED TO GET Colours JSON FILE****\n**** SAVING DEFAULT and Making File on SD****\n\n");
-    SaveDisplayConfiguration(ColorsFilename,ColorSettings);// should write a default file if it was missing?
-    }
-    
+  } else {
+    Serial.println("\n\n***FAILED TO GET Colours JSON FILE****\n**** SAVING DEFAULT and Making File on SD****\n\n");
+    SaveDisplayConfiguration(ColorsFilename, ColorSettings);  // should write a default file if it was missing?
+  }
+
   // set up anything BoatData from the configs
   //Serial.print("now.. magvar:");Serial.println(BoatData.Variation);
 
@@ -1888,7 +1948,7 @@ void setup() {
     // Serial.printf("display <%s> \n",Display_Config.StartLogo);
     jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
              // jpegDraw(StartLogo, jpegDrawCallback, true /* useBigEndian */,
-             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */); 
+             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
     setFont(11);
     gfx->setTextBound(0, 0, 480, 480);
     gfx->setCursor(30, 80);
@@ -1897,87 +1957,110 @@ void setup() {
     gfx->setCursor(35, 75);
     gfx->setTextColor(WHITE);
     gfx->println(soft_version);
-  delay(500);  
-   // 
+    delay(500);
+    //
   }
- gfx->setCursor(140, 240);
+  gfx->setCursor(140, 240);
   // print config files
-  PrintJsonFile(" Display and wifi config file...",Setupfilename);
-  PrintJsonFile(" Victron JSON config file..",VictronDevicesSetupfilename);
-  PrintJsonFile(" Display colour  config file..",ColorsFilename);
+  PrintJsonFile(" Display and wifi config file...", Setupfilename);
+  PrintJsonFile(" Victron JSON config file..", VictronDevicesSetupfilename);
+  PrintJsonFile(" Display colour  config file..", ColorsFilename);
   ConnectWiFiusingCurrentSettings();
   SetupWebstuff();
- 
-  keyboard(-1);     //reset keyboard display update settings
+
+  keyboard(-1);  //reset keyboard display update settings
   Udp.begin(atoi(Current_Settings.UDP_PORT));
-  //delay(1000);       // time to admire your user page!  
+  //delay(1000);       // time to admire your user page!
   gfx->setTextBound(0, 0, 480, 480);
   gfx->setTextColor(WHITE);
-  Display_Page = Display_Config.Start_Page;// select first page from the JSON. to show or use non defined page to start with default
+  Display_Page = Display_Config.Start_Page;  // select first page from the JSON. to show or use non defined page to start with default
   Serial.printf(" Starting display page<%i> \n", Display_Config.Start_Page);
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
-  BLEsetup(); // setup Victron BLE interface (does not do much!!)
-  }
-unsigned long Interval;// may also be used in sub functions during debug chasing delays.. Serial.printf(" s<%i>",millis()-Interval);Interval=millis();
+  BLEsetup();       // setup Victron BLE interface (does not do much!!)
+}
+//unsigned long Interval;  // may also be used in sub functions during debug chasing delays.. Serial.printf(" s<%i>",millis()-Interval);Interval=millis();
 
-void timeupdate(){
-    static unsigned long tick;
-    while ((millis() >= tick)) {
+void timeupdate() {
+  static unsigned long tick;
+  while ((millis() >= tick)) {
     tick = tick + 1000;  // not millis or you can get 'slip'
-    BoatData.LOCTime=BoatData.LOCTime+1;}
+    BoatData.LOCTime = BoatData.LOCTime + 1;
+  }
 }
 
-double ValidData(_sInstData variable){  // To avoid using NMEA0183DoubleNA value in displays etc replace with zero.
-  double res =0;
-  if (variable.greyed){ return 0;}
-  if (variable.data != NMEA0183DoubleNA) { res=variable.data;}
+double ValidData(_sInstData variable) {  // To avoid showing NMEA0183DoubleNA value in displays etc replace with zero.
+  double res = 0;
+  if (variable.greyed) { return 0; }
+  if (variable.data != NMEA0183DoubleNA) { res = variable.data; }
   return res;
 }
 
 void loop() {
-   static unsigned long LogInterval;
+  static unsigned long LogInterval;
+  static unsigned long DebugInterval;
   static unsigned long SSIDSearchInterval;
   timeupdate();
   //Serial.printf(" s<%i>",millis()-Interval);Interval=millis();
   yield();
   server.handleClient();  // for OTA;
-  
+
   delay(1);
   ts.read();
-  if((Current_Settings.BLE_enable) && ((Display_Page== -86)||(Display_Page== -87)) ){BLEloop();}   //ONLY on  victron Display_Page -86 and -87!! or it interrupts eveything! 
-  //Serial.printf(" 1<%i>",millis()-Interval);Interval=millis();
   CheckAndUseInputs();
-   //Serial.printf(" 2<%i>",millis()-Interval);Interval=millis();
-   
-  Display(Display_Page); 
-  // Serial.printf(" 3<%i>",millis()-Interval);Interval=millis();
+  Display(Display_Page);
+  /*BLEloop*/
+  if ((Current_Settings.BLE_enable) && ((Display_Page == -86) || (Display_Page == -87))) {
+  #ifdef AUDIO
+    if (audio.isRunning()) {
+      delay(10);
+      WifiGFXinterrupt(8, WifiStatus, "BLE will start\nwhen Audio finished");
+    } else {
+      BLEloop();
+    }
+    #else
+    BLEloop();
+    #endif
+  }  // Prioritize the sounds if on..
+     //ONLY on  victron Display_Page -86 and -87!! or it interrupts eveything!
   EXTHeartbeat();
+   #ifdef AUDIO
   audio.loop();
- // Serial.printf(" 4<%i>",millis()-Interval);Interval=millis();
-  if (!AttemptingConnect && !IsConnected && (millis() >= SSIDSearchInterval)) { // repeat at intervals to check..
-    SSIDSearchInterval = millis() + scansearchinterval; // 
-    if (StationsConnectedtomyAP==0){ // avoid scanning if we have someone connected to AP as it will/may disconnect! 
-    ScanAndConnect(true);} // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared 
-  }  
- 
+  #endif
+
+  if (!AttemptingConnect && !IsConnected && (millis() >= SSIDSearchInterval)) {  // repeat at intervals to check..
+    SSIDSearchInterval = millis() + scansearchinterval;                          //
+    if (StationsConnectedtomyAP == 0) {                                          // avoid scanning if we have someone connected to AP as it will/may disconnect!
+      ScanAndConnect(true);
+    }  // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared
+  }
 
   // NMEALOG is done in CheckAndUseInputs
-  // the instrument log saves everything every loginterval (set in config)  secs, even if data is not available! (NMEA0183DoubleNA)
+  // the instrument log saves everything every LogInterval (set in config)  secs, even if data is not available! (NMEA0183DoubleNA)
   // uses LOCAL Time as this advances if GPS (UTC) is lost (but resets when GPS received again.)
   if ((Current_Settings.Log_ON) && (millis() >= LogInterval)) {
-    LogInterval = millis() + (Current_Settings.log_interval_setting*1000);
+    LogInterval = millis() + (Current_Settings.log_interval_setting * 1000);
     INSTLOG("%02i:%02i:%02i ,%4.2f STW ,%4.2f head-mag, %4.2f SOG ,%4.2f COG ,%4.2f DPT, %4.2f WS,%3.1f WA \r\n",
-        int(BoatData.LOCTime) / 3600, (int(BoatData.LOCTime) % 3600) / 60, (int(BoatData.LOCTime) % 3600) % 60,
-        ValidData(BoatData.STW),ValidData(BoatData.MagHeading),ValidData(BoatData.SOG),ValidData(BoatData.COG),  
-        ValidData(BoatData.WaterDepth), ValidData(BoatData.WindSpeedK),ValidData(BoatData.WindAngleApp));
+            int(BoatData.LOCTime) / 3600, (int(BoatData.LOCTime) % 3600) / 60, (int(BoatData.LOCTime) % 3600) % 60,
+            ValidData(BoatData.STW), ValidData(BoatData.MagHeading), ValidData(BoatData.SOG), ValidData(BoatData.COG),
+            ValidData(BoatData.WaterDepth), ValidData(BoatData.WindSpeedK), ValidData(BoatData.WindAngleApp));
   }
- //Serial.printf(" 6<%i>",millis()-Interval);Interval=millis();
-  if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000) && (!AttemptingConnect))  {
+  // switch off WIFIGFXBox after timed interval
+  if (WIFIGFXBoxdisplaystarted && (millis() >= WIFIGFXBoxstartedTime + 10000) && (!AttemptingConnect)) {
     WIFIGFXBoxdisplaystarted = false;
-    Display(true, Display_Page);delay(50); // change page back, having set zero above which alows the graphics to reset up the boxes etc.
-    }
- //Serial.printf(" 7<%i>",millis()-Interval);Interval=millis();
- //Serial.printf(" end<%i>\n",millis()-Interval);Interval=millis();
+    Display(true, Display_Page);
+    delay(50);  // change page back, having set zero above which alows the graphics to reset up the boxes etc.
+  }
+
+  if (((ColorSettings.Debug)||(ColorSettings.BLEDebug)) && (millis() >= DebugInterval)) {
+    DebugInterval = millis() + 1000;
+    size_t current_free_heap = esp_get_free_heap_size();
+    Serial.printf("Current Free Heap Size: %zu bytes, ", current_free_heap);
+    // Get the minimum free heap size seen so far
+    size_t min_free_heap = esp_get_minimum_free_heap_size();
+    Serial.printf("Minimum Free Heap Size: %zu bytes\n", min_free_heap);
+    // Add a small delay to ensure the values are stable
+    delay(1);
+  }
 }
 
 
@@ -1993,72 +2076,6 @@ void TouchCrosshair(int point, int size, uint16_t colour) {
   gfx->drawFastVLine(ts.points[point].x, ts.points[point].y - size, 2 * size, colour);
   gfx->drawFastHLine(ts.points[point].x - size, ts.points[point].y, 2 * size, colour);
 }
-
-// void DisplayCheck(bool invertcheck) {  //used to test colours are as expected while checking new displays
-//   static unsigned long timedInterval;
-//   static unsigned long updatetiming;
-//   static unsigned long LoopTime;
-//   static int Color;
-
-//   static bool ips;
-//   LoopTime = millis() - updatetiming;
-//   updatetiming = millis();
-//   if (millis() >= timedInterval) {
-//     //***** Timed updates *******
-//     timedInterval = millis() + 300;
-//     //Serial.printf("Loop Timing %ims",LoopTime);
-//     if (invertcheck) {
-//       //Serial.println(" Timed display check");
-//       Color = Color + 1;
-//       if (Color > 5) {
-//         Color = 0;
-//         ips = !ips;
-//         gfx->invertDisplay(ips);
-//       }
-//       gfx->fillRect(300, text_height, 180, text_height * 2, BLACK);
-//       gfx->setTextColor(WHITE);
-//       if (ips) {
-//         Writeat(310, text_height, "INVERTED");
-//       } else {
-//         Writeat(310, text_height, " Normal ");
-//       }
-
-//       switch (Color) {
-//         //gfx->fillRect(0, 00, 480, 20,BLACK);gfx->setTextColor(WHITE);Writeat(0,0, "WHITE");
-//         case 0:
-//           gfx->fillRect(300, 60, 180, 60, WHITE);
-//           gfx->setTextColor(BLACK);
-//           Writeat(310, 62, "WHITE");
-//           break;
-//         case 1:
-//           gfx->fillRect(300, 60, 180, 60, BLACK);
-//           ;
-//           gfx->setTextColor(WHITE);
-//           Writeat(310, 62, "BLACK");
-//           break;
-//         case 2:
-//           gfx->fillRect(300, 60, 180, 60, RED);
-//           ;
-//           gfx->setTextColor(BLACK);
-//           Writeat(310, 62, "RED");
-//           break;
-//         case 3:
-//           gfx->fillRect(300, 60, 180, 60, GREEN);
-//           ;
-//           gfx->setTextColor(BLACK);
-//           Writeat(310, 62, "GREEN");
-//           break;
-//         case 4:
-//           gfx->fillRect(300, 60, 180, 60, BLUE);
-//           ;
-//           gfx->setTextColor(BLACK);
-//           Writeat(310, 62, "BLUE");
-//           break;
-//       }
-//     }
-//   }
-// }
-
 
 bool CheckButton(_sButton& button) {  // trigger on release. needs index (s) to remember which button!
   //trigger on release! does not sense !isTouched ..  use Keypressed in each button struct to keep track!
@@ -2078,31 +2095,32 @@ bool CheckButton(_sButton& button) {  // trigger on release. needs index (s) to 
   return false;
 }
 void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
-  static unsigned long MAXScanInterval; 
-  MAXScanInterval=millis()+500;
- // Serial.printf(" C&U<%i>",millis()-Interval);Interval=millis();
-  if ((Current_Settings.ESP_NOW_ON) ) {  // ESP_now can work even if not actually 'connected', so for now, do not risk the while loop! 
-   // old.. only did one line of nmea_EXT..  
-       // if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
-    while (Test_ESP_NOW() && (millis()<=MAXScanInterval)) {UseNMEA(nmea_EXT, 3);
+  static unsigned long MAXScanInterval;
+  MAXScanInterval = millis() + 500;
+  // Serial.printf(" C&U<%i>",millis()-Interval);Interval=millis();
+  if ((Current_Settings.ESP_NOW_ON)) {  // ESP_now can work even if not actually 'connected', so for now, do not risk the while loop!
+                                        // old.. only did one line of nmea_EXT..
+                                        // if (nmea_EXT[0] != 0) { UseNMEA(nmea_EXT, 3); }
+    while (Test_ESP_NOW() && (millis() <= MAXScanInterval)) {
+      UseNMEA(nmea_EXT, 3);
       // runs multiple times to clear the buffer.. use delay to allow other things to work.. print to show if this is the cause of start delays while debugging!
-      audio.loop();
-      vTaskDelay(1);
-    } 
- }
-// Serial.printf(" ca<%i>",millis()-Interval);Interval=millis();
+      //audio.loop();
+      //vTaskDelay(1);
+    }
+  }
+  // Serial.printf(" ca<%i>",millis()-Interval);Interval=millis();
   if (Current_Settings.Serial_on) {
     if (Test_Serial_1()) { UseNMEA(nmea_1, 1); }
   }
- // Serial.printf(" cb<%i>",millis()-Interval);Interval=millis();
+  // Serial.printf(" cb<%i>",millis()-Interval);Interval=millis();
   if (Current_Settings.UDP_ON) {
     if (Test_U()) { UseNMEA(nmea_U, 2); }
   }
- //Serial.printf(" cd<%i>",millis()-Interval);Interval=millis();
-   if (Current_Settings.BLE_enable) {
-    if (VictronBuffer[0]!=0) { UseNMEA(VictronBuffer, 4); }
+  //Serial.printf(" cd<%i>",millis()-Interval);Interval=millis();
+  if (Current_Settings.BLE_enable) {
+    if (VictronBuffer[0] != 0) { UseNMEA(VictronBuffer, 4); }
   }
-// Serial.printf(" ce<%i>\n",millis()-Interval);Interval=millis();
+  // Serial.printf(" ce<%i>\n",millis()-Interval);Interval=millis();
 }
 
 void UseNMEA(char* buf, int type) {
@@ -2113,34 +2131,34 @@ void UseNMEA(char* buf, int type) {
     /*TIME: %02i:%02i:%02i",
                       int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60,*/
     if (Current_Settings.NMEA_log_ON) {
-      if (BoatData.GPSTime!= NMEA0183DoubleNA){
+      if (BoatData.GPSTime != NMEA0183DoubleNA) {
         if (type == 1) { NMEALOG(" %02i:%02i:%02i UTC: SER:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
-      if (type == 2) { NMEALOG(" %02i:%02i:%02i UTC: UDP:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
-      if (type == 3) { NMEALOG(" %02i:%02i:%02i UTC: ESP:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
-      if (type == 4) { NMEALOG("\n%.3f BLE: Victron:%s", float(millis()) / 1000, buf); }
+        if (type == 2) { NMEALOG(" %02i:%02i:%02i UTC: UDP:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
+        if (type == 3) { NMEALOG(" %02i:%02i:%02i UTC: ESP:%s", int(BoatData.GPSTime) / 3600, (int(BoatData.GPSTime) % 3600) / 60, (int(BoatData.GPSTime) % 3600) % 60, buf); }
+        if (type == 4) { NMEALOG("\n%.3f BLE: Victron:%s", float(millis()) / 1000, buf); }
 
-    }else{
-    
-      if (type == 1) { NMEALOG("%.3f SER:%s", float(millis()) / 1000, buf); }
-      if (type == 2) { NMEALOG("%.3f UDP:%s", float(millis()) / 1000, buf); }
-      if (type == 3) { NMEALOG("%.3f ESP:%s", float(millis()) / 1000, buf); }
-      if (type == 4) { NMEALOG("\n %.3f VIC:%s", float(millis()) / 1000, buf); }
-    }
+      } else {
+
+        if (type == 1) { NMEALOG("%.3f SER:%s", float(millis()) / 1000, buf); }
+        if (type == 2) { NMEALOG("%.3f UDP:%s", float(millis()) / 1000, buf); }
+        if (type == 3) { NMEALOG("%.3f ESP:%s", float(millis()) / 1000, buf); }
+        if (type == 4) { NMEALOG("\n %.3f VIC:%s", float(millis()) / 1000, buf); }
+      }
     }
     // 8 is snasBold8pt small font and seems to wrap to give a space before the second line
     // 7 is smallest
     // 0 is 8pt mono thin,
     //3 is 8pt mono bold
     if ((Display_Page == -86)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
-        if (type == 4) {
-        UpdateLinef(BLACK, 8, Terminal, "Victron:%s", buf);  // 7 small enough to avoid line wrap issue?
+      if (type == 4) {
+        UpdateLinef(BLACK, 8, Terminal, "V_Debugmsg%s", buf);  //8 readable ! 7 small enough to avoid line wrap issue?
       }
     }
 
     if ((Display_Page == -21)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
-        if (type == 4) {
+      if (type == 4) {
         UpdateLinef(BLACK, 8, Terminal, "Victron:%s", buf);  // 7 small enough to avoid line wrap issue?
-        }
+      }
 
       if (type == 2) {
         UpdateLinef(BLUE, 8, Terminal, "UDP:%s", buf);  // 7 small enough to avoid line wrap issue?
@@ -2151,12 +2169,12 @@ void UseNMEA(char* buf, int type) {
       if (type == 1) { UpdateLinef(GREEN, 8, Terminal, "Ser:%s", buf); }
     }
     // now decode it for the displays to use
-    if (type !=4 ){
-    pTOKEN = buf;                                               // pToken is used in processPacket to separate out the Data Fields
-    if (processPacket(buf, BoatData)) { dataUpdated = true; };  // NOTE processPacket will search for CR! so do not remove it and then do page updates if true ?
-       }
-    /// WILL NEED new process packet equivalent to deal with VICTRON data 
-    buf[0] = 0;                                                 //clear buf  when finished!
+    if (type != 4) {
+      pTOKEN = buf;                                               // pToken is used in processPacket to separate out the Data Fields
+      if (processPacket(buf, BoatData)) { dataUpdated = true; };  // NOTE processPacket will search for CR! so do not remove it and then do page updates if true ?
+    }
+    /// WILL NEED new process packet equivalent to deal with VICTRON data
+    buf[0] = 0;  //clear buf  when finished!
     return;
   }
 }
@@ -2172,7 +2190,7 @@ void EEPROM_WRITE(_sDisplay_Config B, _sWiFi_settings_Config A) {
   delay(50);
   //NEW also save as a JSON on the SD card SD card will overwrite current settings on setup..
   SaveConfiguration(Setupfilename, B, A);
- // SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices); // should write a default file if it was missing?
+  // SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices); // should write a default file if it was missing?
 }
 void EEPROM_READ() {
   int key;
@@ -2329,7 +2347,7 @@ void SD_Setup() {
 //  ************  WIFI support functions *****************
 
 void WifiGFXinterrupt(int font, _sButton& button, const char* fmt, ...) {  //quick interrupt of gfx to show WIFI events..
-  if (Display_Page <= -1){return;} // do not interrupt the settings pages!                                                                       // version of add centered text, multi line from /void MultiLineInButton(int font, _sButton &button,const char *fmt, ...)
+  if (Display_Page <= -1) { return; }                                      // do not interrupt the settings pages!                                                                       // version of add centered text, multi line from /void MultiLineInButton(int font, _sButton &button,const char *fmt, ...)
   static char msg[300] = { '\0' };
   va_list args;
   va_start(args, fmt);
@@ -2352,14 +2370,14 @@ void WifiGFXinterrupt(int font, _sButton& button, const char* fmt, ...) {  //qui
 }
 
 void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
-  
+
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       Serial.println("WiFi connected");
       //  gfx->println(" Connected ! ");
       Serial.print("** Connected to : ");
       IsConnected = true;
-      AttemptingConnect=false;
+      AttemptingConnect = false;
       //  gfx->println(" Using :");
       //  gfx->println(WiFi.SSID());
       Serial.print(WiFi.SSID());
@@ -2367,105 +2385,116 @@ void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
       WifiGFXinterrupt(9, WifiStatus, "CONNECTED TO\n<%s>", WiFi.SSID());
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-    // take care with printf. It can quickly crash if it gets stuff it cannot deal with. 
-    //  Serial.printf(" Disconnected.reason %s  isConnected%s   attemptingConnect%s  \n",disconnectreason(info.wifi_sta_disconnected.reason).c_str(),IsConnected On_Off,AttemptingConnect On_Off);
-      if (!IsConnected){
-        if (AttemptingConnect) {return;}
+      // take care with printf. It can quickly crash if it gets stuff it cannot deal with.
+      //  Serial.printf(" Disconnected.reason %s  isConnected%s   attemptingConnect%s  \n",disconnectreason(info.wifi_sta_disconnected.reason).c_str(),IsConnected On_Off,AttemptingConnect On_Off);
+      if (!IsConnected) {
+        if (AttemptingConnect) { return; }
         Serial.println("WiFi disconnected");
         Serial.print("WiFi lost reason: ");
         Serial.println(disconnectreason(info.wifi_sta_disconnected.reason));
         if (ScanAndConnect(true)) {  // is the required SSID to be found?
-          WifiGFXinterrupt(8, WifiStatus, "Attempting Reconnect to\n<%s>",Current_Settings.ssid); 
-          Serial.println("Attempting Reconnect");}
+          WifiGFXinterrupt(8, WifiStatus, "Attempting Reconnect to\n<%s>", Current_Settings.ssid);
+          Serial.println("Attempting Reconnect");
         }
-        else{
+      } else {
         Serial.println("WiFi Disconnected");
         Serial.print("WiFi Lost Reason: ");
         Serial.println(disconnectreason(info.wifi_sta_disconnected.reason));
-        WiFi.disconnect(false); // changed to false.. Revise?? so that it does this only if no one is connected to the AP ??
-        AttemptingConnect=false; // so that ScanandConnect can do a full scan next time.. 
+        WiFi.disconnect(false);     // changed to false.. Revise?? so that it does this only if no one is connected to the AP ??
+        AttemptingConnect = false;  // so that ScanandConnect can do a full scan next time..
         WifiGFXinterrupt(8, WifiStatus, "Disconnected \n REASON:%s\n Retrying:<%s>", disconnectreason(info.wifi_sta_disconnected.reason).c_str(), Current_Settings.ssid);
-        IsConnected = false; 
-        }
+        IsConnected = false;
+      }
       break;
-   
+
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
       Serial.print("The ESP32 has received IP address :");
       Serial.println(WiFi.localIP());
-      if (hasSD) {audio.connecttoFS(SD, "/StartSound.mp3");}
+    #ifdef AUDIO
+      if (hasSD) { audio.connecttoFS(SD, "/StartSound.mp3"); }
+    #endif
       WifiGFXinterrupt(9, WifiStatus, "CONNECTED TO\n<%s>\nIP:%i.%i.%i.%i\n", WiFi.SSID(),
-                        WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
+                       WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
       break;
 
     case ARDUINO_EVENT_WIFI_AP_START:
-      WifiGFXinterrupt(8, WifiStatus, "Soft-AP started\n%s ",WiFi.softAPSSID());
+      WifiGFXinterrupt(8, WifiStatus, "Soft-AP started\n%s ", WiFi.softAPSSID());
       Serial.println("   10 ESP32 soft-AP start");
-      break;  
-
-
-    case ARDUINO_EVENT_WIFI_AP_STACONNECTED://12 a station connected to ESP32 soft-AP
-      StationsConnectedtomyAP = StationsConnectedtomyAP + 1;
-      WifiGFXinterrupt(8, WifiStatus, "Station Connected\nTo AP\n Total now %i",StationsConnectedtomyAP);
       break;
-    case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED://13 a station disconnected from ESP32 soft-AP      
+
+
+    case ARDUINO_EVENT_WIFI_AP_STACONNECTED:  //12 a station connected to ESP32 soft-AP
+      StationsConnectedtomyAP = StationsConnectedtomyAP + 1;
+      WifiGFXinterrupt(8, WifiStatus, "Station Connected\nTo AP\n Total now %i", StationsConnectedtomyAP);
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:  //13 a station disconnected from ESP32 soft-AP
       StationsConnectedtomyAP = StationsConnectedtomyAP - 1;
       if (StationsConnectedtomyAP == 0) {}
-      WifiGFXinterrupt(8, WifiStatus, "Station Disconnected\nfrom AP\n Total now %i",StationsConnectedtomyAP);
+      WifiGFXinterrupt(8, WifiStatus, "Station Disconnected\nfrom AP\n Total now %i", StationsConnectedtomyAP);
 
       break;
-    case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED://14 ESP32 soft-AP assign an IP to a connected station
+    case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:  //14 ESP32 soft-AP assign an IP to a connected station
       WifiGFXinterrupt(8, WifiStatus, "Station Connected\nTo AP\nNow has Assigned IP");
-        Serial.print("   AP IP address: ");
-    Serial.println(WiFi.softAPIP());
-      break;   
+      Serial.print("   AP IP address: ");
+      Serial.println(WiFi.softAPIP());
+      break;
   }
 }
 
-bool ScanAndConnect(bool display){
-  static unsigned long ScanInterval; 
-  static bool found ;
+bool ScanAndConnect(bool display) {
+  static unsigned long ScanInterval;
+  static bool found;
   unsigned long ConnectTimeout;
-  // do the WIfI/scan(i) and it is independently stored somewhere!! 
+  // do the WIfI/scan(i) and it is independently stored somewhere!!
   // but do not call too often - give it time to run!!
-  if (millis() >= ScanInterval ) { ScanInterval = millis()+20000; found=false;
-      NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);delay(100);
-      Serial.printf(" Scan found <%i> networks:\n", NetworksFound);}
-   else {Serial.printf(" Using saved Scan of <%i> networks:\n", NetworksFound);}
- 
+  if (millis() >= ScanInterval) {
+    ScanInterval = millis() + 20000;
+    found = false;
+    NetworksFound = WiFi.scanNetworks(false, false, true, 250, 0, nullptr, nullptr);
+    delay(100);
+    Serial.printf(" Scan found <%i> networks:\n", NetworksFound);
+  } else {
+    Serial.printf(" Using saved Scan of <%i> networks:\n", NetworksFound);
+  }
+
   WiFi.disconnect(false);  // Do NOT turn off wifi if the network disconnects
-  int channel=0;
-  long rssiValue ;
+  int channel = 0;
+  long rssiValue;
   for (int i = 0; i < NetworksFound; ++i) {
     if (WiFi.SSID(i).length() <= 25) {
       Serial.printf(" <%s> ", WiFi.SSID(i));
     } else {
       Serial.printf(" <name too long> ");
     }
-    if (WiFi.SSID(i) == Current_Settings.ssid) { found = true; channel=i; rssiValue = WiFi.RSSI(i);}
-    Serial.printf("CH:%i signal:%i \n", WiFi.channel(i),WiFi.RSSI(i));
+    if (WiFi.SSID(i) == Current_Settings.ssid) {
+      found = true;
+      channel = i;
+      rssiValue = WiFi.RSSI(i);
+    }
+    Serial.printf("CH:%i signal:%i \n", WiFi.channel(i), WiFi.RSSI(i));
   }
-  if (found) { 
-       if (display){WifiGFXinterrupt(8, WifiStatus, "WIFI scan found <%i> networks\n Connecting to <%s> signal:%i\nplease wait", NetworksFound,Current_Settings.ssid,rssiValue);}
-       Serial.printf(" Scan found <%s> \n", Current_Settings.ssid);//gfx->printf("Found <%s> network!\n", Current_Settings.ssid); 
-       ConnectTimeout=millis()+3000;
-       WiFi.begin(Current_Settings.ssid, Current_Settings.password,channel); // faster if we pre-set it the channel??
-       IsConnected = false;
-       AttemptingConnect = true; 
-       // keep printing .. inside the box?
-       gfx->setTextBound(WifiStatus.h + WifiStatus.bordersize, WifiStatus.v + WifiStatus.bordersize, WifiStatus.width - (2 * WifiStatus.bordersize), WifiStatus.height - (2 * WifiStatus.bordersize));
-       gfx->setTextWrap(true);
-       while ((WiFi.status() != WL_CONNECTED) && (millis()<=ConnectTimeout)) {
-        gfx->print('.'); Serial.print('.');
-        delay(1000);
-        }
-        if (WiFi.status() != WL_CONNECTED){gfx->print("Timeout - will try later");}
-        gfx->setTextBound(0, 0, 480, 480);
-       }
-  else { AttemptingConnect=false; 
-  if (display){WifiGFXinterrupt(8, WifiStatus, "%is WIFI scan found\n <%i> networks\n but not %s\n Will look again in %i seconds"
-     ,millis()/1000, NetworksFound,Current_Settings.ssid,scansearchinterval/1000);}
+  if (found) {
+    if (display) { WifiGFXinterrupt(8, WifiStatus, "WIFI scan found <%i> networks\n Connecting to <%s> signal:%i\nplease wait", NetworksFound, Current_Settings.ssid, rssiValue); }
+    Serial.printf(" Scan found <%s> \n", Current_Settings.ssid);  //gfx->printf("Found <%s> network!\n", Current_Settings.ssid);
+    ConnectTimeout = millis() + 3000;
+    WiFi.begin(Current_Settings.ssid, Current_Settings.password, channel);  // faster if we pre-set it the channel??
+    IsConnected = false;
+    AttemptingConnect = true;
+    // keep printing .. inside the box?
+    gfx->setTextBound(WifiStatus.h + WifiStatus.bordersize, WifiStatus.v + WifiStatus.bordersize, WifiStatus.width - (2 * WifiStatus.bordersize), WifiStatus.height - (2 * WifiStatus.bordersize));
+    gfx->setTextWrap(true);
+    while ((WiFi.status() != WL_CONNECTED) && (millis() <= ConnectTimeout)) {
+      gfx->print('.');
+      Serial.print('.');
+      delay(1000);
+    }
+    if (WiFi.status() != WL_CONNECTED) { gfx->print("Timeout - will try later"); }
+    gfx->setTextBound(0, 0, 480, 480);
+  } else {
+    AttemptingConnect = false;
+    if (display) { WifiGFXinterrupt(8, WifiStatus, "%is WIFI scan found\n <%i> networks\n but not %s\n Will look again in %i seconds", millis() / 1000, NetworksFound, Current_Settings.ssid, scansearchinterval / 1000); }
   }
- return found;
+  return found;
 }
 
 void ConnectWiFiusingCurrentSettings() {
@@ -2476,9 +2505,9 @@ void ConnectWiFiusingCurrentSettings() {
   delay(100);
   WiFi.persistent(false);
   WiFi.mode(WIFI_AP_STA);
- // WiFi.onEvent(WiFiEventPrint); // serial print for debugging 
+  // WiFi.onEvent(WiFiEventPrint); // serial print for debugging
   WiFi.onEvent(wifiEvent);  // Register the event handler
-   // start the display's AP - potentially with NULL pasword
+                            // start the display's AP - potentially with NULL pasword
   if ((String(Display_Config.APpassword) == "NULL") || (String(Display_Config.APpassword) == "null") || (String(Display_Config.APpassword) == "")) {
     result = WiFi.softAP(Display_Config.PanelName);
     delay(5);
@@ -2504,12 +2533,10 @@ void ConnectWiFiusingCurrentSettings() {
   }
   WiFi.mode(WIFI_AP_STA);
   // all Serial prints etc are now inside ScanAndConnect 'TRUE' will display them.
-  if (ScanAndConnect(true)) { //Serial.println("found SSID and attempted connect");
-      if(WiFi.status() != WL_CONNECTED) {WifiGFXinterrupt(8, WifiStatus, "Time %is \nWIFI scan found\n <%i> networks\n but did not connect to\n <%s> \n Will look again in 30 seconds",
-                 millis()/1000, NetworksFound,Current_Settings.ssid);}
+  if (ScanAndConnect(true)) {  //Serial.println("found SSID and attempted connect");
+    if (WiFi.status() != WL_CONNECTED) { WifiGFXinterrupt(8, WifiStatus, "Time %is \nWIFI scan found\n <%i> networks\n but did not connect to\n <%s> \n Will look again in 30 seconds",
+                                                          millis() / 1000, NetworksFound, Current_Settings.ssid); }
   }
-  
-  
 }
 
 bool Test_Serial_1() {  // UART0 port P1
@@ -2517,7 +2544,7 @@ bool Test_Serial_1() {  // UART0 port P1
   static int Skip_1 = 1;
   static int i_1;
   static bool line_1;  //has found a full line!
-  byte b;
+  unsigned char b;
   if (!line_1) {                  // ONLY get characters if we are NOT still processing the last line message!
     while (Serial.available()) {  // get the character
       b = Serial.read();
@@ -2554,11 +2581,15 @@ bool Test_U() {  // check if udp packet (UDP is sent in lines..) has arrived
   int packetSize = Udp.parsePacket();
   if (packetSize) {  // Deal with UDP packet
     if (packetSize >= (BufferLength)) {
+#if ESP_ARDUINO_VERSION_MAJOR == 3
+      Udp.clear();
+#else
       Udp.flush();
+#endif
       return false;
     }  // Simply discard if too long
     int len = Udp.read(nmea_U, BufferLength);
-    byte b = nmea_U[0];
+    unsigned char b = nmea_U[0];
     nmea_U[len] = 0;
     // nmea_UpacketSize = packetSize;
     //Serial.print(nmea_U);
@@ -2568,6 +2599,7 @@ bool Test_U() {  // check if udp packet (UDP is sent in lines..) has arrived
      // }
   return false;
 }
+
 IPAddress Get_UDP_IP(IPAddress ip, IPAddress mk) {
   uint16_t ip_h = ((ip[0] << 8) | ip[1]);  // high 2 bytes
   uint16_t ip_l = ((ip[2] << 8) | ip[3]);  // low 2 bytes
@@ -2601,6 +2633,8 @@ void UDPSEND(const char* buf) {                              // this is the one 
 //***
 
 //*****   AUDIO ****  STRICTLY experimental - needs three resistors moving to wire in the Is2 audio chip!
+
+#ifdef AUDIO
 void Audio_setup() {
   if (!hasSD) {
     Serial.println("Audio setup FAILED - no SD");
@@ -2689,7 +2723,7 @@ void open_new_song(String dir, String filename) {
 }
 
 
-
+#endif
 
 
 
@@ -2777,37 +2811,6 @@ char* LongtoString(double data) {
 }
 
 String disconnectreason(int reason) {
-  /*
-  https://esp32.com/viewtopic.php?t=349 
-  WIFI_REASON_UNSPECIFIED              = 1,
-WIFI_REASON_AUTH_EXPIRE              = 2,
-WIFI_REASON_AUTH_LEAVE               = 3,
-WIFI_REASON_ASSOC_EXPIRE             = 4,
-WIFI_REASON_ASSOC_TOOMANY            = 5,
-WIFI_REASON_NOT_AUTHED               = 6,
-WIFI_REASON_NOT_ASSOCED              = 7,
-WIFI_REASON_ASSOC_LEAVE              = 8,
-WIFI_REASON_ASSOC_NOT_AUTHED         = 9,
-WIFI_REASON_DISASSOC_PWRCAP_BAD      = 10,
-WIFI_REASON_DISASSOC_SUPCHAN_BAD     = 11,
-WIFI_REASON_IE_INVALID               = 13,
-WIFI_REASON_MIC_FAILURE              = 14,
-WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT   = 15,
-WIFI_REASON_GROUP_KEY_UPDATE_TIMEOUT = 16,
-WIFI_REASON_IE_IN_4WAY_DIFFERS       = 17,
-WIFI_REASON_GROUP_CIPHER_INVALID     = 18,
-WIFI_REASON_PAIRWISE_CIPHER_INVALID  = 19,
-WIFI_REASON_AKMP_INVALID             = 20,
-WIFI_REASON_UNSUPP_RSN_IE_VERSION    = 21,
-WIFI_REASON_INVALID_RSN_IE_CAP       = 22,
-WIFI_REASON_802_1X_AUTH_FAILED       = 23,
-WIFI_REASON_CIPHER_SUITE_REJECTED    = 24,
-
-WIFI_REASON_BEACON_TIMEOUT           = 200,
-WIFI_REASON_NO_AP_FOUND              = 201,
-WIFI_REASON_AUTH_FAIL                = 202,
-WIFI_REASON_ASSOC_FAIL               = 203,
-WIFI_REASON_HANDSHAKE_TIMEOUT        = 204,{*/
   switch (reason) {
     case 1: return "UNSPECIFIED"; break;
     case 2: return "AUTH_EXPIRE"; break;
@@ -2839,12 +2842,10 @@ WIFI_REASON_HANDSHAKE_TIMEOUT        = 204,{*/
     case 204: return "HANDSHAKE_TIMEOUT"; break;
     default: return "Unknown"; break;
   }
-
   return "Unknown";
 }
 
 void WiFiEventPrint(WiFiEvent_t event) {
- 
   switch (event) {
     case ARDUINO_EVENT_WIFI_READY:
       Serial.println("   00 ESP32 WiFi ready");
@@ -2887,7 +2888,7 @@ void WiFiEventPrint(WiFiEvent_t event) {
       //StationsConnectedtomyAP = StationsConnectedtomyAP + 1;
       break;
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
-     Serial.println("   13 a station disconnected from ESP32 soft-AP");
+      Serial.println("   13 a station disconnected from ESP32 soft-AP");
       //StationsConnectedtomyAP = StationsConnectedtomyAP - 1;
       //if (StationsConnectedtomyAP == 0) {}
       break;
@@ -2937,3 +2938,4 @@ void WiFiEventPrint(WiFiEvent_t event) {
       break;
   }
 }
+

@@ -9,10 +9,12 @@
   "BackColor": 65535,
   "BorderColor": 31,
   "BoxH": 46,
-  "BoxW": 146,
+  "BoxW": 150,
   "FontH": 11,
   "FontS": 10,
-  "Simulate": "false",
-  "ShowRawDecryptedDataFor": 1,
+  "Simulate": "true",
+  "Debug": "false",
+  "BLEDebug": "false",
+  "ShowRawDecryptedDataFor": 35,
   "Frame": "false"
 }

@@ -13,4 +13,6 @@ firmware_images_url = "https://dagnall53.github.io/NMEADisplay/build/esp32.esp32
 chipsets = ["ESP32-s3"]
 # Configure the name of the binary file
 image.esp32-s3 = "NMEADisplay.ino.bin"
+image.esp32-s3GuitronDisplay ="NMEADisplay.ino.bin"
+image.esp32-s3Other ="NMEADisplay.ino.bin"
 
