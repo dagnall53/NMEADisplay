@@ -22,6 +22,7 @@ If confused, check Device Manager and look for the USB-SERIAL CH340 port.
 Remember the port number!
 
 Download the file "WebProgram.bat" from the github. - it is in subdirectory /build.
+<a href="Click to download/" download>https://dagnall53.github.io/NMEADisplay/build/Webprogram.bat</a>
 save this somewhere convenient such as downloads.
 Run the program .. It will download the latest binaries and program to upload to the hardware. and then delete the binaries and the tool used to upload after it has completed. 
 
