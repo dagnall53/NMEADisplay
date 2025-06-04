@@ -26,10 +26,10 @@ COMPILED AGAIN wITH 2.0.17 AND GFX 1.6 flicker less , but there is an occasional
 const char soft_version[] = "VERSION 4.32";
 
 #if ESP_ARDUINO_VERSION_MAJOR == 3  // hoping this #if will work in the called .cpp !!
-#define UsingV3Compiler             // this #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
+#define UsingV3Compiler             // this "UsingV3Compiler" #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
 #endif
 
-//#define AUDIO
+//#define AUDIO                     // the audio library is compiler specific so needs changing if you want sound for any tests
 
 
 #include <NMEA0183.h>
@@ -93,12 +93,6 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 #include "VICTRONBLE.h"  //sets #ifndef Victronble_h
 
 
-
-
-
-//const char soft_version[] = "Version 4.05";
-//const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "VERSION 4.30";
 
 
 bool hasSD;

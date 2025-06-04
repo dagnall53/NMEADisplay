@@ -25,10 +25,10 @@ Click the link below to download the file "WebProgram.bat" from the github.
 <a href="Click to download/" download>https://dagnall53.github.io/NMEADisplay/build/WebProgram.bat</a>
 Save this somewhere convenient such as downloads.
 Run the program .. 
-It will download the latest binaries and program to upload to the hardware. 
+It will download the latest binaries to the directory where you saved it and program the hardware. 
 It will then delete the binaries and the tool used to upload after it has completed,leaving just the WebProgram.bat file. 
 
-
+I will try later to add a similar Bat file to copy the essential files for the SD card.
 
 
 If you prefer to see all the code: 
