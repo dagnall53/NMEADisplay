@@ -17,16 +17,16 @@ Images of previous versions of the display
 
 ## HOW TO INSTALL FIRST TIME
 
-Experimental ESPLaunchpad TEST:
-
-<a href="https://espressif.github.io/esp-launchpad/?flashConfigURL=https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/config.toml">
-    <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
-</a>
-
- 
 First, plug your module into a com port on your PC and record which port it is using. 
 If confused, check Device Manager and look for the USB-SERIAL CH340 port. 
 Remember the port number!
+
+Download the file "WebProgram.bat" from the github. - it is in subdirectory /build.
+save this somewhere convenient such as downloads.
+Run the program .. It will download the latest binaries and program to upload to the hardware. and then delete the binaries and the tool used to upload after it has completed. 
+
+
+If you prefer to see all the code: 
 Download the Zip file of the GitHub Project. (green button -<>CODE and select 'Download Zip')
 Save the file and extract all the files using a zip tool to somewhere on your PC. - I suggest /downloads.
 You will then have a directory something like: C:\Users\admin\Downloads\NMEADisplay-main\
