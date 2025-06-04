@@ -21,14 +21,18 @@ First, plug your module into a com port on your PC and record which port it is u
 If confused, check Device Manager and look for the USB-SERIAL CH340 port. 
 Remember the port number!
 
-Download the file "WebProgram.bat" from the github. - it is in subdirectory /build.
+Click the link below to download the file "WebProgram.bat" from the github.
 <a href="Click to download/" download>https://dagnall53.github.io/NMEADisplay/build/WebProgram.bat</a>
-save this somewhere convenient such as downloads.
-Run the program .. It will download the latest binaries and program to upload to the hardware. and then delete the binaries and the tool used to upload after it has completed. 
+Save this somewhere convenient such as downloads.
+Run the program .. 
+It will download the latest binaries and program to upload to the hardware. 
+It will then delete the binaries and the tool used to upload after it has completed,leaving just the WebProgram.bat file. 
+
+
 
 
 If you prefer to see all the code: 
-Download the Zip file of the GitHub Project. (green button -<>CODE and select 'Download Zip')
+Download the whole Zip file of the GitHub Project. (green button -<>CODE and select 'Download Zip')
 Save the file and extract all the files using a zip tool to somewhere on your PC. - I suggest /downloads.
 You will then have a directory something like: C:\Users\admin\Downloads\NMEADisplay-main\
 Open the directory in a file browser and navigate to the subdirectory:
@@ -37,6 +41,8 @@ In this folder is a batch file called ProgramBoard.bat.
 Double click this bat file (see below*) and it will start and a new DOS prompt window will open and ask: 
 Enter Com port number: ... Enter your com port number (eg 8) and press return. 
 The Esptool program will upload the program onto your board and the display board should restart. 
+
+## SD CARD
 
 You will next need to get a new microSD card, ( I used 4Gb), and format it using FAT32.
 Then copy the whole of the "SdRoot" folder onto the SD card. 
