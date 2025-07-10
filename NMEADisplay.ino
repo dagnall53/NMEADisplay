@@ -3,7 +3,7 @@
 Compiled and tested with ESp32 V2.0.17  
 early V3 has broken  some functions and this code will not work until  V3.3.0a!
 GFX library for Arduino 1.5.5
-Select "ESP32-S3 DEV Module"
+Select "ESP32S3 DEV Module"
 Select PSRAM "OPI PSRAM" / enabled
 
 16M flash 
