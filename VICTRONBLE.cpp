@@ -834,7 +834,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
         }
         if (auxtype == 0) {
           UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "");
-          UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "Starter %2.1fV", aux_input);
+          UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "AUX %2.1fV", aux_input);
         }
       }
     }

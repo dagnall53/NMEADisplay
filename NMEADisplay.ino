@@ -18,7 +18,7 @@ or 2.0.0 for Version 2.0.17 -- its not cross compatible.
 
 GFX seems ok , but change the.h as noted: but Jpeg screen seems to flicker with GFX 1.6 and Version3.2.0 compiler. 
 COMPILED AGAIN wITH 2.0.17 AND GFX 1.6 flicker less , but there is an occasional ble glitch
-
+Compiled with 2.0.11 - works with BLE 
 */
 
 //const char soft_version[] = "Version 4.05";
@@ -1940,9 +1940,13 @@ void setup() {
   if (hasSD) {
     // // flash logo
     // Serial.printf("display <%s> \n",Display_Config.StartLogo);
+    //Use BLE background if display page -87 to save flashing up the start page
+    if (Display_Config.Start_Page!=-87) {
     jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
              // jpegDraw(StartLogo, jpegDrawCallback, true /* useBigEndian */,
-             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);}
+             else{ jpegDraw("/vicback.jpg", jpegDrawCallback, true /* useBigEndian */,
+                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);}
     setFont(11);
     gfx->setTextBound(0, 0, 480, 480);
     gfx->setCursor(30, 80);
@@ -1951,14 +1955,17 @@ void setup() {
     gfx->setCursor(35, 75);
     gfx->setTextColor(WHITE);
     gfx->println(soft_version);
-    delay(500);
+    if (Display_Config.Start_Page!=-87) {delay(500);}
+    
     //
   }
-  gfx->setCursor(140, 240);
-  // print config files
-  PrintJsonFile(" Display and wifi config file...", Setupfilename);
-  PrintJsonFile(" Victron JSON config file..", VictronDevicesSetupfilename);
-  PrintJsonFile(" Display colour  config file..", ColorsFilename);
+   if (Display_Config.Start_Page!=-87) {
+    gfx->setCursor(140, 240);
+    // print config files
+    PrintJsonFile(" Display and wifi config file...", Setupfilename);
+    PrintJsonFile(" Victron JSON config file..", VictronDevicesSetupfilename);
+    PrintJsonFile(" Display colour  config file..", ColorsFilename);
+   }
   ConnectWiFiusingCurrentSettings();
   SetupWebstuff();
 
@@ -2300,7 +2307,7 @@ void SD_Setup() {
   hasSD = false;
   Serial.println("SD Card START");
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI);
-  delay(100);
+  delay(10);
   if (!SD.begin(SD_CS)) {
     Serial.println("Card Mount Failed");
     gfx->println("NO SD Card");
@@ -2341,7 +2348,8 @@ void SD_Setup() {
 //  ************  WIFI support functions *****************
 
 void WifiGFXinterrupt(int font, _sButton& button, const char* fmt, ...) {  //quick interrupt of gfx to show WIFI events..
-  if (Display_Page <= -1) { return; }                                      // do not interrupt the settings pages!                                                                       // version of add centered text, multi line from /void MultiLineInButton(int font, _sButton &button,const char *fmt, ...)
+  if (Display_Page <= -1) { return; }                                      // do not interrupt the settings pages!  
+  if (Display_Config.Start_Page==-87) {      return;} // do not do the screen shows on BLE page                                                                // version of add centered text, multi line from /void MultiLineInButton(int font, _sButton &button,const char *fmt, ...)
   static char msg[300] = { '\0' };
   va_list args;
   va_start(args, fmt);
@@ -2496,7 +2504,7 @@ void ConnectWiFiusingCurrentSettings() {
   uint32_t StartTime = millis();
   // superceded by WIFI box display "setting up AP" gfx->println("Setting up WiFi");
   WiFi.disconnect(false, true);  // clean the persistent memory in case someone else set it !! eg ESPHOME!!
-  delay(100);
+  delay(10);
   WiFi.persistent(false);
   WiFi.mode(WIFI_AP_STA);
   // WiFi.onEvent(WiFiEventPrint); // serial print for debugging
@@ -2504,8 +2512,7 @@ void ConnectWiFiusingCurrentSettings() {
                             // start the display's AP - potentially with NULL pasword
   if ((String(Display_Config.APpassword) == "NULL") || (String(Display_Config.APpassword) == "null") || (String(Display_Config.APpassword) == "")) {
     result = WiFi.softAP(Display_Config.PanelName);
-    delay(5);
-  } else {
+    } else {
     result = WiFi.softAP(Display_Config.PanelName, Display_Config.APpassword);
   }
   delay(5);
@@ -2527,10 +2534,13 @@ void ConnectWiFiusingCurrentSettings() {
   }
   WiFi.mode(WIFI_AP_STA);
   // all Serial prints etc are now inside ScanAndConnect 'TRUE' will display them.
+  /* Is this essential here-- its also n loop? 
   if (ScanAndConnect(true)) {  //Serial.println("found SSID and attempted connect");
     if (WiFi.status() != WL_CONNECTED) { WifiGFXinterrupt(8, WifiStatus, "Time %is \nWIFI scan found\n <%i> networks\n but did not connect to\n <%s> \n Will look again in 30 seconds",
                                                           millis() / 1000, NetworksFound, Current_Settings.ssid); }
   }
+
+  */
 }
 
 bool Test_Serial_1() {  // UART0 port P1
