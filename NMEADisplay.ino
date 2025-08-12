@@ -1364,6 +1364,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         AddTitleInsideBox(9, 3, topLeftquarter, "STW ");
         AddTitleInsideBox(9, 2, topLeftquarter, " Kts");  //font,position
         setFont(10);
+        SCROLLGraph(RunSetup, 0, 1, true, bottomLeftquarter, BoatData.WaterDepth, 50, 0, 8, "Fathmometer 50m ", "m"); 
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();  //only make/update copies every second!  else undisplayed copies will be redrawn!
@@ -1934,7 +1935,6 @@ void setup() {
 
   // set up anything BoatData from the configs
   //Serial.print("now.. magvar:");Serial.println(BoatData.Variation);
-
 
   // flash User selected logo and setup audio if SD present
   if (hasSD) {

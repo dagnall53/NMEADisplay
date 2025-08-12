@@ -694,6 +694,7 @@ void PTriangleFill(Phv P1, Phv P2, Phv P3, uint16_t COLOUR) {
 }
 void Pdrawline(Phv P1, Phv P2, uint16_t COLOUR) {  // simple hack for a thicker line
   int wide = 1;
+
   gfx->drawLine(P1.h, P1.v, P2.h, P2.v, COLOUR);
   gfx->drawLine(P1.h + wide, P1.v, P2.h + wide, P2.v, COLOUR);
   gfx->drawLine(P1.h, P1.v + wide, P2.h, P2.v + wide, COLOUR);
@@ -808,22 +809,23 @@ void SCROLLGraph(bool reset,int instance, int dotsize, bool line, _sButton butto
   if (instance >> 1) {return;} // allow only instance 0 and 1
   if (DATA.graphed) { return; }
   if (DATA.data == NMEA0183DoubleNA) { return; }
+  static int samplesread;
   static int Displaypage[2] ;  // where were we last called from ??
-  #define Hmax 200               // how many points fill screen width
+  #define Hmax 200              // how many points fill screen width
   static Phv graph[Hmax + 2][2];  //phv is a point H,V structure
   //int dotsize;
   double data;
   data = DATA.data;
   //dotsize = 3;
   if (reset) {
-  //  Serial.printf(" RESETTING SCROLLGRAPH  %i  %i ",Display_Page, Displaypage[instance]); 
+    //Serial.printf(" RESETTING SCROLLGRAPH  %i  %i ",Display_Page, Displaypage[instance]); 
     Displaypage[instance] = Display_Page;
   //  Serial.printf(" after..   %i  %i \n",Display_Page, Displaypage[instance]); 
 
-    for (int x = 0; x <= Hmax; x++) {  //reset all points !!
-      graph[x][instance].v = (button.v + button.bordersize + (button.height / 2));
-      graph[x][instance].h = GraphRange(x, button.h + button.bordersize + (2*dotsize), button.h + button.width - button.bordersize - (2*dotsize), 0, Hmax);
-    }
+    // for (int x = 0; x <= Hmax; x++) {  //reset all points !!
+    //   graph[x][instance].v = (button.v + button.bordersize + (button.height / 2));
+    //   graph[x][instance].h = GraphRange(x, button.h + button.bordersize + (2*dotsize), button.h + button.width - button.bordersize - (2*dotsize), 0, Hmax);
+    // }
     gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
     gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
@@ -836,22 +838,32 @@ void SCROLLGraph(bool reset,int instance, int dotsize, bool line, _sButton butto
     AddTitleInsideBox(font, 3, button, " %s", msg);
     AddTitleInsideBox(font, 1, button, " %4.0f%s", dmax, units);
     AddTitleInsideBox(font, 2, button, " %4.0f%s", dmin, units);
-  bool LINE = true; //Or just blobs.. 
+  
+   int boxxtop =(button.h + button.bordersize + (2*dotsize));
+      //add the new data 
+  graph[Hmax][instance].v = GraphRange(data, button.v + button.height - button.bordersize - (2*dotsize), button.v + button.bordersize + (2*dotsize), dmin, dmax); 
+  samplesread= samplesread+1;
+  if (samplesread >= Hmax){samplesread=Hmax;}
   // scroll the existing data values left:
-  for (int x = 0; x <= Hmax; x++) {
+  for (int x = 1; x <= Hmax; x++) {
          graph[x-1][instance].v=graph[x][instance].v;
+         if (graph[x-1][instance].v<=boxxtop){graph[x-1][instance].v=boxxtop;}
          graph[x][instance].h = GraphRange(x, button.h + button.bordersize + (2*dotsize), button.h + button.width - button.bordersize - (2*dotsize), 0, Hmax);
        } // slide the v VALUES only, just set the horizontal positions! 
-       //add the new data 
-  graph[Hmax][instance].v = GraphRange(data, button.v + button.height - button.bordersize - (2*dotsize), button.v + button.bordersize + (2*dotsize), dmin, dmax);
+
+ 
   //graph[Hmax].h = GraphRange(Hmax, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
-     for (int x =1; x<= Hmax;x++){
-     if (LINE && (x >= 1)) {
-        Pdrawline(graph[x-1][instance], graph[x][instance], button.TextColor);
-           }
+     //for (int x =1; x<= Hmax-1;x++){
+      for (int x = Hmax-samplesread; x <= Hmax; x++) {
+     // Serial.printf(" SCROLLGRAPH (x) %i (h) %i (v)%i \n",x,graph[x][instance].h,graph[x][instance].v );
+     if (line && (x >= 2)) {
+      if((graph[x-1][instance].v>= boxxtop+2  ) && (graph[x][instance].v>= boxxtop+2 )){
+        Pdrawline(graph[x-1][instance], graph[x][instance], button.TextColor);}
+     }
+           
      if (dotsize>=1) {   PfillCircle(graph[x][instance], dotsize, button.TextColor);}
    }
-   DATA.graphed = true;  //reset to false inside t-- to avoid confusion!.oNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
+   DATA.graphed = true;  //reset to false inside o avoid confusion!.toNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
 }
 
 
