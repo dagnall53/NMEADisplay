@@ -338,10 +338,10 @@ void CommonSub_UpdateLine(bool horizCenter, bool vertCenter, uint16_t color, int
 void UpdateLinef(uint16_t color, int font, _sButton &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
   if (button.screenfull && button.debugpause) { return; }
   //Serial.printf(" lines  TypingspaceH =%i  number of lines=%i printing line <%i>\n",typingspaceH,LinesOfType,button.PrintLine);
-  static char msg[500] = { '\0' };
+  static char msg[600] = { '\0' };
   va_list args;
   va_start(args, fmt);
-  vsnprintf(msg, 500, fmt, args);
+  vsnprintf(msg, 600, fmt, args);
   va_end(args);
   int len = strlen(msg);
   CommonSub_UpdateLine(false, false, color, font, button, msg);

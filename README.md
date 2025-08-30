@@ -146,6 +146,10 @@ From version 4, the what instrurment data will be displayed in each of the 'quad
 Whilst the main way to send instrument data to the Display is via NMEA over UDP, the project also accepts NMEA data over 'ESP-NOW' from suitable multiplexers such as VELA-Naviga types: 
 https://www.vela-navega.com/index.php/multiplexers
 
+### DIRECT NMEA2000 data input
+30/08/25 Following Duncan's comments I have incorporated (Version 4.40 )the ability to add an external CAN transceiver and receive NMEA2000 directly.
+I will add more notes later. 
+
 ## MODULE Hardware Requirements
 
 The code is based on the GUITRON 4.0 Inch ESP32-S3 Development Board Smart Display Capacitive Touch Screen LCD.
