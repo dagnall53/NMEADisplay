@@ -49,4 +49,4 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   void HandleWatertemp12(const tN2kMsg &N2kMsg);        //130312
   void HandleWatertemp16(const tN2kMsg &N2kMsg);        //130316
 
-
+  String PGNDecode(int PGN);                              // decode the PGN to a readable name.. Useful for the decodeMode the bus?

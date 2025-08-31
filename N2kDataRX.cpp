@@ -55,16 +55,6 @@ extern _sBoatData BoatData;  // BoatData values for the display , int double , w
   tNMEA0183 *pNMEA0183;
   
 
-
-
-
-
-
-
-//*****************************************************************************
-
-
-
 //*****************************************************************************
 void HandleHeading(const tN2kMsg &N2kMsg) { //127250
   /*
@@ -191,6 +181,16 @@ void HandleDepth(const tN2kMsg &N2kMsg) {
      }
 }
 
+void WaterDepth(const tN2kMsg &N2kMsg) { // original name in datatdisplay example
+  unsigned char SID;
+  double DepthBelowTransducer;
+  double Offset;
+  double Range;
+  if (ParseN2kWaterDepth(N2kMsg, SID, DepthBelowTransducer, Offset, Range)) {
+    toNewStruct(DepthBelowTransducer, BoatData.WaterDepth);
+     }
+}
+
 //*****************************************************************************
 void HandlePosition(const tN2kMsg &N2kMsg) {
 
@@ -208,6 +208,7 @@ void HandlePosition(const tN2kMsg &N2kMsg) {
   }
   
 }
+
 double Days_to_GPSdate(int days_since_1970) { // written largely by copilot AI!
   time_t seconds = (time_t)days_since_1970 * 86400; // Convert days to seconds
   struct tm *date = gmtime(&seconds); // Convert to UTC date
@@ -237,6 +238,7 @@ void HandleGNSS(const tN2kMsg &N2kMsg) {
     if (Latitude != -1000000000) {
     toNewStruct( Longitude,BoatData.Longitude);
     toNewStruct( Latitude,BoatData.Latitude);
+    BoatData.SatsInView=nSatellites;
     BoatData.GPSDate = Days_to_GPSdate(DaysSince1970);
     BoatData.GPSTime =SecondsSinceMidnight ;}
   }
@@ -330,8 +332,75 @@ void HandleRudder(const tN2kMsg &N2kMsg) {
   }
 }
 
+//---------other utils etc..
 
+String PGNDecode(int PGN) {  // decode the PGN to a readable name.. Useful for the decodeMode the bus?
+  // https://endige.com/2050/nmea-2000-pgns-deciphered/
+  // see also https://canboat.github.io/canboat/canboat.xml#pgn-list
+  // Changed Type to String: from Char*// to avoid the warnings!
+  // I have added  to those PGN that store data for timed use: RMB APB RMC etc
+  switch (PGN) {
+    case 65359: return "Seatalk: Pilot Heading"; break;  //https://github.com/canboat/canboat/blob/master/analyzer/pgn.h
+    case 65379: return "Seatalk: Pilot Mode"; break;
+    case 65360: return "Seatalk: Pilot Locked Heading"; break;
+    case 65311: return "Magnetic Variation (Raymarine Proprietary)"; break;
+    case 126720: return "Raymarine Device ID"; break;
+    case 126992: return "System Time"; break;
+    case 126993: return "Heartbeat"; break;
+    case 127237: return "Heading/Track Control"; break;
+    case 127245: return "Rudder"; break;
+    case 127250: return "Vessel Heading, Deviation, Variation"; break;
+    case 127251: return "Rate of Turn"; break;
+    case 127258: return "Magnetic Var"; break;
+    case 127488: return "Engine Parameters, Rapid Update"; break;
+    case 127508: return "Battery Status"; break;
+    case 127513: return "Battery Configuration Status"; break;
+    case 128259: return "Speed, Water"; break;
+    case 128267: return "Water Depth"; break;
+    case 128275: return "Distance Log"; break;
+    case 129025: return "Position, Rapid Update"; break;
+    case 129026: return "COG SOG, Rapid Update"; break;
+    case 129029: return "GNSS Position"; break;
+    case 129033: return "Local Time Offset"; break;
+    case 129044: return "Datum"; break;
+    case 129283: return "Cross Track Error"; break;
+    case 129284: return "Navigation Data"; break;
+    case 129285: return "Navigation — Route/WP information"; break;
+    case 129291: return "Set & Drift, Rapid Update"; break;
+    case 129539: return "GNSS DOPs"; break;
+    case 129540: return "GNSS Sats in View"; break;
+    case 130066: return "Route/WP— List Attributes"; break;
+    case 130067: return "Route — WP Name & Position"; break;
+    case 130074: return "WP List — WP Name & Position"; break;
+    case 130306: return "Wind Data"; break;
+    case 130310: return "Environmental Parameters-deprecated"; break;
+    case 130311: return "Environmental Parameters-deprecated"; break;
+    case 130312: return "Temperature"; break;
+    case 130313: return "Humidity"; break;
+    case 130314: return "Actual Pressure"; break;
+    case 130316: return "Temperature, Extended Range"; break;
+    case 129038: return "AIS Class A Position Report"; break;
+    case 129039: return "AIS Class B Position Report"; break;
+    case 129040: return "AIS Class B Extended Position Report"; break;
+    case 129041: return "AIS Aids to Navigation (AtoN) Report"; break;
+    case 129793: return "AIS UTC and Date Report"; break;
+    case 129794: return "AIS Class A Static and Voyage Related Data"; break;
+    case 129798: return "AIS SAR Aircraft Position Report"; break;
+    case 129809: return "AIS Class B “CS” Static Data Report, Part A"; break;
+    case 129810: return "AIS Class B “CS” Static Data Report, Part B"; break;
+    case 60928: return "Address Claimed/cannot Claim"; break;
+    case 130916: return "Seatalk AP Unknown?"; break;
+    case 65240: return "Commanded Address"; break;
+    case 127257:return "Attitude yaw pitch etc"; break;
 
+    case 130848:return "Mfr proprietary fast packet";break;
+    case 130918:return "Mfr proprietary fast packet";break;
+    case 130577:return "Direction Data";break;
+    case 126996:return "Product Information";break;
 
+    default: return "Unknown ";break;
+  }
+  return "unknown";
+}
 
 

@@ -978,11 +978,11 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (RunSetup || DataChanged) {
         EEPROM_READ();  // makes sure eeprom update data is latest and synchronised! 
         setFont(3);
-        GFXBorderBoxPrintf(FullTopCenter, "Instrument Data / NMEA Logging");
+        GFXBorderBoxPrintf(FullTopCenter, "Boat/NMEA Log and Source selects");
         GFXBorderBoxPrintf(Switch6, Current_Settings.Log_ON On_Off);
-        AddTitleBorderBox(0, Switch6, "I LOG");
+        AddTitleBorderBox(0, Switch6, "B LOG");
         GFXBorderBoxPrintf(Switch7, Current_Settings.NMEA_log_ON On_Off);
-        AddTitleBorderBox(0, Switch7, " LOG");
+        AddTitleBorderBox(0, Switch7, "N LOG");
         GFXBorderBoxPrintf(Switch8, Current_Settings.UDP_ON On_Off);
         AddTitleBorderBox(0, Switch8, "UDP");
         GFXBorderBoxPrintf(Switch9, Current_Settings.ESP_NOW_ON On_Off);
@@ -2997,25 +2997,38 @@ void WiFiEventPrint(WiFiEvent_t event) {
   }
 }
 
-// added to explore GT911 
+// added to explore GT911 I2C bus 
 void FindI2CDevices(String text){
   Serial.println(text);
   Wire.begin(TOUCH_SDA,TOUCH_SCL);
   for (int i=0 ;i<256;i++) {
   Wire.beginTransmission(i);
   if (Wire.endTransmission() == 0) {
-    Serial.printf("Device detected at %x(hex)  %i(dec) ",i,i);Serial.println("");
-  } 
-}
+     Serial.printf("Device detected at %x(hex)  %i(dec) ",i,i);Serial.println("");
+    } 
+  }
 }
 
-//--------------- NMEA2000 direct reads - stuff ---------------
+//--------------- Stuff for NMEA2000 direct read  ---------------
+/*
+Connector view from top to add Canbus transceiver module with Module aligned display doan and connector is at bottom right 
+top Right GND
+Bottom Right 5v
+Left row
+Gnd(top)
+relay1 IO40
+relay2 IO2  (connect to TX)
+relay3 IO1  (connect to RX) bottom left
+*/
+// define before calling includes!
+  // #define ESP32_CAN_TX_PIN GPIO_NUM_1  // for the esp32_4 spare pins on 8 way connector boards!
+  // #define ESP32_CAN_RX_PIN GPIO_NUM_2  // for the esp32_4 spare pins on 8 way connector boards!
 
+//probably unnecessary! 
 const unsigned long TransmitMessages[] PROGMEM = { 
                                                    0 };
 
-
-// far too many messages noted here  - we do not support them all 
+// far too many messages noted here  - we do not support them all but they may get added 
 const unsigned long ReceiveMessages[] PROGMEM = { /*126992L,*/  // System time  /https://github.com/ronzeiller/NMEA0183-AIS/blob/master/Examples/NMEA2000ToWiFiAsNMEA0183WithAIS/main.cpp
                                                   126720L,      // Raymarine data for seatalk
                                                   127250L,      // Heading
@@ -3030,8 +3043,6 @@ const unsigned long ReceiveMessages[] PROGMEM = { /*126992L,*/  // System time  
                                                   127245L,      // Rudder
                                                   0 };
 
-
-
 #define DefaultSerialNumber 999999
 //*****************************************************************************
 uint32_t GetSerialNumber() {  // not using the getSerial.number library function!
@@ -3043,39 +3054,17 @@ uint32_t GetSerialNumber() {  // not using the getSerial.number library function
   sn += b[5];
   return (sn != 0 ? sn : DefaultSerialNumber);
 }
-/*
-connector view from top
-top Right GND
-Bottom Right 5v
-Left row
-Gnd(top)
-relay1 IO40
-relay2 IO2
-relay3 IO1  bottom left
-*/
-// define before calling includes!
-  // #define ESP32_CAN_TX_PIN GPIO_NUM_1  // for the esp32_4 spare pins on 8 way connector boards!
-  // #define ESP32_CAN_RX_PIN GPIO_NUM_2  // for the esp32_4 spare pins on 8 way connector boards!
 
+#include "N2KDataRX.h"  // where the handler functions actually are !! 
 
+//******* Define a handler for the interrupt to work *******
 
-void WaterDepth(const tN2kMsg &N2kMsg) {
-  unsigned char SID;
-  double DepthBelowTransducer;
-  double Offset;
-  double Range;
-  if (ParseN2kWaterDepth(N2kMsg, SID, DepthBelowTransducer, Offset, Range)) {
-    toNewStruct(DepthBelowTransducer, BoatData.WaterDepth);
-     }
-}
-
-#include "N2KDataRX.h"  // handler functions 
 typedef struct {
   unsigned long PGN;
   void (*Handler)(const tN2kMsg &N2kMsg); 
   } tNMEA2000Handler;
 
-//(actual functions are in N2kDataRx files)
+//  This selects which function the handler will call, depending on PGN  (actual functions are in N2kDataRx files)
 tNMEA2000Handler NMEA2000Handlers[]={
   {129029l, &HandleGNSS},
   {126992L, &HandleGNSSSystemTime},
@@ -3087,179 +3076,80 @@ tNMEA2000Handler NMEA2000Handlers[]={
   {0,0}
 };
 
-
-
-void N2K_LOOP() {  //****** Notes: THIS needs to run to accept N2000 data
+void N2K_LOOP() {  //****** Notes: THIS needs to run to accept N2000 data (switched by Current_Settings.N2K_ON )
                    //   Timing: takes approx 20us for both parse to run when there is no N2K data
-                   //           they (combined) take about 300 - 440us when N2K data is received.
-                 //  Serial.println("Nk2 loop");
   if (Current_Settings.N2K_ON){ NMEA2000.ParseMessages();}
  }
 
-
-
 void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {  // simplified version from data display
-  int iHandler;
-  // Find handler and decode PGN for my To Newstructures function.  Display will then update displayed data if it is changed.
+  int iHandler; // enumerate handlers - how many do we have?
   bool known;
   known=false;
-    for (iHandler=0; NMEA2000Handlers[iHandler].PGN!=0 && !(N2kMsg.PGN==NMEA2000Handlers[iHandler].PGN); iHandler++);
-  if (NMEA2000Handlers[iHandler].PGN!=0) {
-    NMEA2000Handlers[iHandler].Handler(N2kMsg); known=true;
-  }
+  for (iHandler=0; NMEA2000Handlers[iHandler].PGN!=0 && !(N2kMsg.PGN==NMEA2000Handlers[iHandler].PGN); iHandler++);
+  // we now have the index (iHandler) for the handler matching the received PGN
+  if (NMEA2000Handlers[iHandler].PGN!=0) {NMEA2000Handlers[iHandler].Handler(N2kMsg); known=true;}
+  
   if (Display_Page == -21 ) { // only do this terminal debug display if on the  debug page! 
    char decode[40];
-    PGNDecode(N2kMsg.PGN).toCharArray(decode,35);
+    PGNDecode(N2kMsg.PGN).toCharArray(decode,35); // get the discription of the PGN from my string function, trucated to 35 char
     if(known) {UpdateLinef(BLACK, 8, Terminal, "N2K:(%i)[%.2X%.5X] %s",N2kMsg.PGN,N2kMsg.Source, N2kMsg.PGN, decode);}
     else{UpdateLinef(52685, 8, Terminal, "N2K:(%i)[%.2X%.5X] %s",N2kMsg.PGN,N2kMsg.Source, N2kMsg.PGN, decode);}
-    //52685 is light gray in RBG565
-    
+    //52685 is light gray in RBG565 light gray for pgns we do not decode. (based on handler setup)
   }
-
-  
 }
 
+
+// this does not display the details correctly on my actisense NMEA reader, but at least it says it is a Display (120,130)  and sends that on startup. 
+const tNMEA2000::tProductInformation DisplayProductInformation PROGMEM={
+                                       2100,                        // N2kVersion
+                                       100,                         // Manufacturer's product code
+                                       "Simple NMEA Display",    // Manufacturer's Model ID
+                                       "4.4 (2025-08-31)",     // Manufacturer's Software version code
+                                       "4.40  ",      // Manufacturer's Model version
+                                       "00000001",                  // Manufacturer's Model serial code
+                                       0,                           // SertificationLevel
+                                       10                            // LoadEquivalency
+                                      };   
+// ---  Example of using PROGMEM to hold Configuration information.  However, doing this will prevent any updating of
+//      these details outside of recompiling the program.
+// This also seems to do nothing to show on my actisense reader. 
+const char DisplayManufacturerInformation [] PROGMEM = "John Doe, john.doe@unknown.com"; 
+const char DisplayInstallationDescription1 [] PROGMEM = "Just for sample"; 
+const char DisplayInstallationDescription2 [] PROGMEM = "No real information send to bus"; 
+
+/*
 void InitNMEA2000() {
-//simple enable from working DataDisplay example
+  //simple N2000 enable based on the DataDisplay example
+  // actual minimum N2000 start for a device to just monitor the bus.
   NMEA2000.EnableForward(false);
   NMEA2000.SetMsgHandler(HandleNMEA2000Msg);
   NMEA2000.Open();
-  // NMEA2000.SetN2kCANMsgBufSize(8);
-  // NMEA2000.SetN2kCANReceiveFrameBufSize(100);
-  // char SnoStr[33];
-  // uint32_t SerialNumber = GetSerialNumber();
-  // snprintf(SnoStr, 32, "%lu", (long unsigned int)SerialNumber);
-  // Serial.println("NMEA2000 Initialization ...");
-  // Serial.printf("   Unique ID: <%lu>\r\n", (long unsigned int)SerialNumber);
-  // NMEA2000.SetProductInformation(SnoStr,                // Manufacturer's Model Serial. code // set from board!
-  //                                111,                   // Manufacturer's product code
-  //                                "NMEADisplay",         // Manufacturer's Model ID
-  //                                soft_version,          // Manufacturer's Software version code  // This should be linked to char soft_version[ ]/ or at least the SW ver number part
-  //                                "4 inch"         // Manufacturer's Model version
-  // );
-  // // Det device information
-  // NMEA2000.SetDeviceInformation(SerialNumber,  // Unique number. Use e.g. Serial number.
-  //                               130,           // Device function=Display. See codes on https://web.archive.org/web/20190531120557/https://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-  //                               120,            // Device class=Display Device. 
-  //                               2046           // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
-  // );
+                          
+}
+*/
+void InitNMEA2000() {  // make it display device Info on start up.. 
+  NMEA2000.SetN2kCANMsgBufSize(8);
+  NMEA2000.SetN2kCANReceiveFrameBufSize(100);
 
-  // NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 15);
-  // NMEA2000.ExtendTransmitMessages(TransmitMessages);
-  // NMEA2000.ExtendReceiveMessages(ReceiveMessages);
-  // NMEA2000.AttachMsgHandler(&tN2KdataRX);  // NMEA 2000 reception and convert directly to display structures data 
+  NMEA2000.SetProductInformation(&DisplayProductInformation );
+  NMEA2000.SetProgmemConfigurationInformation(DisplayManufacturerInformation,DisplayInstallationDescription1,DisplayInstallationDescription2);
+
+  char SnoStr[33];
+  uint32_t SerialNumber = GetSerialNumber();
+  snprintf(SnoStr, 32, "%lu", (long unsigned int)SerialNumber);
+   Serial.println("NMEA2000 Initialization ...");
+  Serial.printf("   Unique ID: <%s> \r\n", SnoStr);
   
-  // NMEA2000.SetMsgHandler(HandleNMEA2000Msg);  // see main ino)
-  // //       it handles the "RAW" NMEA2000 messages and directs Actisense versions to outputs
-  // //       optionally sends all NMEA2000 messages in SeaSmart format
+  // Det device information
+  NMEA2000.SetDeviceInformation(SerialNumber,  // Unique number. Use e.g. Serial number.
+                                130,           // Device function=Display. See codes on https://web.archive.org/web/20190531120557/https://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                120,            // Device class=Display Device. 
+                                2046           // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
+  );
 
-  // //tN2KDataRX.SetSendNMEA0183MessageCallback(N2K_to_0183_Handler);  //  FUNCTION called once we have a 0183 conversion from the n2k
-  // // ---   I have saved this N2K_to_0183_Handler function in Multiplexer.ino as it is concerned with 0183 data-----------
-
-  // // receive actisense?? ( example is from Serial.. but we would want wifi) and do something out on N2k if needed ??
-  // //ActisenseReader.SetReadStream(ReadStream);
-  // //ActisenseReader.SetDefaultSource(75);
-  // NMEA2000.Open();
-  // //InitNMEA0183Handlers(&NMEA2000, &BoatData);  // ESSENTIAL !! PLACE AFTER NMEA2000.Open()! sets the io for the NMEA0183Handlers so we can send to CanBUS
+  NMEA2000.EnableForward(false);  // we are not forwarding / streaming anything  
+  NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 15); // needs this to enable device information send at start up?
+  NMEA2000.SetMsgHandler(HandleNMEA2000Msg);  // see main ino)
+  NMEA2000.Open();
                                               
 }
-String PGNDecode(int PGN) {  // decode the PGN to a readable name.. Useful for the decodeMode the bus?
-  //https://endige.com/2050/nmea-2000-pgns-deciphered/
-  // see also https://canboat.github.io/canboat/canboat.xml#pgn-list
-  // Changed Type to String: from Char*// to avoid the warnings!
-  // I have added  to those PGN that store data for timed use: RMB APB RMC etc
-  switch (PGN) {
-    case 65359: return "Seatalk: Pilot Heading"; break;  //https://github.com/canboat/canboat/blob/master/analyzer/pgn.h
-    case 65379: return "Seatalk: Pilot Mode"; break;
-    case 65360: return "Seatalk: Pilot Locked Heading"; break;
-    case 65311: return "Magnetic Variation (Raymarine Proprietary)"; break;
-    case 126720: return "Raymarine Device ID"; break;
-    case 126992: return "System Time"; break;
-    case 126993: return "Heartbeat"; break;
-    case 127237: return "Heading/Track Control"; break;
-    case 127245: return "Rudder"; break;
-    case 127250: return "Vessel Heading, Deviation, Variation"; break;
-    case 127251: return "Rate of Turn"; break;
-    case 127258: return "Magnetic Var"; break;
-    case 127488: return "Engine Parameters, Rapid Update"; break;
-    case 127508: return "Battery Status"; break;
-    case 127513: return "Battery Configuration Status"; break;
-    case 128259: return "Speed, Water"; break;
-    case 128267: return "Water Depth"; break;
-    case 128275: return "Distance Log"; break;
-    case 129025: return "Position, Rapid Update"; break;
-    case 129026: return "COG SOG, Rapid Update"; break;
-    case 129029: return "GNSS Position"; break;
-    case 129033: return "Local Time Offset"; break;
-    case 129044: return "Datum"; break;
-    case 129283: return "Cross Track Error"; break;
-    case 129284: return "Navigation Data"; break;
-    case 129285: return "Navigation — Route/WP information"; break;
-    case 129291: return "Set & Drift, Rapid Update"; break;
-    case 129539: return "GNSS DOPs"; break;
-    case 129540: return "GNSS Sats in View"; break;
-    case 130066: return "Route/WP— List Attributes"; break;
-    case 130067: return "Route — WP Name & Position"; break;
-    case 130074: return "WP List — WP Name & Position"; break;
-    case 130306: return "Wind Data"; break;
-    case 130310: return "Environmental Parameters-deprecated"; break;
-    case 130311: return "Environmental Parameters-deprecated"; break;
-    case 130312: return "Temperature"; break;
-    case 130313: return "Humidity"; break;
-    case 130314: return "Actual Pressure"; break;
-    case 130316: return "Temperature, Extended Range"; break;
-    case 129038: return "AIS Class A Position Report"; break;
-    case 129039: return "AIS Class B Position Report"; break;
-    case 129040: return "AIS Class B Extended Position Report"; break;
-    case 129041: return "AIS Aids to Navigation (AtoN) Report"; break;
-    case 129793: return "AIS UTC and Date Report"; break;
-    case 129794: return "AIS Class A Static and Voyage Related Data"; break;
-    case 129798: return "AIS SAR Aircraft Position Report"; break;
-    case 129809: return "AIS Class B “CS” Static Data Report, Part A"; break;
-    case 129810: return "AIS Class B “CS” Static Data Report, Part B"; break;
-    case 60928: return "Address Claimed/cannot Claim"; break;
-    case 130916: return "Seatalk AP Unknown?"; break;
-    case 65240: return "Commanded Address"; break;
-    case 127257:return "Attitude yaw pitch etc"; break;
-
-    case 130848:return "Mfr proprietary fast packet";break;
-    case 130918:return "Mfr proprietary fast packet";break;
-    case 130577:return "Direction Data";break;
-
-    default: return "Unknown ";break;
-  }
-  return "unknown";
-}
-
-// void FluidLevel(const tN2kMsg &N2kMsg) {
-//     unsigned char Instance;
-//     tN2kFluidType FluidType;
-//     double Level=0;
-//     double Capacity=0;
-
-//     if (ParseN2kFluidLevel(N2kMsg,Instance,FluidType,Level,Capacity) ) {
-//       switch (FluidType) {
-//         case N2kft_Fuel:
-//           Serial.print("Fuel level :");
-//           break;
-//         case N2kft_Water:
-//           Serial.print("Water level :");
-//           break;
-//         case N2kft_GrayWater:
-//           Serial.print("Gray water level :");
-//           break;
-//         case N2kft_LiveWell:
-//           Serial.print("Live well level :");
-//           break;
-//         case N2kft_Oil:
-//           Serial.print("Oil level :");
-//           break;
-//         case N2kft_BlackWater:
-//           Serial.print("Black water level :");
-//           break;
-//       }
-//       Serial.print(Level); Serial.print("%"); 
-//       Serial.print(" ("); Serial.print(Capacity*Level/100); Serial.print("l)");
-//       Serial.print(" capacity :"); Serial.println(Capacity);
-//     }
-// }
