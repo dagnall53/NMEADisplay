@@ -156,9 +156,12 @@ The code is based on the GUITRON 4.0 Inch ESP32-S3 Development Board Smart Displ
 There are sometimes two versions. This code is for the version with an ST7701 driver.
 It can be purchased with or without the Relays or the backing plate used for home automation applications.
 The code should be compatible with other development boards that use the ST7701 driver. But be warned, you will need to determine the ESP32 pin configuration as it will differ from the Guitron version. The Esp32_4inch.h file contains the correct pin allocations for the Guitron module. There is an UNTESTED pin file for the MakerFabs ESP32S3 board in the /documents directory. 
+
 The Code WILL accept serial NMEA0183 over USB - but is set default to 115200. It sends out debugging data on serial (at 115200 baud) if you have it connected to a PC with a suitable terminal program.   
  Make sure the module (back) looks like this...
 <img width="320" height="321" alt="image" src="https://github.com/user-attachments/assets/0242babb-d272-4885-8893-05c355a62c58" />
+
+
 
 ## CODE FEATURES:
  These notes are mainly if you wish to modify the c++ code.
