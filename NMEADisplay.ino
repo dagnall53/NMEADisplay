@@ -944,10 +944,45 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
       break;
 
+    case -22:                                              //  "EXPERIMENT in N2K data"
+      if (RunSetup) { GFXBorderBoxPrintf(Terminal, ""); }  // only for setup, not changed data
+      if (RunSetup || DataChanged) {
+        EEPROM_READ();  // makes sure eeprom update data is latest and synchronised! 
+        setFont(3);
+        GFXBorderBoxPrintf(FullTopCenter, "N2K debug ");
+        if (!Terminal.debugpause) {
+          AddTitleBorderBox(0, Terminal, "TERMINAL");
+        } else {
+          AddTitleBorderBox(0, Terminal, "-Paused-");
+        }
+        DataChanged = false;
+      }
+      // if (millis() > slowdown + 500) {
+      //   slowdown = millis();
+      // }
+      if (CheckButton(FullTopCenter)) { Display_Page = 0; }
+      if (CheckButton(Terminal)) {
+        Terminal.debugpause = !Terminal.debugpause;
+        DataChanged = true;
+        if (!Terminal.debugpause) {
+          AddTitleBorderBox(0, Terminal, "-running-");
+        } else {
+          AddTitleBorderBox(0, Terminal, "-paused-");
+        }
+      }
+   
 
-
-
-
+      // if (CheckButton(Switch9)) {
+      //   Current_Settings.ESP_NOW_ON = !Current_Settings.ESP_NOW_ON;
+      //   DataChanged = true;
+      // };
+      // if (CheckButton(Switch11)) {
+      //   EEPROM_WRITE(Display_Config, Current_Settings);
+      //   delay(50);
+      //   // Display_Page = 0;
+      //   DataChanged = true;
+      // };
+      break;
 
     case -20:  // Experimental / extra stuff
       if (RunSetup || DataChanged) {
@@ -973,7 +1008,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(Full5Center)) { Display_Page = 0; }
       break;
 
-    case -21:                                              // Secondary "Log and debug "
+    case -21:                                              //  "Log and debug "
       if (RunSetup) { GFXBorderBoxPrintf(Terminal, ""); }  // only for setup, not changed data
       if (RunSetup || DataChanged) {
         EEPROM_READ();  // makes sure eeprom update data is latest and synchronised! 
@@ -1048,6 +1083,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
       break;
 
+    
+ 
     case -10:  // a test page for fonts
       if (RunSetup || DataChanged) {
         gfx->fillScreen(BLUE);
@@ -1669,7 +1706,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         }
 
         if (BoatData.MagHeading.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "Mag Heading: %.4f", BoatData.MagHeading); }
-        UpdateLinef(9, BigSingleDisplay, "Variation: %.4f", BoatData.Variation);
+        if ((BoatData.Variation != NMEA0183DoubleNA)&& (BoatData.Variation != 0) &&!N2kIsNA(BoatData.Variation)) {UpdateLinef(9, BigSingleDisplay, "Variation: %.4f", BoatData.Variation);}
       }
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 10; }
       //if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }  //Loop to the main settings page
@@ -2018,6 +2055,7 @@ void setup() {
   Serial.printf(" Starting display page<%i> \n", Display_Config.Start_Page);
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
   BLEsetup();       // setup Victron BLE interface (does not do much!!)
+
   //--- new - under test --
   InitNMEA2000();  // instantiate NMEA2000!!
 }
@@ -2094,6 +2132,7 @@ void loop() {
     WIFIGFXBoxdisplaystarted = false;
     Display(true, Display_Page);
     delay(50);  // change page back, having set zero above which alows the graphics to reset up the boxes etc.
+    
   }
 
   if (((ColorSettings.Debug)||(ColorSettings.BLEDebug)) && (millis() >= DebugInterval)) {
@@ -3052,6 +3091,9 @@ uint32_t GetSerialNumber() {  // not using the getSerial.number library function
   sn += b[3] << 16;
   sn += b[4] << 8;
   sn += b[5];
+  sn &= 0x1FFFFF;  // Mask to keep only the lowest 21 bits
+
+
   return (sn != 0 ? sn : DefaultSerialNumber);
 }
 
@@ -3073,6 +3115,8 @@ tNMEA2000Handler NMEA2000Handlers[]={
   {128267L, &HandleDepth},
   {129026L, &HandleCOGSOG},
   {129025L, &HandlePosition},
+ // {126996L, &HandleMFRData},
+ // {60928L,  &HandleMFRData},
   {0,0}
 };
 
@@ -3096,57 +3140,54 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {  // simplified version from data
     else{UpdateLinef(52685, 8, Terminal, "N2K:(%i)[%.2X%.5X] %s",N2kMsg.PGN,N2kMsg.Source, N2kMsg.PGN, decode);}
     //52685 is light gray in RBG565 light gray for pgns we do not decode. (based on handler setup)
   }
+/*if (Display_Page == -22 ) { // only do this N2000 device list debug display if on the  debug page! 
+   char decode[60];
+    PGNDecode(N2kMsg.PGN).toCharArray(decode,59); // get the discription of the PGN from my string function, trucated to 35 char
+    if(known) {UpdateLinef(BLACK, 8, Terminal, "N2K:(%i)[%.2X%.5X] %s",N2kMsg.PGN,N2kMsg.Source, N2kMsg.PGN, decode);}
+    else{UpdateLinef(52685, 8, Terminal, "N2K:(%i)[%.2X%.5X] %s",N2kMsg.PGN,N2kMsg.Source, N2kMsg.PGN, decode);}
+    //52685 is light gray in RBG565 light gray for pgns we do not decode. (based on handler setup)
+  }*/
+
+
+
 }
 
-
-// this does not display the details correctly on my actisense NMEA reader, but at least it says it is a Display (120,130)  and sends that on startup. 
-const tNMEA2000::tProductInformation DisplayProductInformation PROGMEM={
-                                       2100,                        // N2kVersion
-                                       100,                         // Manufacturer's product code
-                                       "Simple NMEA Display",    // Manufacturer's Model ID
-                                       "4.4 (2025-08-31)",     // Manufacturer's Software version code
-                                       "4.40  ",      // Manufacturer's Model version
-                                       "00000001",                  // Manufacturer's Model serial code
-                                       0,                           // SertificationLevel
-                                       10                            // LoadEquivalency
-                                      };   
+  
 // ---  Example of using PROGMEM to hold Configuration information.  However, doing this will prevent any updating of
 //      these details outside of recompiling the program.
-// This also seems to do nothing to show on my actisense reader. 
-const char DisplayManufacturerInformation [] PROGMEM = "John Doe, john.doe@unknown.com"; 
-const char DisplayInstallationDescription1 [] PROGMEM = "Just for sample"; 
-const char DisplayInstallationDescription2 [] PROGMEM = "No real information send to bus"; 
+// 
+const char DisplayManufacturerInformation [] PROGMEM = "https://www.vela-navega.com/forum/viewtopic.php?t=533"; 
+const char DisplayInstallationDescription1 [] PROGMEM = "Just for testing"; 
+const char DisplayInstallationDescription2 [] PROGMEM = "I have not seen this work! "; 
 
-/*
-void InitNMEA2000() {
-  //simple N2000 enable based on the DataDisplay example
-  // actual minimum N2000 start for a device to just monitor the bus.
-  NMEA2000.EnableForward(false);
-  NMEA2000.SetMsgHandler(HandleNMEA2000Msg);
-  NMEA2000.Open();
-                          
-}
-*/
 void InitNMEA2000() {  // make it display device Info on start up.. 
   NMEA2000.SetN2kCANMsgBufSize(8);
   NMEA2000.SetN2kCANReceiveFrameBufSize(100);
-
-  NMEA2000.SetProductInformation(&DisplayProductInformation );
-  NMEA2000.SetProgmemConfigurationInformation(DisplayManufacturerInformation,DisplayInstallationDescription1,DisplayInstallationDescription2);
-
+ // Set device information
   char SnoStr[33];
   uint32_t SerialNumber = GetSerialNumber();
-  snprintf(SnoStr, 32, "%lu", (long unsigned int)SerialNumber);
+  //SerialNumber=9999;
+  snprintf(SnoStr, 32, "%lu", SerialNumber);
    Serial.println("NMEA2000 Initialization ...");
-  Serial.printf("   Unique ID: <%s> \r\n", SnoStr);
-  
-  // Det device information
-  NMEA2000.SetDeviceInformation(SerialNumber,  // Unique number. Use e.g. Serial number.
+  Serial.printf("   Unique ID: <%i> \r\n", GetSerialNumber());
+  NMEA2000.SetDeviceInformation(GetSerialNumber(),  // Unique number. Use e.g. Serial number.
                                 130,           // Device function=Display. See codes on https://web.archive.org/web/20190531120557/https://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
                                 120,            // Device class=Display Device. 
-                                2046           // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
+                                2046,           // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
+                                4 //marine
   );
-
+  NMEA2000.SetProductInformation(      SnoStr,                        // N2kVersion
+                                       001,                         // Manufacturer's product code
+                                       "Simple NMEA Display",    // Manufacturer's Model ID
+                                       soft_version,          //N2kSwCode
+                                       "Guitron ESP32s 4 inch",    // N2kModelVersion
+                                       3//,                            // LoadEquivalency (of 50mA loads) 
+                                       //2102,                           // N2kversion default 2102
+                                       //0                           // CertificationLevel
+                                                                              );
+                                                                            
+  // I have not seen this do anything with the actisense reader
+  NMEA2000.SetProgmemConfigurationInformation(DisplayManufacturerInformation,DisplayInstallationDescription1,DisplayInstallationDescription2);
   NMEA2000.EnableForward(false);  // we are not forwarding / streaming anything  
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 15); // needs this to enable device information send at start up?
   NMEA2000.SetMsgHandler(HandleNMEA2000Msg);  // see main ino)

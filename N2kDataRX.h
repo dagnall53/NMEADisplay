@@ -48,5 +48,11 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   void HandleRudder(const tN2kMsg &N2kMsg);             // 127245
   void HandleWatertemp12(const tN2kMsg &N2kMsg);        //130312
   void HandleWatertemp16(const tN2kMsg &N2kMsg);        //130316
+// experimental functions
+  void HandleMFRData(const tN2kMsg &N2kMsg) ;           //126996 experimental to serial print  mfr data
+  void RequestProductInformation(uint8_t destination) ; // Use 0xFF for broadcast or specific address
+
+
+
 
   String PGNDecode(int PGN);                              // decode the PGN to a readable name.. Useful for the decodeMode the bus?

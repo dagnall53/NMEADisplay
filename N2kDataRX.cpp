@@ -40,7 +40,7 @@ extern _sBoatData BoatData;  // BoatData values for the display , int double , w
   double Latitude;
   double Longitude;
   double Altitude;
-  double Variation;
+  //held in boatdata double Variation;
   double Heading;
   double TargetHeading;
   double COG;
@@ -93,11 +93,11 @@ void HandleHeading(const tN2kMsg &N2kMsg) { //127250
         SendHDM = false;
       }  // Update Deviation, send HDG
       if (!N2kIsNA(_Variation)) {
-        Variation = _Variation;
+        BoatData.Variation = _Variation;
         SendHDM = false;
       }  // Update Variation, Send HDG
       if (!N2kIsNA(Heading) && !N2kIsNA(_Deviation)) { Heading -= Deviation; }
-      if (!N2kIsNA(Heading) && !N2kIsNA(_Variation)) { Heading -= Variation; }
+      if (!N2kIsNA(Heading) && !N2kIsNA(_Variation)) { Heading -= BoatData.Variation; }
       toNewStruct(Heading, BoatData.MagHeading);
        } else {  // data was "true" so send as true
       toNewStruct(Heading, BoatData.TrueHeading);
@@ -152,8 +152,8 @@ void HandleHeading(const tN2kMsg &N2kMsg) { //127250
 //   tN2kMagneticVariation Source;
 //   uint16_t LOCALDaysSince1970;
 //   // Just saves the Variation for use in other functions.
-//   ParseN2kMagneticVariation(N2kMsg, SID, Source, LOCALDaysSince1970, Variation);
-//   BoatData.Variation = Variation; // just save value, not sInstData so not need to save time of data etc.. 
+//   ParseN2kMagneticVariation(N2kMsg, SID, Source, LOCALDaysSince1970, _Variation);
+//   BoatData.Variation = _Variation; // just save value, not sInstData so not need to save time of data etc.. 
 //   }
 
 
@@ -238,7 +238,7 @@ void HandleGNSS(const tN2kMsg &N2kMsg) {
     if (Latitude != -1000000000) {
     toNewStruct( Longitude,BoatData.Longitude);
     toNewStruct( Latitude,BoatData.Latitude);
-    BoatData.SatsInView=nSatellites;
+    BoatData.SatsInView=NMEA0183DoubleNA; if (nSatellites){BoatData.SatsInView=nSatellites;}
     BoatData.GPSDate = Days_to_GPSdate(DaysSince1970);
     BoatData.GPSTime =SecondsSinceMidnight ;}
   }
@@ -252,10 +252,10 @@ void HandleCOGSOG(const tN2kMsg &N2kMsg) {
 
   if (ParseN2kCOGSOGRapid(N2kMsg, SID, HeadingReference, COG, SOG)) {
     //get / set  MCOG
-    MCOG = (!N2kIsNA(COG) && !N2kIsNA(Variation) ? COG - Variation : NMEA0183DoubleNA);
+    MCOG = (!N2kIsNA(COG) && !N2kIsNA(BoatData.Variation) ? COG - BoatData.Variation : NMEA0183DoubleNA);
     if (HeadingReference == N2khr_magnetic) {
       MCOG = COG;
-      if (!N2kIsNA(Variation)) COG -= Variation;
+      if (!N2kIsNA(BoatData.Variation)) COG -= BoatData.Variation;
     }
     toNewStruct(COG, BoatData.COG);
     toNewStruct(SOG, BoatData.SOG);
@@ -401,6 +401,98 @@ String PGNDecode(int PGN) {  // decode the PGN to a readable name.. Useful for t
     default: return "Unknown ";break;
   }
   return "unknown";
+}
+
+
+// experimental  Show manufacturer data etc? // ai helped write
+
+bool ParseN2kPGN60928(const tN2kMsg &N2kMsg, uint64_t &NAME) {
+  if (N2kMsg.DataLen < 8) return false;
+
+  NAME = 0;
+  for (int i = 0; i < 8; i++) {
+    NAME |= ((uint64_t)N2kMsg.Data[i]) << (8 * i);
+  }
+  return true;
+}
+
+void HandleMFRData(const tN2kMsg &N2kMsg) {
+  //Serial.println("*********parse MFR data 126996 or 60928 *********");
+
+  if (N2kMsg.PGN == 60928) {
+    uint64_t NAME = 0;
+    if (ParseN2kPGN60928(N2kMsg, NAME)) {
+      // Serial.println("PGN 60928 - ISO Address Claim:");
+      // Serial.print("  Source Address: "); Serial.println(Source);
+      // Optional: decode fields from NAME
+      uint8_t industryGroup = (NAME >> 60) & 0x07;
+      uint8_t deviceClass    = (NAME >> 56) & 0x0F;
+      uint8_t deviceFunction = (NAME >> 48) & 0xFF;
+      uint16_t manufacturer  = (NAME >> 21) & 0x7FF;
+      uint32_t uniqueID      = NAME & 0x1FFFFF;
+
+      //Serial.print("  Industry Group: "); Serial.println(industryGroup);
+      Serial.print("  Device Source:   "); Serial.println(N2kMsg.Source);
+      Serial.print("  Device Class:   "); Serial.println(deviceClass);
+      Serial.print("  Function Code:  "); Serial.println(deviceFunction);
+      Serial.print("  Manufacturer:   "); Serial.println(manufacturer);
+      Serial.print("  Unique ID:      "); Serial.println(uniqueID);
+      //RequestProductInformation(N2kMsg.Source);
+    } else {
+      Serial.println("Failed to parse PGN 60928");
+    }
+  }
+  if (N2kMsg.PGN == 126996) {
+    // Scalars passed by reference
+    unsigned short N2kVersion = 0;
+    unsigned short ProductCode = 0;
+    unsigned char CertificationLevel = 0;
+    unsigned char LoadEquivalency = 0;
+
+    // Buffers for strings
+    const int ModelIDSize = 33;
+    const int SwCodeSize = 33;
+    const int ModelVersionSize = 33;
+    const int ModelSerialCodeSize = 33;
+
+    char ModelID[ModelIDSize] = {0};
+    char SwCode[SwCodeSize] = {0};
+    char ModelVersion[ModelVersionSize] = {0};
+    char ModelSerialCode[ModelSerialCodeSize] = {0};
+
+    // Parse the PGN
+    if (ParseN2kPGN126996(N2kMsg,
+                          N2kVersion,
+                          ProductCode,
+                          ModelIDSize, ModelID,
+                          SwCodeSize, SwCode,
+                          ModelVersionSize, ModelVersion,
+                          ModelSerialCodeSize, ModelSerialCode,
+                          CertificationLevel,
+                          LoadEquivalency)) {
+
+      Serial.println("PGN 126996 - Product Information:");
+      Serial.print("  NMEA 2000 Version: "); Serial.println(N2kVersion);
+      Serial.print("  Product Code: "); Serial.println(ProductCode);
+      Serial.print("  Model ID: "); Serial.println(ModelID);
+      Serial.print("  Software Code: "); Serial.println(SwCode);
+      Serial.print("  Model Version: "); Serial.println(ModelVersion);
+      Serial.print("  Serial Code: "); Serial.println(ModelSerialCode);
+      Serial.print("  Certification Level: "); Serial.println(CertificationLevel);
+      Serial.print("  Load Equivalency: "); Serial.println(LoadEquivalency);
+    } else {
+      Serial.println("Failed to parse PGN 126996");
+    }
+  }
+}
+
+extern tNMEA2000 &NMEA2000;
+
+void RequestProductInformation(uint8_t destination) {
+  tN2kMsg N2kMsg;
+  SetN2kPGNISORequest(N2kMsg,0xFF, 126996);  // Request PGN 126996
+  //N2kMsg.Destination = destination;    // Use 0xFF for broadcast or specific address
+  NMEA2000.SendMsg(N2kMsg);
 }
 
 
