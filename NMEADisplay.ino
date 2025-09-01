@@ -26,7 +26,7 @@ is called with ctrl shift P
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "VERSION 4.40";  // changed to 4.4 with added N2K direct reads 
+const char soft_version[] = "VERSION 4.41";  // changed to 4.4 with added N2K direct reads 
 
 #if ESP_ARDUINO_VERSION_MAJOR == 3  // hoping this #if will work in the called .cpp !!  BUT IT DOES NOT  NEEDS TIDYING UP!! 
 #define UsingV3Compiler             // this "UsingV3Compiler" #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
@@ -35,7 +35,7 @@ const char soft_version[] = "VERSION 4.40";  // changed to 4.4 with added N2K di
 //#define AUDIO                     // the audio library is compiler specific so needs changing if you want sound for any tests
 
 //start adding native NMEA2000 WILL NEED CAN ADAPTER!
-#include "N2KDataRX.h"  // Handlers and hanle functions 
+#include "N2KDataRX.h"  // Handlers a functions 
 // not for s3 versions!! #include <NMEA2000_CAN.h>  // note Should automatically detects use of ESP32 and  use the (https://github.com/ttlappalainen/NMEA2000_esp32) library
 ///----  // see https://github.com/ttlappalainen/NMEA2000/issues/416#issuecomment-2251908112
   #define ESP32_CAN_TX_PIN GPIO_NUM_1  // for the esp32_4 spare pins on 8 way connector boards!
@@ -1427,16 +1427,15 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (RunSetup) {
         setFont(10);
         gfx->fillScreen(BLACK);
-        // DrawCompass(360, 120, 120);
         if (String(Display_Config.FourWayTR) == "WIND") {
-          DrawCompass(topRightquarter);
+          DrawCompass(topRightquarter); // only draw the compass once!
           AddTitleInsideBox(8, 3, topRightquarter, "WIND APP ");
         }
-        GFXBorderBoxPrintf(topLeftquarter, "");
-        AddTitleInsideBox(9, 3, topLeftquarter, "STW ");
-        AddTitleInsideBox(9, 2, topLeftquarter, " Kts");  //font,position
+     //   GFXBorderBoxPrintf(topLeftquarter, "");
+       // AddTitleInsideBox(9, 3, topLeftquarter, "STW ");
+        //AddTitleInsideBox(9, 2, topLeftquarter, " Kts");  //font,position
         setFont(10);
-        SCROLLGraph(RunSetup, 0, 1, true, bottomLeftquarter, BoatData.WaterDepth, 50, 0, 8, "Fathmometer 50m ", "m"); 
+        //SCROLLGraph(RunSetup, 0, 1, true, bottomLeftquarter, BoatData.WaterDepth, 50, 0, 8, "Fathmometer 50m ", "m"); 
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();  //only make/update copies every second!  else undisplayed copies will be redrawn!
@@ -1455,13 +1454,18 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         setFont(10);
       }
 
-      UpdateDataTwoSize(true, true, 13, 11, topLeftquarter, BoatData.STW, "%.1f");
+      //UpdateDataTwoSize(true, true, 13, 11, topLeftquarter, BoatData.STW, "%.1f");
 
 
       if (String(Display_Config.FourWayTR) == "WIND") { WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp); }
 
 
       //seeing if JSON setting of (bottom two sides of) quad is useful.. TROUBLE with two scrollGraphss so there is now extra 'instances' settings allowing two to run simultaneously!! ?
+       if (String(Display_Config.FourWayTL) == "DEPTH") { UpdateDataTwoSize(RunSetup, "DEPTH", " M", true, true, 13, 11, topLeftquarter, BoatData.WaterDepth, "%.1f"); }
+      if (String(Display_Config.FourWayTL) == "SOG") { UpdateDataTwoSize(RunSetup, "SOG", " Kts", true, true, 13, 11, topLeftquarter, BoatData.SOG, "%.1f"); }
+      if (String(Display_Config.FourWayTL) == "STW") { UpdateDataTwoSize(RunSetup, "STW", " Kts", true, true, 13, 11, topLeftquarter, BoatData.STW, "%.1f"); }
+
+
 
       if (String(Display_Config.FourWayBL) == "DEPTH") { UpdateDataTwoSize(RunSetup, "DEPTH", " M", true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%.1f"); }
       if (String(Display_Config.FourWayBL) == "SOG") { UpdateDataTwoSize(RunSetup, "SOG", " Kts", true, true, 13, 11, bottomLeftquarter, BoatData.SOG, "%.1f"); }
