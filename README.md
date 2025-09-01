@@ -8,27 +8,22 @@ The user is responsible for cross-checking data with other sources, exercising j
 No liability for any loss, damage, or injury resulting from the use of this instrument will be accepted. </i>
 
 This project requires the boat to have a wireless NMEA Gateway that sends NMEA 0183 instrument readings on UDP. 
-<p align="center"> Version 3 display <img width = 400 src="https://github.com/user-attachments/assets/a6a14548-3c6a-4396-b0af-098bd9176c43" width="200" /></p>
-
-Images of previous versions of the display
-<p> <img  height =200 src="https://github.com/user-attachments/assets/7f585734-d98d-4989-88b9-e27b94a2dbbe" />
-<img height = 200 src="https://github.com/user-attachments/assets/f7ee5526-b172-4278-a29b-25652bf69c3d" /></p>
-
+<p align="center"> Version 3 display <img width = 200 src="https://github.com/user-attachments/assets/a6a14548-3c6a-4396-b0af-098bd9176c43" width="200" /></p>
 
 ## HOW TO INSTALL FIRST TIME
 
 First, plug your module into a com port on your PC and record which port it is using. 
 If confused, check Device Manager and look for the USB-SERIAL CH340 port. 
 Remember the port number!
-
-Click the link below to download the file "WebProgram.bat" from the github.
+click https://tinyurl.com/2uej5v7m (or the direct link below) 
+  this will download the file "WebProgram.bat" from the github.
 <a href="Click to download/" download>https://dagnall53.github.io/NMEADisplay/build/WebProgram.bat</a>
 Save this somewhere convenient such as downloads.
 Run the program .. 
 It will download the latest binaries to the directory where you saved it and program the hardware. 
 It will then delete the binaries and the tool used to upload after it has completed,leaving just the WebProgram.bat file. 
 
-I will try later to add a similar Bat file to copy the essential files for the SD card.
+https://dagnall53.github.io/NMEADisplay/build/MakeSDcard.bat is a similar Bat file to copy the essential files for the SD card.
 
 
 If you prefer to see all the code: 
