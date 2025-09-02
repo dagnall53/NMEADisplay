@@ -3,7 +3,7 @@
 Compiled and tested with ESp32 V2.0.17  
 early V3 has broken  some functions and this code will not work until  V3.3.0a!
 GFX library for Arduino 1.5.5
-Select "ESP32-S3 DEV Module"
+Select "ESP32S3 DEV Module"
 Select PSRAM "OPI PSRAM" / enabled
 
 16M flash 
@@ -18,19 +18,34 @@ or 2.0.0 for Version 2.0.17 -- its not cross compatible.
 
 GFX seems ok , but change the.h as noted: but Jpeg screen seems to flicker with GFX 1.6 and Version3.2.0 compiler. 
 COMPILED AGAIN wITH 2.0.17 AND GFX 1.6 flicker less , but there is an occasional ble glitch
+Compiled with 2.0.11 - works with BLE 
 
+REMINDER https://github.com/dankeboy36/esp-exception-decoder
+is called with ctrl shift P 
 */
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "VERSION 4.32";
+const char soft_version[] = "VERSION 4.41";  // changed to 4.4 with added N2K direct reads 
 
-#if ESP_ARDUINO_VERSION_MAJOR == 3  // hoping this #if will work in the called .cpp !!
-#define UsingV3Compiler             // this #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
+#if ESP_ARDUINO_VERSION_MAJOR == 3  // hoping this #if will work in the called .cpp !!  BUT IT DOES NOT  NEEDS TIDYING UP!! 
+#define UsingV3Compiler             // this "UsingV3Compiler" #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
 #endif
 
-//#define AUDIO
+//#define AUDIO                     // the audio library is compiler specific so needs changing if you want sound for any tests
 
+//start adding native NMEA2000 WILL NEED CAN ADAPTER!
+#include "N2KDataRX.h"  // Handlers a functions 
+// not for s3 versions!! #include <NMEA2000_CAN.h>  // note Should automatically detects use of ESP32 and  use the (https://github.com/ttlappalainen/NMEA2000_esp32) library
+///----  // see https://github.com/ttlappalainen/NMEA2000/issues/416#issuecomment-2251908112
+  #define ESP32_CAN_TX_PIN GPIO_NUM_1  // for the esp32_4 spare pins on 8 way connector boards!
+  #define ESP32_CAN_RX_PIN GPIO_NUM_2  // for the esp32_4 spare pins on 8 way connector boards!
+#include "N2kMsg.h"
+#include "NMEA2000.h"
+#include <NMEA2000_esp32xx.h>
+#include <N2kMessages.h>
+
+tNMEA2000 &NMEA2000=*(new tNMEA2000_esp32xx());
 
 #include <NMEA0183.h>
 #include <NMEA0183Msg.h>
@@ -95,7 +110,6 @@ TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, TOUCH_WID
 
 
 
-
 bool hasSD;
 
 
@@ -137,6 +151,7 @@ WiFiUDP Udp;
 char nmea_1[BufferLength];    //serial
 char nmea_U[BufferLength];    // NMEA buffer for UDP input port
 char nmea_EXT[BufferLength];  // buffer for ESP_now received data
+char nmea_N2K[BufferLength];  // buffer for converted N2K data
 
 bool EspNowIsRunning = false;
 char* pTOKEN;
@@ -308,6 +323,7 @@ bool LoadVictronConfiguration(const char* filename, _sMyVictronDevices& config) 
     strlcpy(config.DisplayShow[index], doc["device" + String(index) + ".DisplayShow"] | "PVIA", sizeof(config.DisplayShow[index]));
   }
   // Close the file (Curiously, File's destructor doesn't close the file)
+
   file.close();
 
   return !fault;  // report success
@@ -393,9 +409,6 @@ void SaveDisplayConfiguration(const char* filename, _MyColors& set) {
   doc["BLEDebug"] = set.BLEDebug True_False;
   doc["ShowRawDecryptedDataFor"] = set.ShowRawDecryptedDataFor;
   doc["Frame"] = set.Frame True_False;
-
-
-
   // Serialize JSON to file
   if (serializeJsonPretty(doc, file) == 0) {  // use 'pretty format' with line feeds
     Serial.println(F("JSON: Failed to write to SD file"));
@@ -419,6 +432,7 @@ bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
     Serial.println(F("**Failed to deserialise JSON file"));
   }
   // gett here means we can set defaults, regardless!
+
   set.TextColor = doc["TextColor"] | BLACK;
   set.BackColor = doc["BackColor"] | WHITE;
   set.BorderColor = doc["BorderColor"] | BLUE;
@@ -507,6 +521,8 @@ bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
     settings.UDP_ON = (strcmp(temp, "false"));
     strlcpy(temp, doc["ESP"] | "false", sizeof(temp));
     settings.ESP_NOW_ON = (strcmp(temp, "false"));
+    strlcpy(temp, doc["N2K"] | "false", sizeof(temp));
+    settings.N2K_ON = (strcmp(temp, "false"));
     strlcpy(temp, doc["LOG"] | "false", sizeof(temp));
     settings.Log_ON = (strcmp(temp, "false"));
     strlcpy(temp, doc["NMEALOG"] | "false", sizeof(temp));
@@ -557,6 +573,7 @@ void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
   doc["Serial"] = settings.Serial_on True_False;
   doc["UDP"] = settings.UDP_ON True_False;
   doc["ESP"] = settings.ESP_NOW_ON True_False;
+  doc["N2K"] = settings.N2K_ON True_False;
   doc["LogComments0"] = "LOG saves read data in file with date as name- BUT only when GPS date has been seen!";
   doc["LogComments1"] = "NMEALOG saves every message. Use NMEALOG only for debugging!";
   doc["LogComments2"] = "or the NMEALOG files will become huge";
@@ -927,10 +944,45 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
       break;
 
+    case -22:                                              //  "EXPERIMENT in N2K data"
+      if (RunSetup) { GFXBorderBoxPrintf(Terminal, ""); }  // only for setup, not changed data
+      if (RunSetup || DataChanged) {
+        EEPROM_READ();  // makes sure eeprom update data is latest and synchronised! 
+        setFont(3);
+        GFXBorderBoxPrintf(FullTopCenter, "N2K debug ");
+        if (!Terminal.debugpause) {
+          AddTitleBorderBox(0, Terminal, "TERMINAL");
+        } else {
+          AddTitleBorderBox(0, Terminal, "-Paused-");
+        }
+        DataChanged = false;
+      }
+      // if (millis() > slowdown + 500) {
+      //   slowdown = millis();
+      // }
+      if (CheckButton(FullTopCenter)) { Display_Page = 0; }
+      if (CheckButton(Terminal)) {
+        Terminal.debugpause = !Terminal.debugpause;
+        DataChanged = true;
+        if (!Terminal.debugpause) {
+          AddTitleBorderBox(0, Terminal, "-running-");
+        } else {
+          AddTitleBorderBox(0, Terminal, "-paused-");
+        }
+      }
+   
 
-
-
-
+      // if (CheckButton(Switch9)) {
+      //   Current_Settings.ESP_NOW_ON = !Current_Settings.ESP_NOW_ON;
+      //   DataChanged = true;
+      // };
+      // if (CheckButton(Switch11)) {
+      //   EEPROM_WRITE(Display_Config, Current_Settings);
+      //   delay(50);
+      //   // Display_Page = 0;
+      //   DataChanged = true;
+      // };
+      break;
 
     case -20:  // Experimental / extra stuff
       if (RunSetup || DataChanged) {
@@ -956,19 +1008,25 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (CheckButton(Full5Center)) { Display_Page = 0; }
       break;
 
-    case -21:                                              // Secondary "Log and debug "
+    case -21:                                              //  "Log and debug "
       if (RunSetup) { GFXBorderBoxPrintf(Terminal, ""); }  // only for setup, not changed data
       if (RunSetup || DataChanged) {
+        EEPROM_READ();  // makes sure eeprom update data is latest and synchronised! 
         setFont(3);
-        GFXBorderBoxPrintf(FullTopCenter, "Instrument Data / NMEA Logging");
+        GFXBorderBoxPrintf(FullTopCenter, "Boat/NMEA Log and Source selects");
         GFXBorderBoxPrintf(Switch6, Current_Settings.Log_ON On_Off);
-        AddTitleBorderBox(0, Switch6, "Inst LOG");
+        AddTitleBorderBox(0, Switch6, "B LOG");
         GFXBorderBoxPrintf(Switch7, Current_Settings.NMEA_log_ON On_Off);
-        AddTitleBorderBox(0, Switch7, "NMEA LOG");
-        GFXBorderBoxPrintf(Switch9, Current_Settings.UDP_ON On_Off);
-        AddTitleBorderBox(0, Switch9, "UDP");
-        GFXBorderBoxPrintf(Switch10, Current_Settings.ESP_NOW_ON On_Off);
-        AddTitleBorderBox(0, Switch10, "ESP-Now");
+        AddTitleBorderBox(0, Switch7, "N LOG");
+        GFXBorderBoxPrintf(Switch8, Current_Settings.UDP_ON On_Off);
+        AddTitleBorderBox(0, Switch8, "UDP");
+        GFXBorderBoxPrintf(Switch9, Current_Settings.ESP_NOW_ON On_Off);
+        AddTitleBorderBox(0, Switch9, "ESP-N");
+        GFXBorderBoxPrintf(Switch10, Current_Settings.N2K_ON On_Off);
+        AddTitleBorderBox(0, Switch10, "N2K");
+
+        GFXBorderBoxPrintf(Switch11, CompStruct(Saved_Settings, Current_Settings) ? "-same-" : "UPDATE");
+        AddTitleBorderBox(0, Switch11, "EEPROM");
 
         if (!Terminal.debugpause) {
           AddTitleBorderBox(0, Terminal, "TERMINAL");
@@ -1002,12 +1060,22 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         DataChanged = true;
       };
 
-      if (CheckButton(Switch9)) {
+      if (CheckButton(Switch8)) {
         Current_Settings.UDP_ON = !Current_Settings.UDP_ON;
         DataChanged = true;
       };
-      if (CheckButton(Switch10)) {
+      if (CheckButton(Switch9)) {
         Current_Settings.ESP_NOW_ON = !Current_Settings.ESP_NOW_ON;
+        DataChanged = true;
+      };
+            if (CheckButton(Switch10)) {
+        Current_Settings.N2K_ON = !Current_Settings.N2K_ON;
+        DataChanged = true;
+      };
+      if (CheckButton(Switch11)) {
+        EEPROM_WRITE(Display_Config, Current_Settings);
+        delay(50);
+        // Display_Page = 0;
         DataChanged = true;
       };
 
@@ -1015,6 +1083,8 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
 
       break;
 
+    
+ 
     case -10:  // a test page for fonts
       if (RunSetup || DataChanged) {
         gfx->fillScreen(BLUE);
@@ -1357,15 +1427,15 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
       if (RunSetup) {
         setFont(10);
         gfx->fillScreen(BLACK);
-        // DrawCompass(360, 120, 120);
         if (String(Display_Config.FourWayTR) == "WIND") {
-          DrawCompass(topRightquarter);
+          DrawCompass(topRightquarter); // only draw the compass once!
           AddTitleInsideBox(8, 3, topRightquarter, "WIND APP ");
         }
-        GFXBorderBoxPrintf(topLeftquarter, "");
-        AddTitleInsideBox(9, 3, topLeftquarter, "STW ");
-        AddTitleInsideBox(9, 2, topLeftquarter, " Kts");  //font,position
+     //   GFXBorderBoxPrintf(topLeftquarter, "");
+       // AddTitleInsideBox(9, 3, topLeftquarter, "STW ");
+        //AddTitleInsideBox(9, 2, topLeftquarter, " Kts");  //font,position
         setFont(10);
+        //SCROLLGraph(RunSetup, 0, 1, true, bottomLeftquarter, BoatData.WaterDepth, 50, 0, 8, "Fathmometer 50m ", "m"); 
       }
       if (millis() > slowdown + 1000) {
         slowdown = millis();  //only make/update copies every second!  else undisplayed copies will be redrawn!
@@ -1384,13 +1454,18 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         setFont(10);
       }
 
-      UpdateDataTwoSize(true, true, 13, 11, topLeftquarter, BoatData.STW, "%.1f");
+      //UpdateDataTwoSize(true, true, 13, 11, topLeftquarter, BoatData.STW, "%.1f");
 
 
       if (String(Display_Config.FourWayTR) == "WIND") { WindArrow2(topRightquarter, BoatData.WindSpeedK, BoatData.WindAngleApp); }
 
 
       //seeing if JSON setting of (bottom two sides of) quad is useful.. TROUBLE with two scrollGraphss so there is now extra 'instances' settings allowing two to run simultaneously!! ?
+       if (String(Display_Config.FourWayTL) == "DEPTH") { UpdateDataTwoSize(RunSetup, "DEPTH", " M", true, true, 13, 11, topLeftquarter, BoatData.WaterDepth, "%.1f"); }
+      if (String(Display_Config.FourWayTL) == "SOG") { UpdateDataTwoSize(RunSetup, "SOG", " Kts", true, true, 13, 11, topLeftquarter, BoatData.SOG, "%.1f"); }
+      if (String(Display_Config.FourWayTL) == "STW") { UpdateDataTwoSize(RunSetup, "STW", " Kts", true, true, 13, 11, topLeftquarter, BoatData.STW, "%.1f"); }
+
+
 
       if (String(Display_Config.FourWayBL) == "DEPTH") { UpdateDataTwoSize(RunSetup, "DEPTH", " M", true, true, 13, 11, bottomLeftquarter, BoatData.WaterDepth, "%.1f"); }
       if (String(Display_Config.FourWayBL) == "SOG") { UpdateDataTwoSize(RunSetup, "SOG", " Kts", true, true, 13, 11, bottomLeftquarter, BoatData.SOG, "%.1f"); }
@@ -1635,7 +1710,7 @@ void Display(bool reset, int page) {  // setups for alternate pages to be select
         }
 
         if (BoatData.MagHeading.data != NMEA0183DoubleNA) { UpdateLinef(9, BigSingleDisplay, "Mag Heading: %.4f", BoatData.MagHeading); }
-        UpdateLinef(9, BigSingleDisplay, "Variation: %.4f", BoatData.Variation);
+        if ((BoatData.Variation != NMEA0183DoubleNA)&& (BoatData.Variation != 0) &&!N2kIsNA(BoatData.Variation)) {UpdateLinef(9, BigSingleDisplay, "Variation: %.4f", BoatData.Variation);}
       }
       if (CheckButton(BigSingleTopLeft)) { Display_Page = 10; }
       //if (CheckButton(bottomLeftquarter)) { Display_Page = 4; }  //Loop to the main settings page
@@ -1737,6 +1812,7 @@ void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes increment
   MasterFont = fontinput;
   switch (fontinput) {  //select font and automatically set height/offset based on character '['
     // set the heights and offset to print [ in boxes. Heights in pixels are NOT the point heights!
+
     case 0:                        // SMALL 8pt
       Fontname = "FreeMono8pt7b";  //9 to 14 high?
       gfx->setFont(&FreeMono8pt7b);
@@ -1875,15 +1951,19 @@ void setFont(int fontinput) {  //fonts 3..12 are FreeMonoBold in sizes increment
       break;
   }
 }
+//new V4.34 use Null gateway..
+IPAddress Null_ip(0,0,0,0);            //  A null IP address for the gateway
+IPAddress ap_ip(192, 168, 4, 1);       // the IP address in AP mode. Default and can be changed!
+const IPAddress sub255(255, 255, 255, 0);   // the default Subnet Mask in in SoftAP mode
 
 void setup() {
   //CONFIG_ESP_BROWNOUT_DET_LVL_SEL_5 ??
   Serial.begin(115200);
   Serial.println("Starting NMEA Display ");
   Serial.println(soft_version);
-
+ // FindI2CDevices("- List I2C DEVICES-");delay(2000); // for development testing
   ts.begin();
-  Serial.println("ts has begun");
+  Serial.println("touch sensor has begun");
   ts.setRotation(ROTATION_INVERTED);
   // guitron sets GFX_BL 38
   Serial.println("GFX_BL set");
@@ -1936,14 +2016,17 @@ void setup() {
   // set up anything BoatData from the configs
   //Serial.print("now.. magvar:");Serial.println(BoatData.Variation);
 
-
   // flash User selected logo and setup audio if SD present
   if (hasSD) {
     // // flash logo
     // Serial.printf("display <%s> \n",Display_Config.StartLogo);
+    //Use BLE background if display page -87 to save flashing up the start page
+    if (Display_Config.Start_Page!=-87) {
     jpegDraw(JPEG_FILENAME_LOGO, jpegDrawCallback, true /* useBigEndian */,
              // jpegDraw(StartLogo, jpegDrawCallback, true /* useBigEndian */,
-             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);
+             0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);}
+             else{ jpegDraw("/vicback.jpg", jpegDrawCallback, true /* useBigEndian */,
+                 0 /* x */, 0 /* y */, gfx->width() /* widthLimit */, gfx->height() /* heightLimit */);}
     setFont(11);
     gfx->setTextBound(0, 0, 480, 480);
     gfx->setCursor(30, 80);
@@ -1952,14 +2035,18 @@ void setup() {
     gfx->setCursor(35, 75);
     gfx->setTextColor(WHITE);
     gfx->println(soft_version);
-    delay(500);
+    if (Display_Config.Start_Page!=-87) {delay(500);}
+    
     //
   }
-  gfx->setCursor(140, 240);
-  // print config files
-  PrintJsonFile(" Display and wifi config file...", Setupfilename);
-  PrintJsonFile(" Victron JSON config file..", VictronDevicesSetupfilename);
-  PrintJsonFile(" Display colour  config file..", ColorsFilename);
+   if (Display_Config.Start_Page!=-87) {
+    gfx->setCursor(140, 240);
+    // print config files
+    PrintJsonFile(" Display and wifi config file...", Setupfilename);
+    PrintJsonFile(" Victron JSON config file..", VictronDevicesSetupfilename);
+    PrintJsonFile(" Display colour  config file..", ColorsFilename);
+   }
+  WiFi.softAPConfig(ap_ip, Null_ip, sub255); 
   ConnectWiFiusingCurrentSettings();
   SetupWebstuff();
 
@@ -1972,6 +2059,9 @@ void setup() {
   Serial.printf(" Starting display page<%i> \n", Display_Config.Start_Page);
   Start_ESP_EXT();  //  Sets esp_now links to the current WiFi.channel etc.
   BLEsetup();       // setup Victron BLE interface (does not do much!!)
+
+  //--- new - under test --
+  InitNMEA2000();  // instantiate NMEA2000!!
 }
 //unsigned long Interval;  // may also be used in sub functions during debug chasing delays.. Serial.printf(" s<%i>",millis()-Interval);Interval=millis();
 
@@ -2021,12 +2111,14 @@ void loop() {
    #ifdef AUDIO
   audio.loop();
   #endif
-
+  N2K_LOOP();
   if (!AttemptingConnect && !IsConnected && (millis() >= SSIDSearchInterval)) {  // repeat at intervals to check..
     SSIDSearchInterval = millis() + scansearchinterval;                          //
     if (StationsConnectedtomyAP == 0) {                                          // avoid scanning if we have someone connected to AP as it will/may disconnect!
       ScanAndConnect(true);
     }  // ScanAndConnect will set AttemptingConnect And do a Wifi.begin if the required SSID has appeared
+
+   
   }
 
   // NMEALOG is done in CheckAndUseInputs
@@ -2044,6 +2136,7 @@ void loop() {
     WIFIGFXBoxdisplaystarted = false;
     Display(true, Display_Page);
     delay(50);  // change page back, having set zero above which alows the graphics to reset up the boxes etc.
+    
   }
 
   if (((ColorSettings.Debug)||(ColorSettings.BLEDebug)) && (millis() >= DebugInterval)) {
@@ -2104,6 +2197,11 @@ void CheckAndUseInputs() {  //multiinput capable, will check sources in sequence
     }
   }
   // Serial.printf(" ca<%i>",millis()-Interval);Interval=millis();
+  //N2K is directly converted to display structures  only use for debugging
+  // if (Current_Settings.N2K_ON) {
+  //   if (NewN2Kdata()) { UseNMEA(nmea_N2K, 5); } // just for debug!! 
+  // }
+
   if (Current_Settings.Serial_on) {
     if (Test_Serial_1()) { UseNMEA(nmea_1, 1); }
   }
@@ -2151,6 +2249,10 @@ void UseNMEA(char* buf, int type) {
     }
 
     if ((Display_Page == -21)) {  //Terminal.debugpause built into in UpdateLinef as part of button characteristics
+      //  if (type == 5) {  // done directly on data receipt!
+      //   UpdateLinef(BLACK, 8, Terminal, "N2K:%s", buf);  // 7 small enough to avoid line wrap issue?
+      // }
+
       if (type == 4) {
         UpdateLinef(BLACK, 8, Terminal, "Victron:%s", buf);  // 7 small enough to avoid line wrap issue?
       }
@@ -2214,6 +2316,7 @@ boolean CompStruct(_sWiFi_settings_Config A, _sWiFi_settings_Config B) {  // Doe
 
   if (A.UDP_ON != B.UDP_ON) { same = false; }
   if (A.ESP_NOW_ON != B.ESP_NOW_ON) { same = false; }
+  if (A.N2K_ON != B.N2K_ON) { same = false; }
   if (A.Serial_on != B.Serial_on) { same = false; }
   if (A.Log_ON != B.Log_ON) { same = false; }
   if (A.NMEA_log_ON != B.NMEA_log_ON) { same = false; }
@@ -2301,7 +2404,7 @@ void SD_Setup() {
   hasSD = false;
   Serial.println("SD Card START");
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI);
-  delay(100);
+  delay(10);
   if (!SD.begin(SD_CS)) {
     Serial.println("Card Mount Failed");
     gfx->println("NO SD Card");
@@ -2342,7 +2445,8 @@ void SD_Setup() {
 //  ************  WIFI support functions *****************
 
 void WifiGFXinterrupt(int font, _sButton& button, const char* fmt, ...) {  //quick interrupt of gfx to show WIFI events..
-  if (Display_Page <= -1) { return; }                                      // do not interrupt the settings pages!                                                                       // version of add centered text, multi line from /void MultiLineInButton(int font, _sButton &button,const char *fmt, ...)
+  if (Display_Page <= -1) { return; }                                      // do not interrupt the settings pages!  
+  if (Display_Config.Start_Page==-87) {      return;} // do not do the screen shows on BLE page                                                                // version of add centered text, multi line from /void MultiLineInButton(int font, _sButton &button,const char *fmt, ...)
   static char msg[300] = { '\0' };
   va_list args;
   va_start(args, fmt);
@@ -2497,7 +2601,7 @@ void ConnectWiFiusingCurrentSettings() {
   uint32_t StartTime = millis();
   // superceded by WIFI box display "setting up AP" gfx->println("Setting up WiFi");
   WiFi.disconnect(false, true);  // clean the persistent memory in case someone else set it !! eg ESPHOME!!
-  delay(100);
+  delay(10);
   WiFi.persistent(false);
   WiFi.mode(WIFI_AP_STA);
   // WiFi.onEvent(WiFiEventPrint); // serial print for debugging
@@ -2505,8 +2609,7 @@ void ConnectWiFiusingCurrentSettings() {
                             // start the display's AP - potentially with NULL pasword
   if ((String(Display_Config.APpassword) == "NULL") || (String(Display_Config.APpassword) == "null") || (String(Display_Config.APpassword) == "")) {
     result = WiFi.softAP(Display_Config.PanelName);
-    delay(5);
-  } else {
+    } else {
     result = WiFi.softAP(Display_Config.PanelName, Display_Config.APpassword);
   }
   delay(5);
@@ -2528,10 +2631,13 @@ void ConnectWiFiusingCurrentSettings() {
   }
   WiFi.mode(WIFI_AP_STA);
   // all Serial prints etc are now inside ScanAndConnect 'TRUE' will display them.
+  /* Is this essential here-- its also n loop? 
   if (ScanAndConnect(true)) {  //Serial.println("found SSID and attempted connect");
     if (WiFi.status() != WL_CONNECTED) { WifiGFXinterrupt(8, WifiStatus, "Time %is \nWIFI scan found\n <%i> networks\n but did not connect to\n <%s> \n Will look again in 30 seconds",
                                                           millis() / 1000, NetworksFound, Current_Settings.ssid); }
   }
+
+  */
 }
 
 bool Test_Serial_1() {  // UART0 port P1
@@ -2934,3 +3040,161 @@ void WiFiEventPrint(WiFiEvent_t event) {
   }
 }
 
+// added to explore GT911 I2C bus 
+void FindI2CDevices(String text){
+  Serial.println(text);
+  Wire.begin(TOUCH_SDA,TOUCH_SCL);
+  for (int i=0 ;i<256;i++) {
+  Wire.beginTransmission(i);
+  if (Wire.endTransmission() == 0) {
+     Serial.printf("Device detected at %x(hex)  %i(dec) ",i,i);Serial.println("");
+    } 
+  }
+}
+
+//--------------- Stuff for NMEA2000 direct read  ---------------
+/*
+Connector view from top to add Canbus transceiver module with Module aligned display doan and connector is at bottom right 
+top Right GND
+Bottom Right 5v
+Left row
+Gnd(top)
+relay1 IO40
+relay2 IO2  (connect to TX)
+relay3 IO1  (connect to RX) bottom left
+*/
+// define before calling includes!
+  // #define ESP32_CAN_TX_PIN GPIO_NUM_1  // for the esp32_4 spare pins on 8 way connector boards!
+  // #define ESP32_CAN_RX_PIN GPIO_NUM_2  // for the esp32_4 spare pins on 8 way connector boards!
+
+//probably unnecessary! 
+const unsigned long TransmitMessages[] PROGMEM = { 
+                                                   0 };
+
+// far too many messages noted here  - we do not support them all but they may get added 
+const unsigned long ReceiveMessages[] PROGMEM = { /*126992L,*/  // System time  /https://github.com/ronzeiller/NMEA0183-AIS/blob/master/Examples/NMEA2000ToWiFiAsNMEA0183WithAIS/main.cpp
+                                                  126720L,      // Raymarine data for seatalk
+                                                  127250L,      // Heading
+                                                  127258L,      // Magnetic variation
+                                                  128259UL,     // Boat speed
+                                                  128267UL,     // Depth
+                                                  129025UL,     // Position
+                                                  129026L,      // COG and SOG
+                                                  129029L,      // GNSS
+                                                  130306L,      // Wind
+                                                  128275L,      // Log
+                                                  127245L,      // Rudder
+                                                  0 };
+
+#define DefaultSerialNumber 999999
+//*****************************************************************************
+uint32_t GetSerialNumber() {  // not using the getSerial.number library function!
+  byte b[6];
+  WiFi.macAddress(b);
+  uint32_t sn = b[2] << 24;
+  sn += b[3] << 16;
+  sn += b[4] << 8;
+  sn += b[5];
+  sn &= 0x1FFFFF;  // Mask to keep only the lowest 21 bits
+
+
+  return (sn != 0 ? sn : DefaultSerialNumber);
+}
+
+#include "N2KDataRX.h"  // where the handler functions actually are !! 
+
+//******* Define a handler for the interrupt to work *******
+
+typedef struct {
+  unsigned long PGN;
+  void (*Handler)(const tN2kMsg &N2kMsg); 
+  } tNMEA2000Handler;
+
+//  This selects which function the handler will call, depending on PGN  (actual functions are in N2kDataRx files)
+tNMEA2000Handler NMEA2000Handlers[]={
+  {129029l, &HandleGNSS},
+  {126992L, &HandleGNSSSystemTime},
+  {128259L, &HandleBoatSpeed},
+  {130306L, &HandleWind},
+  {128267L, &HandleDepth},
+  {129026L, &HandleCOGSOG},
+  {129025L, &HandlePosition},
+ // {126996L, &HandleMFRData},
+ // {60928L,  &HandleMFRData},
+  {0,0}
+};
+
+void N2K_LOOP() {  //****** Notes: THIS needs to run to accept N2000 data (switched by Current_Settings.N2K_ON )
+                   //   Timing: takes approx 20us for both parse to run when there is no N2K data
+  if (Current_Settings.N2K_ON){ NMEA2000.ParseMessages();}
+ }
+
+void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {  // simplified version from data display
+  int iHandler; // enumerate handlers - how many do we have?
+  bool known;
+  known=false;
+  for (iHandler=0; NMEA2000Handlers[iHandler].PGN!=0 && !(N2kMsg.PGN==NMEA2000Handlers[iHandler].PGN); iHandler++);
+  // we now have the index (iHandler) for the handler matching the received PGN
+  if (NMEA2000Handlers[iHandler].PGN!=0) {NMEA2000Handlers[iHandler].Handler(N2kMsg); known=true;}
+  
+  if (Display_Page == -21 ) { // only do this terminal debug display if on the  debug page! 
+   char decode[40];
+    PGNDecode(N2kMsg.PGN).toCharArray(decode,35); // get the discription of the PGN from my string function, trucated to 35 char
+    if(known) {UpdateLinef(BLACK, 8, Terminal, "N2K:(%i)[%.2X%.5X] %s",N2kMsg.PGN,N2kMsg.Source, N2kMsg.PGN, decode);}
+    else{UpdateLinef(52685, 8, Terminal, "N2K:(%i)[%.2X%.5X] %s",N2kMsg.PGN,N2kMsg.Source, N2kMsg.PGN, decode);}
+    //52685 is light gray in RBG565 light gray for pgns we do not decode. (based on handler setup)
+  }
+/*if (Display_Page == -22 ) { // only do this N2000 device list debug display if on the  debug page! 
+   char decode[60];
+    PGNDecode(N2kMsg.PGN).toCharArray(decode,59); // get the discription of the PGN from my string function, trucated to 35 char
+    if(known) {UpdateLinef(BLACK, 8, Terminal, "N2K:(%i)[%.2X%.5X] %s",N2kMsg.PGN,N2kMsg.Source, N2kMsg.PGN, decode);}
+    else{UpdateLinef(52685, 8, Terminal, "N2K:(%i)[%.2X%.5X] %s",N2kMsg.PGN,N2kMsg.Source, N2kMsg.PGN, decode);}
+    //52685 is light gray in RBG565 light gray for pgns we do not decode. (based on handler setup)
+  }*/
+
+
+
+}
+
+  
+// ---  Example of using PROGMEM to hold Configuration information.  However, doing this will prevent any updating of
+//      these details outside of recompiling the program.
+// 
+const char DisplayManufacturerInformation [] PROGMEM = "https://www.vela-navega.com/forum/viewtopic.php?t=533"; 
+const char DisplayInstallationDescription1 [] PROGMEM = "Just for testing"; 
+const char DisplayInstallationDescription2 [] PROGMEM = "I have not seen this work! "; 
+
+void InitNMEA2000() {  // make it display device Info on start up.. 
+  NMEA2000.SetN2kCANMsgBufSize(8);
+  NMEA2000.SetN2kCANReceiveFrameBufSize(100);
+ // Set device information
+  char SnoStr[33];
+  uint32_t SerialNumber = GetSerialNumber();
+  //SerialNumber=9999;
+  snprintf(SnoStr, 32, "%lu", SerialNumber);
+   Serial.println("NMEA2000 Initialization ...");
+  Serial.printf("   Unique ID: <%i> \r\n", GetSerialNumber());
+  NMEA2000.SetDeviceInformation(GetSerialNumber(),  // Unique number. Use e.g. Serial number.
+                                130,           // Device function=Display. See codes on https://web.archive.org/web/20190531120557/https://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                120,            // Device class=Display Device. 
+                                2046,           // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
+                                4 //marine
+  );
+  NMEA2000.SetProductInformation(      SnoStr,                        // N2kVersion
+                                       001,                         // Manufacturer's product code
+                                       "Simple NMEA Display",    // Manufacturer's Model ID
+                                       soft_version,          //N2kSwCode
+                                       "Guitron ESP32s 4 inch",    // N2kModelVersion
+                                       3//,                            // LoadEquivalency (of 50mA loads) 
+                                       //2102,                           // N2kversion default 2102
+                                       //0                           // CertificationLevel
+                                                                              );
+                                                                            
+  // I have not seen this do anything with the actisense reader
+  NMEA2000.SetProgmemConfigurationInformation(DisplayManufacturerInformation,DisplayInstallationDescription1,DisplayInstallationDescription2);
+  NMEA2000.EnableForward(false);  // we are not forwarding / streaming anything  
+  NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 15); // needs this to enable device information send at start up?
+  NMEA2000.SetMsgHandler(HandleNMEA2000Msg);  // see main ino)
+  NMEA2000.Open();
+                                              
+}

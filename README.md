@@ -8,26 +8,26 @@ The user is responsible for cross-checking data with other sources, exercising j
 No liability for any loss, damage, or injury resulting from the use of this instrument will be accepted. </i>
 
 This project requires the boat to have a wireless NMEA Gateway that sends NMEA 0183 instrument readings on UDP. 
-<p align="center"> Version 3 display <img width = 400 src="https://github.com/user-attachments/assets/a6a14548-3c6a-4396-b0af-098bd9176c43" width="200" /></p>
-
-Images of previous versions of the display
-<p> <img  height =200 src="https://github.com/user-attachments/assets/7f585734-d98d-4989-88b9-e27b94a2dbbe" />
-<img height = 200 src="https://github.com/user-attachments/assets/f7ee5526-b172-4278-a29b-25652bf69c3d" /></p>
-
+<p align="center"> Version 3 display <img width = 200 src="https://github.com/user-attachments/assets/a6a14548-3c6a-4396-b0af-098bd9176c43" width="200" /></p>
 
 ## HOW TO INSTALL FIRST TIME
 
 First, plug your module into a com port on your PC and record which port it is using. 
 If confused, check Device Manager and look for the USB-SERIAL CH340 port. 
 Remember the port number!
+click https://tinyurl.com/2uej5v7m (or the direct link below) 
+  this will download the file "WebProgram.bat" from the github.
+<a href="Click to download/" download>https://dagnall53.github.io/NMEADisplay/build/WebProgram.bat</a>
+Save this somewhere convenient such as downloads.
+Run the program .. 
+It will download the latest binaries to the directory where you saved it and program the hardware. 
+It will then delete the binaries and the tool used to upload after it has completed,leaving just the WebProgram.bat file. 
 
-Download the file "WebProgram.bat" from the github. - it is in subdirectory /build.
-save this somewhere convenient such as downloads.
-Run the program .. It will download the latest binaries and program to upload to the hardware. and then delete the binaries and the tool used to upload after it has completed. 
+https://dagnall53.github.io/NMEADisplay/build/MakeSDcard.bat is a similar Bat file to copy the essential files for the SD card.
 
 
 If you prefer to see all the code: 
-Download the Zip file of the GitHub Project. (green button -<>CODE and select 'Download Zip')
+Download the whole Zip file of the GitHub Project. (green button -<>CODE and select 'Download Zip')
 Save the file and extract all the files using a zip tool to somewhere on your PC. - I suggest /downloads.
 You will then have a directory something like: C:\Users\admin\Downloads\NMEADisplay-main\
 Open the directory in a file browser and navigate to the subdirectory:
@@ -37,20 +37,27 @@ Double click this bat file (see below*) and it will start and a new DOS prompt w
 Enter Com port number: ... Enter your com port number (eg 8) and press return. 
 The Esptool program will upload the program onto your board and the display board should restart. 
 
+## SD CARD
+
 You will next need to get a new microSD card, ( I used 4Gb), and format it using FAT32.
 Then copy the whole of the "SdRoot" folder onto the SD card. 
+I have a bat file that can do this.. Click the link below to download the file "MakeSDcard.bat" from the github.
+<a href="Click to download/" download>https://dagnall53.github.io/NMEADisplay/build/MakeSDcard.bat</a>
+Save this somewhere convenient such as downloads. Run the program .. 
+It will download files from github SdRoot to the (root of) the Drive you specify.
+
 You should then see it will have two sub directories: edit and logs.
 The /edit subdirectory will have two files 'index.htm', and 'ace.js' which are vital for the SD Web viewer/editor!.
 
-The root of the SD should have (at least) these files:
+The root of the SD should now have (at least) these files:
 config.txt, ( a json file with user settings) and 
 vconfig.txt ( a json with settings for the ble victron mode )
 colortest.txt ( a json with settings that will eventually allow global day/night colours and also has some simulation/debug settings for the BLE part of the display)
-These txt files may (should!) self initiate if not present, but its better to have defaults present! 
+  These txt files may (should!) self initiate if not present, but its better to have defaults present! 
 logo4.jpg (the new generic start screen image), 
 v3small.jpg (used in the webbrowser start screen).
 and loading.jpg, (a picture that appears during OTA updates). 
-startsound.mp3 is bells that will play on start if you have modified the board to enable the audio.
+Add startsound.mp3 to play on start if you have modified the board to enable the audio.
 
 Re insert the SD card into the module and restart. 
 
@@ -134,13 +141,21 @@ From version 4, the what instrurment data will be displayed in each of the 'quad
 Whilst the main way to send instrument data to the Display is via NMEA over UDP, the project also accepts NMEA data over 'ESP-NOW' from suitable multiplexers such as VELA-Naviga types: 
 https://www.vela-navega.com/index.php/multiplexers
 
+### DIRECT NMEA2000 data input
+30/08/25 Following Duncan's comments I have incorporated (Version 4.40 )the ability to add an external CAN transceiver and receive NMEA2000 directly.
+I will add more notes later. 
+
 ## MODULE Hardware Requirements
 
 The code is based on the GUITRON 4.0 Inch ESP32-S3 Development Board Smart Display Capacitive Touch Screen LCD.
 There are sometimes two versions. This code is for the version with an ST7701 driver.
 It can be purchased with or without the Relays or the backing plate used for home automation applications.
 The code should be compatible with other development boards that use the ST7701 driver. But be warned, you will need to determine the ESP32 pin configuration as it will differ from the Guitron version. The Esp32_4inch.h file contains the correct pin allocations for the Guitron module. There is an UNTESTED pin file for the MakerFabs ESP32S3 board in the /documents directory. 
+
 The Code WILL accept serial NMEA0183 over USB - but is set default to 115200. It sends out debugging data on serial (at 115200 baud) if you have it connected to a PC with a suitable terminal program.   
+ Make sure the module (back) looks like this...
+<img width="320" height="321" alt="image" src="https://github.com/user-attachments/assets/0242babb-d272-4885-8893-05c355a62c58" />
+
 
 
 ## CODE FEATURES:

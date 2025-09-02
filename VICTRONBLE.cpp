@@ -65,7 +65,6 @@ _sButton Vic_Inst_Master = { 0, 0, ColorSettings.BoxW, 100, 5, ColorSettings.Bac
 int scanTime = 1;             // BLE scan time (seconds)
 #define _BLESCANINTERVAL 500  // run scan every xx msecs, (results in lockout of all other functions  <for scanTime???> or for setInterval (10ms) )
 
-
 // Victron docs on the manufacturer data in advertisement packets can be found at:
 //   https://community.victronenergy.com/storage/attachments/48745-extra-manufacturer-data-2022-12-14.pdf
 //
@@ -250,7 +249,6 @@ char *ErrorCodeToChar(VE_REG_CHR_ERROR_CODE val) {
     case 14:
       strcpy(Buff, "LOW TEMP");
       break;
-
     case 17:  //VE_REG_CHR_ERROR_CODE::TEMPERATURE_CHARGER:
       strcpy(Buff, "OVERHEATED");
       break;
@@ -454,8 +452,6 @@ char *Co_BLEIdentifier_Into_Char(uint8_t mfrData0, uint8_t mfrData1) {
   return result;
 };
 
-
-
 unsigned char hexCharToByte(char hexChar) {
   if (hexChar >= '0' && hexChar <= '9') {  // 0-9
     hexChar = hexChar - '0';
@@ -549,7 +545,6 @@ _sButton Setup_N_Display(_sButton &box, int i) {  // takes charactersitics of 'b
   return Display4outerbox;
 }
 
-
 // _sButton Setup_N_Display(_sButton &box, int height, int shiftH, int shiftV, char *title) {  // takes charactersitics of 'box, but changes position and height colours  as required
 //   _sButton Display4outerbox = box;                                                          // use box struct and ColorSettings for the colours border size etc, etc ...
 //   Display4outerbox.height = height;
@@ -593,7 +588,6 @@ int len = advertisedDevice.getManufacturerData().length();
 
 if (manCharBuf2 != NULL) {free(manCharBuf2);}
 */
-
 
 int VictronSimulateIndex;
 bool SHOWRAWBLE = false;
@@ -840,7 +834,7 @@ void Deal_With_BLE_Data(int i) {  // BLE message will have been saved into a vic
         }
         if (auxtype == 0) {
           UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "");
-          UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "Starter %2.1fV", aux_input);
+          UpdateTwoSize_MultiLine(1, true, false, 9, 8, DisplayOuterbox, "AUX %2.1fV", aux_input);
         }
       }
     }

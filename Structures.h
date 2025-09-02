@@ -30,6 +30,7 @@ struct _sWiFi_settings_Config {  // MAINLY WIFI AND DATA LOGGING key,ssid,PW,udp
   bool UDP_ON;
   bool Serial_on;
   bool ESP_NOW_ON;
+  bool N2K_ON;
   bool Log_ON;
   int log_interval_setting; //seconds
   bool NMEA_log_ON;
