@@ -26,7 +26,8 @@ is called with ctrl shift P
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "VERSION 4.41";  // changed to 4.4 with added N2K direct reads 
+const char soft_version[] = "VERSION 4.42";  // changed to 4.4 with added N2K direct reads 
+//4.42 checks SD and trieds to make sure EEPOM sets correctly 
 
 #if ESP_ARDUINO_VERSION_MAJOR == 3  // hoping this #if will work in the called .cpp !!  BUT IT DOES NOT  NEEDS TIDYING UP!! 
 #define UsingV3Compiler             // this "UsingV3Compiler" #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites
@@ -459,6 +460,7 @@ bool LoadDisplayConfiguration(const char* filename, _MyColors& set) {
 
 bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_settings_Config& settings) {
   // Open SD file for reading
+  if (!hasSD) {return false;}
   if (!SD.exists(filename)) {
     Serial.printf("**JSON file %s did not exist\n Using defaults\n", filename);
     SaveConfiguration(filename, Default_JSON, Default_Settings);  //save defaults to sd file
@@ -543,6 +545,7 @@ bool LoadConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_se
 
 void SaveConfiguration(const char* filename, _sDisplay_Config& config, _sWiFi_settings_Config& settings) {
   // Delete existing file, otherwise the configuration is appended to the file
+  if (!hasSD){return;}
   SD.remove(filename);
   char buff[15];
   // Open file for writing
@@ -2286,7 +2289,7 @@ void EEPROM_WRITE(_sDisplay_Config B, _sWiFi_settings_Config A) {
   EEPROM.commit();
   delay(50);
   //NEW also save as a JSON on the SD card SD card will overwrite current settings on setup..
-  SaveConfiguration(Setupfilename, B, A);
+  SaveConfiguration(Setupfilename, B, A); // now checks for SD! 
   // SaveVictronConfiguration(VictronDevicesSetupfilename,victronDevices); // should write a default file if it was missing?
 }
 void EEPROM_READ() {
@@ -2298,12 +2301,12 @@ void EEPROM_READ() {
   // Serial.printf(" read %i  default %i \n", key, Default_Settings.EpromKEY);
   if (key == Default_Settings.EpromKEY) {
     EEPROM.get(10, Saved_Settings);
-    Serial.println("EEPROM Key OK");
-    gfx->println("EEPROM Key OK");
+    Serial.println("EEPROM Key OK.. Reading EEPROM");
+    gfx->println("EEPROM Key OK .. Reading EEPROM");
   } else {
     Saved_Settings = Default_Settings;
-    gfx->println("Using DEFAULTS");
-    Serial.println("Using DEFAULTS");
+    gfx->println("Using DEFAULT Settings");
+    Serial.println("Using DEFAULT Settings");
     EEPROM_WRITE(Default_JSON, Default_Settings);
   }
 }
@@ -3144,7 +3147,7 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {  // simplified version from data
     else{UpdateLinef(52685, 8, Terminal, "N2K:(%i)[%.2X%.5X] %s",N2kMsg.PGN,N2kMsg.Source, N2kMsg.PGN, decode);}
     //52685 is light gray in RBG565 light gray for pgns we do not decode. (based on handler setup)
   }
-/*if (Display_Page == -22 ) { // only do this N2000 device list debug display if on the  debug page! 
+ /*if (Display_Page == -22 ) { // only do this N2000 device list debug display if on the  debug page! 
    char decode[60];
     PGNDecode(N2kMsg.PGN).toCharArray(decode,59); // get the discription of the PGN from my string function, trucated to 35 char
     if(known) {UpdateLinef(BLACK, 8, Terminal, "N2K:(%i)[%.2X%.5X] %s",N2kMsg.PGN,N2kMsg.Source, N2kMsg.PGN, decode);}
