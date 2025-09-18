@@ -21,7 +21,11 @@ click https://tinyurl.com/2uej5v7m (or the direct link below)
 Save this somewhere convenient such as downloads.
 Run the program .. 
 It will download the latest binaries to the directory where you saved it and program the hardware. 
-It will then delete the binaries and the tool used to upload after it has completed,leaving just the WebProgram.bat file. 
+It will then delete the binaries and the tool used to upload after it has completed,leaving just the WebProgram.bat file. (*)
+It is possible some PC/ modules/ cables may not program at full speed. If you have trouble programming, try editing the bat file to reduce the baud rate from 921600 to 115200.
+(edit  the line "esptool.exe --chip esp32s3 --port COM%NUM% --baud 921600   (etc)
+to              "esptool.exe --chip esp32s3 --port COM%NUM% --baud 115200   (etc)  
+
 
 https://dagnall53.github.io/NMEADisplay/build/MakeSDcard.bat is a similar Bat file to copy the essential files for the SD card.
 
@@ -143,7 +147,15 @@ https://www.vela-navega.com/index.php/multiplexers
 
 ### DIRECT NMEA2000 data input
 30/08/25 Following Duncan's comments I have incorporated (Version 4.40 )the ability to add an external CAN transceiver and receive NMEA2000 directly.
-I will add more notes later. 
+## Connecting to NMEA 2000
+from Version 4.43 NMEA2000 is connected automatically and does not require the module to be wirlessly connected to a multiplexer.
+Booleans to turn it on and off are similar to those for UDP etc.  
+For the Guiton device, add a CAN Driver module such as the TJA1050 and a 3.3V voltage regulator.
+Connect the bottom left connection of the 8 way socket to TJA "TX" and the connection above to TJA "RX".
+Connect the 5v power supply (Bottom Right) to the 3.3v regulator input, and the output of the 3.3V regulator to the VCC connection of the TJA.
+Connect the NMEA2000 (or boat 12V) to a 5V regulator input and connect the 5V output to the 5V power supply on the module.
+Connect Ground (top pins of the 8 way socket) to the TJA ground and Regulator grounds. 
+Lastly, connect the CANH and CANl from the TJA to the NMEA2000 canbus. 
 
 ## MODULE Hardware Requirements
 

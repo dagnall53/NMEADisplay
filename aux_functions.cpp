@@ -448,10 +448,28 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
   char decimal[30];
   static char *token;
   const char delimiter[2] = ".";  // Or space, etc.
-  int16_t x, y, TBx1, TBy1, TBx2, TBy2, TBx3, TBy3;
+  int16_t x, y, TBx1, TBy1, TBx2, TBy2, TBx3, TBy3,w,h,c;
   uint16_t TBw1, TBh1, TBw2, TBh2, TBw3, TBh3;
   int typingspaceH, typingspaceW;
   bool recent = (data.updated >= millis() - 6000);
+
+   if (erase &&  (data.lastx>=2) && (data.lasty>=2) &&(data.lasth >=10) && (data.lastw>=10) ) { // make sure the last were set! dont print blue box in top left!! 
+    //gfx->fillRect(data.lastx-5, data.lasty-data.lasth, data.lastw+25, data.lasth+20, button.BackColor);
+    x= data.lastx-5;
+    y= data.lasty-data.lasth;
+    w= data.lastw+40;
+    h= data.lasth+20;
+    c= button.BackColor;
+
+    if (x+w>=button.h+button.width-(2*button.bordersize)) {h=button.width-(2*button.bordersize); x= button.h+button.bordersize;} 
+    if (y+h>=button.v+button.height-(2*button.bordersize)) {h=button.height-(2*button.bordersize); y= button.v+button.bordersize;} // do not overflow!
+     gfx->fillRect(x, y, w, h, c);
+    return;
+  }
+
+
+
+
   ////// buttton width and height are for the OVERALL box. subtract border!
   typingspaceH = button.height - (2 * button.bordersize) - 2;
   typingspaceW = button.width - (2 * button.bordersize) - 2;  // small one pixel inset
@@ -518,6 +536,11 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
   }
   x = x - TBx1;  // NOTE TBx1 is normally zero for most fonts, but some print with offsets that will be corrected by TBx1.
   gfx->setCursor(x, y);
+  data.lastx=x;
+  data.lasty=y;
+  data.lastw=(TBw1 + TBw2);
+  data.lasth=(TBh1);
+
   gfx->print(digits);
   x = gfx->getCursorX();
   if (TBw2 != 0) {

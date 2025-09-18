@@ -26,8 +26,9 @@ is called with ctrl shift P
 
 //const char soft_version[] = "Version 4.05";
 //const char compile_date[] = __DATE__ " " __TIME__;
-const char soft_version[] = "VERSION 4.42";  // changed to 4.4 with added N2K direct reads 
+const char soft_version[] = "VERSION 4.43";  // changed to 4.4 with added N2K direct reads 
 //4.42 checks SD and trieds to make sure EEPOM sets correctly 
+//4.43 changed SubFor UpdateTwoSize to erase a block not overwrite in background colour
 
 #if ESP_ARDUINO_VERSION_MAJOR == 3  // hoping this #if will work in the called .cpp !!  BUT IT DOES NOT  NEEDS TIDYING UP!! 
 #define UsingV3Compiler             // this "UsingV3Compiler" #def DOES NOT WORK by itsself! it only affects .h not .cpp files  !! (v3 ESPnow is very different) directive to replace std::string with String for Version 3 compiler and also (?) other V3 incompatibilites

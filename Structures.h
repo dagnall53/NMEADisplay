@@ -59,7 +59,7 @@ struct _sInstData {  // struct to hold instrument data AND the time it was updat
   bool greyed;     // when the data is OLD! 
   bool graphed;    // is used by Graphs, so you can display digital and graph on same page!
   int source;      // Ready to try an experiment with two GPS to see how they track .
- 
+  int lastx,lasty,lasth,lastw;
 };
 
 
