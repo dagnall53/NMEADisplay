@@ -30,6 +30,7 @@ struct _sWiFi_settings_Config {  // MAINLY WIFI AND DATA LOGGING key,ssid,PW,udp
   bool UDP_ON;
   bool Serial_on;
   bool ESP_NOW_ON;
+  bool N2K_ON;
   bool Log_ON;
   int log_interval_setting; //seconds
   bool NMEA_log_ON;
@@ -58,7 +59,7 @@ struct _sInstData {  // struct to hold instrument data AND the time it was updat
   bool greyed;     // when the data is OLD! 
   bool graphed;    // is used by Graphs, so you can display digital and graph on same page!
   int source;      // Ready to try an experiment with two GPS to see how they track .
- 
+  int lastx,lasty,lasth,lastw;
 };
 
 

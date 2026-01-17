@@ -169,7 +169,6 @@ typedef struct {
  // Start of Victron definition: https://github.com/keshavdv/victron-ble/blob/main/extra-manufacturer-data-2022-12-14.pdf
  // Extra manufacturer Data 
  uint8_t VICTRON_BLE_RECORD_TYPE;// record_type VICTRON_BLE_RECORD_TYPE 
- 
  u_int8_t data_counter_lsb;
  u_int8_t data_counter_msb;
  uint8_t encryption_key_0; // Byte 0 of the encryption key (bindkey)
@@ -178,6 +177,7 @@ typedef struct {
 } __attribute__((packed)) victronManufacturerData;
 
 void hexCharStrToByteArray(char * hexCharStr, unsigned char * byteArray); // called in LoadVictronConfiguration to set unsigned char version of the input string 
+
 
 
 void BLEsetup();  // called from main void setup();

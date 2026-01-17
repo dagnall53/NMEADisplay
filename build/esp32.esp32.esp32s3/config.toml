@@ -1,40 +1,18 @@
 esp_toml_version = 1.0
 
 # This should be a publicly accessible URL of the file server where your firmware binaries are available for download
-firmware_images_url = "<https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/>"
+firmware_images_url = "https://dagnall53.github.io/NMEADisplay/build/esp32.esp32.esp32s3/"
 
 # Apps that you support and for which the binaries are available to publish. You can have multiple apps as a comma separated list
 # The launch pad UI will automatically show these Apps in the available apps dropdown
 # There should be a config section per listed App
-supported_apps = ["NMEA_Display"]
-
-# Optional: This should be a publicly accessible URL of the application configuration markdown file
-# The markdown file will display the application configuration.
-# It might include details such as the revisions of esp-idf, esp-matter, etc. or any other application configuration
-config_readme_url = "<https://dagnall53.github.io/NMEADisplay/README.md>"
+[supported_apps] = ["NMEA_Display"]
 
 [NMEA_Display]
 # ESP32 Chipsets for which you have a supported Firmware App. Define a property for each supported chipset in the given format.
-chipsets = ["ESP32-S3"]
-# Optional: Set development board for chip model.
-developKits.esp32-s3 = ["esp32-s3GuitronDisplay", "esp32-s3Other"]
+chipsets = ["ESP32-s3"]
 # Configure the name of the binary file
 image.esp32-s3 = "NMEADisplay.ino.bin"
 image.esp32-s3GuitronDisplay ="NMEADisplay.ino.bin"
 image.esp32-s3Other ="NMEADisplay.ino.bin"
 
-[NMEA DISPLAY]
-# ESP32 Chipsets for which you have a supported Firmware App. Define a property for each supported chipset in the given format.
-chipsets = ["ESP32-S3"]
-# Optional: Set development board for chip model.
-# Configure the name of the binary file
-image.esp32-s3 = "NMEADisplay.ino.bin"
-# Optional: A brief introduction to this app.
-description = "MFD for boats"
-# Optional: Phone APP URLs if any for Playstores
-android_app_url = ""
-ios_app_url = ""
-# Optional: URL of the Markdown file for additional information about the app
-readme.text = "<https://dagnall53.github.io/NMEADisplay/README.md>"
-# Optional: Supported console baudrate for app firmware (default value is 115200)
-console_baudrate = <SUPPORTED_CONSOLE_BAUDRATE>

@@ -8,9 +8,8 @@
 // Based on Felix Biego's keyboard   https://github.com/fbiego/esp32-touch-keyboard/tree/main
 // modified to use strings (char array) and not Strings.
 #include "FONTS/fonts.h"
-//#include "Touch.h"
-#include <TAMC_GT911.h>
 
+#include <TAMC_GT911.h>
 
 char TOP[] = "qQ1wW2eE3rR4tT5yY6uU7iI8oO9pP0";
 char MIDDLE[] = "aA_sS/dD:fF;gG(hH)jJ$kK&lL@";

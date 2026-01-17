@@ -38,7 +38,7 @@ Arduino_ST7701_RGBPanel *gfx = new Arduino_ST7701_RGBPanel(
 #define SD_MOSI 11
 #define SD_CS   10
 
-//I2S
+//I2S (audio)
 #define I2S_DOUT      19
 #define I2S_BCLK      20
 #define I2S_LRCK      46

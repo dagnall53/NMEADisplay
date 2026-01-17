@@ -4,7 +4,6 @@
 #include <Arduino.h>     //necessary for the String, uint16_t etc variable definitions
 #include "Structures.h"  // to tell it about the _sBoatData and button structs.
 #include <Arduino_GFX_Library.h>  // for the graphics functions
-
 extern Arduino_RGB_Display  *gfx ; //  change if alternate displays !
 bool processPacket(const char* buf,  _sBoatData &stringBD );
 
@@ -47,6 +46,7 @@ int GraphRange( double data, int low, int high, double dmin ,double dmax );
 // takes nmea field and places as double in struct data(.data)
 // not used outside aux_functions ??
 void toNewStruct(char *field, _sInstData &data); 
+void toNewStruct(double field, _sInstData &data);   // allow update of struct with simple double data (N2)
 double Double_sInstDataAdd(_sInstData &data1, _sInstData &data);//returns a double of value data.data +data1.data;
 
 int HexStringToBytes(const char *hexStr,

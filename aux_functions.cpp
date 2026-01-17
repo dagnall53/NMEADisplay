@@ -338,10 +338,10 @@ void CommonSub_UpdateLine(bool horizCenter, bool vertCenter, uint16_t color, int
 void UpdateLinef(uint16_t color, int font, _sButton &button, const char *fmt, ...) {  // Types sequential lines in the button space '&' for button to store printline?
   if (button.screenfull && button.debugpause) { return; }
   //Serial.printf(" lines  TypingspaceH =%i  number of lines=%i printing line <%i>\n",typingspaceH,LinesOfType,button.PrintLine);
-  static char msg[500] = { '\0' };
+  static char msg[600] = { '\0' };
   va_list args;
   va_start(args, fmt);
-  vsnprintf(msg, 500, fmt, args);
+  vsnprintf(msg, 600, fmt, args);
   va_end(args);
   int len = strlen(msg);
   CommonSub_UpdateLine(false, false, color, font, button, msg);
@@ -448,10 +448,28 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
   char decimal[30];
   static char *token;
   const char delimiter[2] = ".";  // Or space, etc.
-  int16_t x, y, TBx1, TBy1, TBx2, TBy2, TBx3, TBy3;
+  int16_t x, y, TBx1, TBy1, TBx2, TBy2, TBx3, TBy3,w,h,c;
   uint16_t TBw1, TBh1, TBw2, TBh2, TBw3, TBh3;
   int typingspaceH, typingspaceW;
   bool recent = (data.updated >= millis() - 6000);
+
+   if (erase &&  (data.lastx>=2) && (data.lasty>=2) &&(data.lasth >=10) && (data.lastw>=10) ) { // make sure the last were set! dont print blue box in top left!! 
+    //gfx->fillRect(data.lastx-5, data.lasty-data.lasth, data.lastw+25, data.lasth+20, button.BackColor);
+    x= data.lastx-5;
+    y= data.lasty-data.lasth;
+    w= data.lastw+40;
+    h= data.lasth+20;
+    c= button.BackColor;
+
+    if (x+w>=button.h+button.width-(2*button.bordersize)) {h=button.width-(2*button.bordersize); x= button.h+button.bordersize;} 
+    if (y+h>=button.v+button.height-(2*button.bordersize)) {h=button.height-(2*button.bordersize); y= button.v+button.bordersize;} // do not overflow!
+     gfx->fillRect(x, y, w, h, c);
+    return;
+  }
+
+
+
+
   ////// buttton width and height are for the OVERALL box. subtract border!
   typingspaceH = button.height - (2 * button.bordersize) - 2;
   typingspaceW = button.width - (2 * button.bordersize) - 2;  // small one pixel inset
@@ -518,6 +536,11 @@ void Sub_for_UpdateTwoSize(int magnify, bool horizCenter, bool vertCenter, bool 
   }
   x = x - TBx1;  // NOTE TBx1 is normally zero for most fonts, but some print with offsets that will be corrected by TBx1.
   gfx->setCursor(x, y);
+  data.lastx=x;
+  data.lasty=y;
+  data.lastw=(TBw1 + TBw2);
+  data.lasth=(TBh1);
+
   gfx->print(digits);
   x = gfx->getCursorX();
   if (TBw2 != 0) {
@@ -595,7 +618,7 @@ void GFXBorderBoxPrintf(_sButton button, const char *fmt, ...) {
   CommonSub_UpdateLine(true, true, button.TextColor, MasterFont, button, msg);
 }
 
-void AddTitleBorderBox(int font, _sButton button, const char *fmt, ...) {  // add a top left title to the box
+void AddTitleBorderBox(int font, _sButton button, const char *fmt, ...) {  // add a top left title to the box Best used with FONT 0 ,FreeMono8pt7b
   int Font_Before;
   //Serial.println("Font at start is %i",MasterFont);
   Font_Before = MasterFont;
@@ -694,6 +717,7 @@ void PTriangleFill(Phv P1, Phv P2, Phv P3, uint16_t COLOUR) {
 }
 void Pdrawline(Phv P1, Phv P2, uint16_t COLOUR) {  // simple hack for a thicker line
   int wide = 1;
+
   gfx->drawLine(P1.h, P1.v, P2.h, P2.v, COLOUR);
   gfx->drawLine(P1.h + wide, P1.v, P2.h + wide, P2.v, COLOUR);
   gfx->drawLine(P1.h, P1.v + wide, P2.h, P2.v + wide, COLOUR);
@@ -808,22 +832,23 @@ void SCROLLGraph(bool reset,int instance, int dotsize, bool line, _sButton butto
   if (instance >> 1) {return;} // allow only instance 0 and 1
   if (DATA.graphed) { return; }
   if (DATA.data == NMEA0183DoubleNA) { return; }
+  static int samplesread;
   static int Displaypage[2] ;  // where were we last called from ??
-  #define Hmax 200               // how many points fill screen width
+  #define Hmax 200              // how many points fill screen width
   static Phv graph[Hmax + 2][2];  //phv is a point H,V structure
   //int dotsize;
   double data;
   data = DATA.data;
   //dotsize = 3;
   if (reset) {
-  //  Serial.printf(" RESETTING SCROLLGRAPH  %i  %i ",Display_Page, Displaypage[instance]); 
+    //Serial.printf(" RESETTING SCROLLGRAPH  %i  %i ",Display_Page, Displaypage[instance]); 
     Displaypage[instance] = Display_Page;
   //  Serial.printf(" after..   %i  %i \n",Display_Page, Displaypage[instance]); 
 
-    for (int x = 0; x <= Hmax; x++) {  //reset all points !!
-      graph[x][instance].v = (button.v + button.bordersize + (button.height / 2));
-      graph[x][instance].h = GraphRange(x, button.h + button.bordersize + (2*dotsize), button.h + button.width - button.bordersize - (2*dotsize), 0, Hmax);
-    }
+    // for (int x = 0; x <= Hmax; x++) {  //reset all points !!
+    //   graph[x][instance].v = (button.v + button.bordersize + (button.height / 2));
+    //   graph[x][instance].h = GraphRange(x, button.h + button.bordersize + (2*dotsize), button.h + button.width - button.bordersize - (2*dotsize), 0, Hmax);
+    // }
     gfx->fillRect(button.h, button.v, button.width, button.height, button.BorderColor);  // width and height are for the OVERALL box.
     gfx->fillRect(button.h + button.bordersize, button.v + button.bordersize,
                   button.width - (2 * button.bordersize), button.height - (2 * button.bordersize), button.BackColor);
@@ -836,22 +861,32 @@ void SCROLLGraph(bool reset,int instance, int dotsize, bool line, _sButton butto
     AddTitleInsideBox(font, 3, button, " %s", msg);
     AddTitleInsideBox(font, 1, button, " %4.0f%s", dmax, units);
     AddTitleInsideBox(font, 2, button, " %4.0f%s", dmin, units);
-  bool LINE = true; //Or just blobs.. 
+  
+   int boxxtop =(button.h + button.bordersize + (2*dotsize));
+      //add the new data 
+  graph[Hmax][instance].v = GraphRange(data, button.v + button.height - button.bordersize - (2*dotsize), button.v + button.bordersize + (2*dotsize), dmin, dmax); 
+  samplesread= samplesread+1;
+  if (samplesread >= Hmax){samplesread=Hmax;}
   // scroll the existing data values left:
-  for (int x = 0; x <= Hmax; x++) {
+  for (int x = 1; x <= Hmax; x++) {
          graph[x-1][instance].v=graph[x][instance].v;
+         if (graph[x-1][instance].v<=boxxtop){graph[x-1][instance].v=boxxtop;}
          graph[x][instance].h = GraphRange(x, button.h + button.bordersize + (2*dotsize), button.h + button.width - button.bordersize - (2*dotsize), 0, Hmax);
        } // slide the v VALUES only, just set the horizontal positions! 
-       //add the new data 
-  graph[Hmax][instance].v = GraphRange(data, button.v + button.height - button.bordersize - (2*dotsize), button.v + button.bordersize + (2*dotsize), dmin, dmax);
+
+ 
   //graph[Hmax].h = GraphRange(Hmax, button.h + button.bordersize + dotsize, button.h + button.width - button.bordersize - dotsize, 0, Hmax);
-     for (int x =1; x<= Hmax;x++){
-     if (LINE && (x >= 1)) {
-        Pdrawline(graph[x-1][instance], graph[x][instance], button.TextColor);
-           }
+     //for (int x =1; x<= Hmax-1;x++){
+      for (int x = Hmax-samplesread; x <= Hmax; x++) {
+     // Serial.printf(" SCROLLGRAPH (x) %i (h) %i (v)%i \n",x,graph[x][instance].h,graph[x][instance].v );
+     if (line && (x >= 2)) {
+      if((graph[x-1][instance].v>= boxxtop+2  ) && (graph[x][instance].v>= boxxtop+2 )){
+        Pdrawline(graph[x-1][instance], graph[x][instance], button.TextColor);}
+     }
+           
      if (dotsize>=1) {   PfillCircle(graph[x][instance], dotsize, button.TextColor);}
    }
-   DATA.graphed = true;  //reset to false inside t-- to avoid confusion!.oNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
+   DATA.graphed = true;  //reset to false inside o avoid confusion!.toNewStruct   it is this that helps prevent multiple repeat runs of this function, but necessitates using the local copy of you want the data twice on a page
 }
 
 
